@@ -1,0 +1,15 @@
+# Реестр лицензий/ToS источников (issue #3, ADR-001 п.3).
+# Ручная юридическая оценка сайта -> статус, который проверяется
+# автоматически (robots.txt) и применяется краулером до скачивания.
+#
+# status: allow | attribution_required | deny
+# attribution_template: подставляются {title} и {source_url}
+
+downsideup.org:
+  status: attribution_required
+  attribution_template: >-
+    Источник: {title} ({source_url}), Даунсайд Ап (downsideup.org)
+  checked_date: "2026-08-24"
+  notes: >-
+    В подвале сайта: "Использование любых материалов, размещённых на сайте,
+    разрешается при условии активной ссылки на downsideup.org".

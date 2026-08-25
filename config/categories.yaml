@@ -1,0 +1,23 @@
+# Контролируемый словарь категорий по направлениям (ADR-001 п.2).
+# direction -> список допустимых category (НЕ свободный текст).
+# Стартовый набор из видение_проекта.md 3.0, пополняется по ходу разбора
+# реальных источников.
+methodology:
+  - speech_development
+  - motor_development
+  - school_preparation
+  - inclusion
+medicine:
+  - genetics
+  - comorbidities
+  - diagnostics
+  - rehabilitation
+law:
+  - social_protection
+  - education_rights
+  - legal_capacity
+science:
+  - genetics
+  - epidemiology
+  - socialization
+  - method_efficacy
