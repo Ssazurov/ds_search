@@ -1,9 +1,23 @@
-"""Краулер источника через Crawl4AI (issue #2, ADR-001).
+"""Краулер источника через Crawl4AI (issue #2, #8, ADR-001).
 
 Релевантность страниц оценивается BestFirstCrawlingStrategy +
 KeywordRelevanceScorer (см. filters.py) — обходятся сначала наиболее похожие
 на ключевые слова направления страницы, нерелевантные (по домену/типу/URL-
-паттерну) отсекаются FilterChain до скачивания.
+паттерну, включая RU-слаги и пагинацию — issue #8 п.1-2) отсекаются
+FilterChain до скачивания.
+
+Перед сохранением (issue #8 п.4) применяется hard-cutoff порог релевантности
+по длине PruningContentFilter.fit_markdown — короткий/пустой fit_markdown
+(листинг, JS-виджет без серверного рендера) не сохраняется.
+
+Страницы-тизеры к PDF-отчётам (issue #8 п.3) не сохраняются как документ —
+извлекается прямая ссылка на PDF и кладётся в очередь на скачивание, чтобы
+не терять реальный контент отчёта.
+
+URL канонизируется (filters.canonicalize_url) до хэширования и для
+дедупликации между посевными URL (issue #8, дубли "Главная страница" x3
+в ручном разборе корпуса) — иначе разные представления одного URL считаются
+разными документами.
 
 Проверка лицензии/ToS (issue #3, src/license/checker.py) выполняется один раз
 на источник (домен) перед стартом обхода. Если статус deny/pending_manual_review
@@ -18,10 +32,17 @@ from pathlib import Path
 
 from crawl4ai import AsyncWebCrawler, CrawlerRunConfig
 from crawl4ai.deep_crawling import BestFirstCrawlingStrategy
+from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
 
 from ..license.checker import LicenseCheckResult, LicenseStatus, check_license
 from .config import SourceConfig
-from .filters import build_filter_chain, build_relevance_scorer
+from .filters import (
+    build_filter_chain,
+    build_relevance_scorer,
+    build_content_filter,
+    canonicalize_url,
+    find_pdf_teaser_link,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -31,12 +52,14 @@ class SourceCrawler:
         self.cfg = cfg
         self.out_dir = out_dir
         self.out_dir.mkdir(parents=True, exist_ok=True)
+        self._seen_urls: set[str] = set()
+        self.pdf_queue: list[str] = []  # issue #8 п.3: тизеры -> прямые PDF
 
     def _strategy(self) -> BestFirstCrawlingStrategy:
         return BestFirstCrawlingStrategy(
             max_depth=3,
             max_pages=self.cfg.max_pages,
-            filter_chain=build_filter_chain(self.cfg.domain),
+            filter_chain=build_filter_chain(self.cfg.domain, self.cfg.exclude_slugs),
             url_scorer=build_relevance_scorer(self.cfg.keywords),
         )
 
@@ -49,30 +72,56 @@ class SourceCrawler:
             )
             return []
 
-        run_cfg = CrawlerRunConfig(deep_crawl_strategy=self._strategy())
+        run_cfg = CrawlerRunConfig(
+            deep_crawl_strategy=self._strategy(),
+            markdown_generator=DefaultMarkdownGenerator(
+                content_filter=build_content_filter(),
+            ),
+        )
         saved: list[dict] = []
+        skipped_thin = 0
+        skipped_dupe = 0
         async with AsyncWebCrawler() as crawler:
             for seed in self.cfg.seed_urls:
                 results = await crawler.arun(url=seed, config=run_cfg)
                 results = results if isinstance(results, list) else [results]
                 for r in results:
-                    if not r.success or not (r.markdown or "").strip():
+                    if not r.success:
                         continue
-                    saved.append(self._save(r))
-        logger.info("saved %d documents for %s", len(saved), self.cfg.name)
+                    canon = canonicalize_url(r.url)
+                    if canon in self._seen_urls:
+                        skipped_dupe += 1
+                        continue
+
+                    fit_md = getattr(r.markdown, "fit_markdown", None) or r.markdown or ""
+                    fit_md = fit_md if isinstance(fit_md, str) else str(fit_md)
+                    if len(fit_md.strip()) < self.cfg.min_fit_markdown_chars:
+                        pdf_url = find_pdf_teaser_link(r.html or "")
+                        if pdf_url:
+                            self.pdf_queue.append(pdf_url)
+                        else:
+                            skipped_thin += 1
+                        continue
+
+                    self._seen_urls.add(canon)
+                    saved.append(self._save(r, canon, fit_md))
+        logger.info(
+            "saved %d documents for %s (skipped_thin=%d, skipped_dupe=%d, pdf_queue=%d)",
+            len(saved), self.cfg.name, skipped_thin, skipped_dupe, len(self.pdf_queue),
+        )
         return saved
 
-    def _save(self, result) -> dict:
-        doc_id = hashlib.sha256(result.url.encode()).hexdigest()[:16]
+    def _save(self, result, canon_url: str, fit_markdown: str) -> dict:
+        doc_id = hashlib.sha256(canon_url.encode()).hexdigest()[:16]
         md_path = self.out_dir / f"{doc_id}.md"
-        md_path.write_text(result.markdown or "", encoding="utf-8")
+        md_path.write_text(fit_markdown, encoding="utf-8")
 
         title = (result.metadata or {}).get("title", "")
         attribution = self.license_result.build_attribution(
             title=title, source_url=result.url,
         )
         meta = {
-            "source_url": result.url,
+            "source_url": canon_url,
             "source_domain": self.cfg.domain,
             "title": title,
             "direction": self.cfg.direction,
@@ -93,6 +142,8 @@ async def main():
     crawler = SourceCrawler(cfg, out_dir)
     docs = await crawler.run()
     print(f"Собрано документов: {len(docs)}")
+    if crawler.pdf_queue:
+        print(f"PDF-тизеры в очереди на скачивание: {len(crawler.pdf_queue)}")
 
 
 if __name__ == "__main__":
