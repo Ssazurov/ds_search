@@ -80,10 +80,23 @@ def build_content_filter() -> PruningContentFilter:
 
 
 _PDF_LINK_RE = re.compile(r'href="([^"]+\.pdf)"', re.IGNORECASE)
+_TEASER_MARKER_RE = re.compile(
+    r"скачать отчёт|скачать отчет|открыть отчёт|открыть отчет", re.IGNORECASE
+)
 
 
 def find_pdf_teaser_link(html: str) -> str | None:
-    """issue #8 п.3: страница-тизер к PDF-отчёту — ищем прямую ссылку на PDF
-    в разметке карточки ("скачать отчёт")."""
+    """issue #8/#11: страница-тизер к PDF-отчёту — ищем прямую ссылку на PDF
+    в разметке карточки ("скачать отчёт"/"открыть отчёт")."""
     m = _PDF_LINK_RE.search(html or "")
     return m.group(1) if m else None
+
+
+def is_pdf_teaser_page(html: str) -> bool:
+    """issue #11: признак карточки-тизера — рядом с .pdf-ссылкой есть маркер
+    "скачать/открыть отчёт". Проверяется независимо от длины fit_markdown:
+    у такой карточки часто есть блок "Похожие материалы" (список ссылок),
+    из-за которого fit_markdown легко проходит min_fit_markdown_chars, хотя
+    реального текста статьи нет."""
+    html = html or ""
+    return bool(_PDF_LINK_RE.search(html) and _TEASER_MARKER_RE.search(html))

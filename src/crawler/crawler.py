@@ -42,7 +42,11 @@ from .filters import (
     build_content_filter,
     canonicalize_url,
     find_pdf_teaser_link,
+    is_pdf_teaser_page,
 )
+
+import httpx
+from urllib.parse import urljoin
 
 logger = logging.getLogger(__name__)
 
@@ -93,12 +97,32 @@ class SourceCrawler:
                         skipped_dupe += 1
                         continue
 
+                    # issue #11: тизер к PDF-отчёту детектируется ДО проверки
+                    # длины fit_markdown — блок "Похожие материалы" (ссылки)
+                    # у такой карточки легко проходит min_fit_markdown_chars,
+                    # хотя реального текста статьи там нет.
+                    if is_pdf_teaser_page(r.html or ""):
+                        pdf_url = find_pdf_teaser_link(r.html or "")
+                        if pdf_url:
+                            doc = await self._download_pdf(pdf_url, canon)
+                            if doc:
+                                self._seen_urls.add(canon)
+                                saved.append(doc)
+                            else:
+                                self.pdf_queue.append(pdf_url)
+                        continue
+
                     fit_md = getattr(r.markdown, "fit_markdown", None) or r.markdown or ""
                     fit_md = fit_md if isinstance(fit_md, str) else str(fit_md)
                     if len(fit_md.strip()) < self.cfg.min_fit_markdown_chars:
                         pdf_url = find_pdf_teaser_link(r.html or "")
                         if pdf_url:
-                            self.pdf_queue.append(pdf_url)
+                            doc = await self._download_pdf(pdf_url, canon)
+                            if doc:
+                                self._seen_urls.add(canon)
+                                saved.append(doc)
+                            else:
+                                self.pdf_queue.append(pdf_url)
                         else:
                             skipped_thin += 1
                         continue
@@ -110,6 +134,40 @@ class SourceCrawler:
             len(saved), self.cfg.name, skipped_thin, skipped_dupe, len(self.pdf_queue),
         )
         return saved
+
+    async def _download_pdf(self, pdf_url: str, teaser_url: str) -> dict | None:
+        """issue #11: скачивает сам PDF-отчёт прямым http-запросом (не
+        browser.goto — известная проблема issue #2, Playwright трактует
+        переход на файл как "Download is starting" и роняет страницу)."""
+        pdf_url = urljoin(teaser_url, pdf_url)
+        doc_id = hashlib.sha256(pdf_url.encode()).hexdigest()[:16]
+        pdf_path = self.out_dir / f"{doc_id}.pdf"
+        try:
+            async with httpx.AsyncClient(follow_redirects=True, timeout=30) as client:
+                resp = await client.get(pdf_url)
+                resp.raise_for_status()
+                pdf_path.write_bytes(resp.content)
+        except httpx.HTTPError as exc:
+            logger.warning("не удалось скачать PDF-тизер %s: %s", pdf_url, exc)
+            return None
+
+        attribution = self.license_result.build_attribution(
+            title="", source_url=teaser_url,
+        )
+        meta = {
+            "source_url": teaser_url,
+            "pdf_url": pdf_url,
+            "source_domain": self.cfg.domain,
+            "title": "",
+            "direction": self.cfg.direction,
+            "license": self.license_result.status.value,
+            "attribution": attribution,
+            "content_path": str(pdf_path),
+        }
+        (self.out_dir / f"{doc_id}.json").write_text(
+            json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        return meta
 
     def _save(self, result, canon_url: str, fit_markdown: str) -> dict:
         doc_id = hashlib.sha256(canon_url.encode()).hexdigest()[:16]

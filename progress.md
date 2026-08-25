@@ -148,3 +148,27 @@ LTR (link-to-text ratio) взят как конкретная метрика д�
   осталась (см. issue #2) — страница пропущена, на итог не повлияло.
 - Изменено: src/crawler/config.py (seed_urls, exclude_slugs),
   src/crawler/filters.py (BASE_EXCLUDE_PATTERNS).
+
+
+## 2026-08-25 — issue #11: PDF-тизеры теперь реально скачиваются
+
+Проблема: страница-тизер `.../lyudi-s-sindromom-dauna-v-mire-statistika-i-nadezhnost-dannykh/`
+сохранялась как "документ" без реального контента — `find_pdf_teaser_link()`
+вызывался только при `fit_markdown` короче `min_fit_markdown_chars`, а у этой
+карточки fit_markdown = 2080 символов (за счёт блока "Похожие материалы") —
+порог пройден, PDF-ссылка не искалась. Также `pdf_queue` из issue #8 только
+собирал URL, само скачивание не было реализовано.
+
+- `src/crawler/filters.py`: добавлен `is_pdf_teaser_page()` — детект тизера
+  по маркеру "скачать/открыть отчёт" рядом с `.pdf`-ссылкой в html, не
+  зависит от длины fit_markdown.
+- `src/crawler/crawler.py`: проверка `is_pdf_teaser_page()` выполняется
+  первой (до фильтра по длине); при находке — `_download_pdf()` (httpx,
+  прямой GET, не browser.goto — issue #2) сохраняет `.pdf` + `.json` в
+  data/raw как обычный документ; `pdf_queue` остаётся fallback-ом на случай
+  сетевой ошибки скачивания.
+- ADR-001 п.3b уточнён.
+- Прогон на живых данных (10 seed-статей, config без изменений): 10/10
+  сохранено, 2 из них — реальные PDF (18 и 19 страниц, оба валидны),
+  `pdf_queue=0`. Старая испорченная папка data/raw/downsideup
+  пересобрана.
