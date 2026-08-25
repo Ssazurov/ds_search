@@ -1,0 +1,4 @@
+crawl4ai>=0.4
+httpx
+pydantic>=2
+pyyaml
