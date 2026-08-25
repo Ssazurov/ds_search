@@ -125,3 +125,26 @@ LTR (link-to-text ratio) взят как конкретная метрика д�
   PDF по очереди — не в scope #8, следующий шаг).
 - Не сделано / вне scope: реальный запуск на downsideup.org для проверки
   на живых данных (нужен сетевой доступ), скачивание PDF из pdf_queue.
+
+
+## 2026-08-25 — перезапуск краулера на живых данных, 10/10 статей
+
+Старая папка data/raw/downsideup (100+ страниц, ~40-45% брак) удалена —
+не закоммичена, заменена новым прогоном.
+- seed_urls сужен до 1 URL: https://downsideup.org/o-sindrome-dauna/cifry-i-fakty/
+  (по запросу пользователя).
+- exclude_slugs дополнен: interaktiv, elektronnaya-biblioteka,
+  fond-sindrom-lyubvi (после 1-го прогона — уводили в другие разделы/orgs).
+- filters.py BASE_EXCLUDE_PATTERNS дополнен: "https://*.downsideup.org/*"
+  (поддомены типа dnevnik-razvitiya-rebenka — DomainFilter по basedomain
+  их не отсекает), "https://downsideup.org/" (голая главная), а также
+  bare-root листинг "https://downsideup.org/analytics" /"/analytics/"
+  (страница "Все материалы" со списком ссылок — не статья, hard-cutoff по
+  длине fit_markdown её не ловит, т.к. есть вводный абзац).
+- Итог 3-го прогона: 10/10 сохранённых документов — реальные статьи
+  (1.9к-19к символов), проверено вручную по title+source_url+длине.
+  Известная проблема с PDF-тизером (Page.goto: Download is starting) на
+  https://downsideup.org/Lyudi-s-sindromom-Dauna-v-mire-statistika
+  осталась (см. issue #2) — страница пропущена, на итог не повлияло.
+- Изменено: src/crawler/config.py (seed_urls, exclude_slugs),
+  src/crawler/filters.py (BASE_EXCLUDE_PATTERNS).
