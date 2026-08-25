@@ -1,8 +1,9 @@
 {
   "source_url": "https://downsideup.org/knigi-dlya-roditeley",
   "source_domain": "downsideup.org",
-  "title": "Книги для родителей -\n                Благотворительный фонд «Даунсайд Ап»",
+  "title": "Книги для родителей",
   "direction": "methodology",
-  "license": "pending_manual_review",
+  "license": "attribution_required",
+  "attribution": "Источник: Книги для родителей (https://downsideup.org/knigi-dlya-roditeley), Даунсайд Ап (downsideup.org)",
   "content_path": "/home/vector/ds/ds_search/data/raw/downsideup/db6de929ac7f53ae.md"
 }

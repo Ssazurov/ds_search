@@ -67,3 +67,84 @@
   датасета GAR под этот проект) — это часть issue #5, не #4.
 - Комментарий с итогом оставлен в issue #4 (не закрыт вручную — решение
   оставлено пользователю).
+
+
+## 2026-08-25 — ручной анализ качества корпуса downsideup.org (100 файлов)
+
+Разобраны первые 5 + статистика по всем 100 json в data/raw/downsideup:
+- 5/5 вручную проверенных документов — брак (главная страница, тизер к
+  PDF-отчёту, 2x страницы "Электронная библиотека" без контента, страница
+  пагинации). Ни один не содержит реального текста статьи.
+- По всему корпусу: 10/100 — шаблонный title "Электронная библиотека -..."
+  (JS-виджет не рендерится), 6/100 "Аналитика для прогресса" +6/100 "Новости"
+  (листинги/пагинация ?PAGEN_1=), плюс дневник развития/календарь/форум/
+  регистрация/дубли главной — суммарно ~38-45% корпуса не является статьями.
+- Причина: EXCLUDE_PATTERNS в src/crawler/filters.py — англоязычные слаги,
+  не матчат реальные (транслит) URL источника.
+- Действия: ADR-001 дополнен п.3b; заведён issue #8 (актуализация фильтров
+  краулера, sub-issue эпика #1); issue #6 дополнен конкретными критериями
+  браковки (шаблонный title, PDF-тизер); комментарии-находки оставлены в
+  issue #2 и #6.
+- Не сделано: сам фикс фильтров (issue #8) и запуск content-cleaning
+  (issue #6) — оба пока не реализованы, есть только уточнённая постановка.
+
+
+## 2026-08-25 — research: boilerplate removal, применено к ADR/issue #6/#8
+
+Пользователь принёс research-отчёт (Trafilatura/Boilerpipe/LTR-метрика/
+Crawl4AI pruning filter). Полезное: Crawl4AI уже имеет встроенный
+density-based content filter (PruningContentFilter -> fit_markdown) —
+отменяет план писать свой regex-парсер под strip nav/footer в issue #6.
+LTR (link-to-text ratio) взят как конкретная метрика для thin-content
+порога в issue #6 и hard-cutoff в issue #8. Неприменимое (нейро-
+приоритизация очереди, sitemap weights, Schema-парсинг) — отложено,
+не блокирует MVP.
+- ADR-001 п.3a дополнен.
+- Комментарии-уточнения оставлены в issue #6 и issue #8.
+- Не сделано: сама реализация (подключение PruningContentFilter в
+  crawler.py, подбор LTR-порога на реальных данных) — по-прежнему в
+  issue #6/#8, не реализовано.
+
+
+## 2026-08-25 — issue #8 реализован (краулер: отбор страниц)
+
+Код: src/crawler/config.py, filters.py, crawler.py.
+- SourceConfig.exclude_slugs (RU-слаги downsideup: novosti,
+  kalendar-sobytiy, forum, registratsiya, otzyvy,
+  politika-konfidentialnosti, search, dnevnik-razvitiya) вместо общего
+  англоязычного EXCLUDE_PATTERNS.
+- Фильтр пагинации (*PAGEN_1=*, *PAGE=*, *page=*) в BASE_EXCLUDE_PATTERNS.
+- canonicalize_url() — убирает fragment/utm_*/session-параметры, приводит
+  trailing slash; используется до хэширования doc_id и для dedup между
+  seed_urls (self._seen_urls в SourceCrawler).
+- Hard-cutoff по длине PruningContentFilter.fit_markdown
+  (SourceConfig.min_fit_markdown_chars, 200) перед сохранением — короткие
+  результаты не пишутся в data/raw.
+- PDF-тизеры: find_pdf_teaser_link() ищет прямую ссылку на PDF в html
+  тонкой страницы, URL кладётся в SourceCrawler.pdf_queue (само скачивание
+  PDF по очереди — не в scope #8, следующий шаг).
+- Не сделано / вне scope: реальный запуск на downsideup.org для проверки
+  на живых данных (нужен сетевой доступ), скачивание PDF из pdf_queue.
+
+
+## 2026-08-25 — перезапуск краулера на живых данных, 10/10 статей
+
+Старая папка data/raw/downsideup (100+ страниц, ~40-45% брак) удалена —
+не закоммичена, заменена новым прогоном.
+- seed_urls сужен до 1 URL: https://downsideup.org/o-sindrome-dauna/cifry-i-fakty/
+  (по запросу пользователя).
+- exclude_slugs дополнен: interaktiv, elektronnaya-biblioteka,
+  fond-sindrom-lyubvi (после 1-го прогона — уводили в другие разделы/orgs).
+- filters.py BASE_EXCLUDE_PATTERNS дополнен: "https://*.downsideup.org/*"
+  (поддомены типа dnevnik-razvitiya-rebenka — DomainFilter по basedomain
+  их не отсекает), "https://downsideup.org/" (голая главная), а также
+  bare-root листинг "https://downsideup.org/analytics" /"/analytics/"
+  (страница "Все материалы" со списком ссылок — не статья, hard-cutoff по
+  длине fit_markdown её не ловит, т.к. есть вводный абзац).
+- Итог 3-го прогона: 10/10 сохранённых документов — реальные статьи
+  (1.9к-19к символов), проверено вручную по title+source_url+длине.
+  Известная проблема с PDF-тизером (Page.goto: Download is starting) на
+  https://downsideup.org/Lyudi-s-sindromom-Dauna-v-mire-statistika
+  осталась (см. issue #2) — страница пропущена, на итог не повлияло.
+- Изменено: src/crawler/config.py (seed_urls, exclude_slugs),
+  src/crawler/filters.py (BASE_EXCLUDE_PATTERNS).
