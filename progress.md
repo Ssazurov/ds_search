@@ -125,3 +125,21 @@ LTR (link-to-text ratio) взят как конкретная метрика д�
   PDF по очереди — не в scope #8, следующий шаг).
 - Не сделано / вне scope: реальный запуск на downsideup.org для проверки
   на живых данных (нужен сетевой доступ), скачивание PDF из pdf_queue.
+
+## 2026-08-26 — issue #15: search_provider реализован
+
+- `src/search/base.py`: общий контракт `SearchProvider`, `SearchHit` и
+  `QuotaExceeded`.
+- `src/search/tavily.py`: Tavily REST-провайдер через существующий `httpx`,
+  ключ из `TAVILY_API_KEY` или аргумента, валидация запроса, месячный JSON-счётчик
+  в `data/search_quota.json` (1000 кредитов free-tier), HTTP 402/429 трактуются
+  как исчерпание квоты.
+- `src/search/chain.py`: fallback-цепочка провайдеров; сейчас активен один
+  Tavily, следующие провайдеры можно добавить без изменения вызывающего API.
+- `tests/test_search_provider.py`, `tests/test_search_quota.py`: моки API,
+  разбор находок, валидация, ошибки квоты и fallback без сетевых запросов.
+- Проверено: `git diff --check`, `.venv/bin/python -m compileall -q
+  src/search tests`. Pytest не запущен: в `.venv` отсутствует исполняемый
+  pytest, системная команда `python` также недоступна.
+- Не сделано: подключение реального API-ключа и интеграционный сетевой прогон;
+  ключи пока отсутствуют.
