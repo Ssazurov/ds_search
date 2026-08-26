@@ -176,7 +176,10 @@ LTR (link-to-text ratio) взят как конкретная метрика д�
 ## Issue #6 (доп. подтверждение LTR-порога), PR #13
 Ручная проверка 8 файлов data/raw/downsideup (без PDF): статьи LTR 0.05-0.12,
 каталоги/листинги LTR 0.48-0.86 — порог 0.2-0.3 из ADR-001 п.3a подтверждён.
+В `src/crawler/filters.py` реализованы `link_to_text_ratio()` и
+`is_listing_page()` с hard-cutoff `LTR_CUTOFF = 0.3`; `src/crawler/crawler.py`
+отбрасывает такие страницы до сохранения и пишет счётчик `skipped_listing`.
 1 статья не по теме (фандрайзинг, LTR=0.12) — LTR это не ловит, нужен
-отдельный keyword/URL-фильтр (не реализовано, зафиксировано в ADR).
+отдельный keyword/URL-фильтр (следующий шаг, зафиксировано в ADR).
 ADR-001 п.3a дополнен, комментарий с деталями — в issue #6.
 Ветка docs/adr001-ltr-confirmed, PR https://github.com/Ssazurov/ds_search/pull/13

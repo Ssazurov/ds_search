@@ -43,6 +43,7 @@ from .filters import (
     canonicalize_url,
     find_pdf_teaser_link,
     is_pdf_teaser_page,
+    is_listing_page,
 )
 
 import httpx
@@ -85,6 +86,7 @@ class SourceCrawler:
         saved: list[dict] = []
         skipped_thin = 0
         skipped_dupe = 0
+        skipped_listing = 0
         async with AsyncWebCrawler() as crawler:
             for seed in self.cfg.seed_urls:
                 results = await crawler.arun(url=seed, config=run_cfg)
@@ -127,11 +129,22 @@ class SourceCrawler:
                             skipped_thin += 1
                         continue
 
+                    # issue #6/ADR-001 п.3a: каталожные/листинговые страницы
+                    # (список подкатегорий/книг/интервью + вводный абзац)
+                    # проходят порог по длине fit_markdown, но не содержат
+                    # связного текста статьи — отсекаются по link-to-text
+                    # ratio.
+                    if is_listing_page(fit_md):
+                        skipped_listing += 1
+                        continue
+
                     self._seen_urls.add(canon)
                     saved.append(self._save(r, canon, fit_md))
         logger.info(
-            "saved %d documents for %s (skipped_thin=%d, skipped_dupe=%d, pdf_queue=%d)",
-            len(saved), self.cfg.name, skipped_thin, skipped_dupe, len(self.pdf_queue),
+            "saved %d documents for %s (skipped_thin=%d, skipped_listing=%d, "
+            "skipped_dupe=%d, pdf_queue=%d)",
+            len(saved), self.cfg.name, skipped_thin, skipped_listing,
+            skipped_dupe, len(self.pdf_queue),
         )
         return saved
 

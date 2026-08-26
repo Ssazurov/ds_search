@@ -100,3 +100,32 @@ def is_pdf_teaser_page(html: str) -> bool:
     реального текста статьи нет."""
     html = html or ""
     return bool(_PDF_LINK_RE.search(html) and _TEASER_MARKER_RE.search(html))
+
+
+_MD_LINK_RE = re.compile(r"\[[^\]]*\]\([^)]*\)")
+
+
+def link_to_text_ratio(markdown_text: str) -> float:
+    """issue #6/ADR-001 п.3a: доля символов markdown-ссылок в тексте.
+    Каталожные/листинговые страницы (список подкатегорий/книг/интервью с
+    коротким описанием) почти целиком состоят из ссылок — ratio 0.45-0.9 на
+    ручной проверке корпуса downsideup; реальные статьи — ratio ~0.05-0.15."""
+    text = markdown_text or ""
+    if not text.strip():
+        return 0.0
+    link_chars = sum(len(m) for m in _MD_LINK_RE.findall(text))
+    return link_chars / len(text)
+
+
+# Порог LTR подобран на ручном разборе 8 "мусорных" страниц корпуса
+# downsideup 2026-08-25 (issue #6): 6/8 листингов дали 0.48-0.86,
+# 1 реальная статья — 0.05. 0.3 — с запасом между кластерами.
+LTR_CUTOFF = 0.3
+
+
+def is_listing_page(fit_markdown: str) -> bool:
+    """issue #6: hard-cutoff по link-to-text ratio — отсекает
+    каталожные/листинговые страницы, которые проходят фильтр по длине
+    fit_markdown (min_fit_markdown_chars), но не содержат связного текста
+    статьи, только вводный абзац + список ссылок на подкатегории/материалы."""
+    return link_to_text_ratio(fit_markdown) > LTR_CUTOFF
