@@ -23,6 +23,16 @@ from crawl4ai.content_filter_strategy import PruningContentFilter
 BASE_EXCLUDE_PATTERNS = [
     "*.jpg", "*.png", "*.zip",
     "*PAGEN_1=*", "*PAGE=*", "*page=*",
+    # поддомены (напр. dnevnik-razvitiya-rebenka.downsideup.org) — отдельные
+    # сервисы, не статьи; DomainFilter по basedomain их не отсекает
+    # (issue #6, живой прогон 2026-08-25).
+    "https://*.downsideup.org/*",
+    # главная страница ресурса, если не является posted seed-статьёй.
+    "https://downsideup.org/",
+    # bare-root листинговые страницы категорий ("Все материалы" + список
+    # ссылок, не статья) — известные из ручного разбора корпуса.
+    "https://downsideup.org/analytics/",
+    "https://downsideup.org/analytics",
 ]
 
 # Query-параметры, которые не влияют на идентичность контента страницы и
@@ -103,3 +113,18 @@ def find_pdf_teaser_link(html: str) -> str | None:
     в разметке карточки ("скачать отчёт")."""
     m = _PDF_LINK_RE.search(html or "")
     return m.group(1) if m else None
+
+
+_TEASER_MARKER_RE = re.compile(
+    r"скачать отчёт|скачать отчет|открыть отчёт|открыть отчет", re.IGNORECASE
+)
+
+
+def is_pdf_teaser_page(html: str) -> bool:
+    """issue #11: признак карточки-тизера — рядом с .pdf-ссылкой есть маркер
+    "скачать/открыть отчёт". Проверяется независимо от длины fit_markdown:
+    у такой карточки часто есть блок "Похожие материалы" (список ссылок),
+    из-за которого fit_markdown легко проходит min_fit_markdown_chars, хотя
+    реального текста статьи нет."""
+    html = html or ""
+    return bool(_PDF_LINK_RE.search(html) and _TEASER_MARKER_RE.search(html))

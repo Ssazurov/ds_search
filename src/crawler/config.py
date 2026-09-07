@@ -37,7 +37,8 @@ DOWNSIDEUP = SourceConfig(
     exclude_slugs=(
         "novosti", "kalendar-sobytiy", "forum", "registratsiya",
         "otzyvy", "politika-konfidentialnosti", "search",
-        "dnevnik-razvitiya",
+        "dnevnik-razvitiya", "interaktiv", "elektronnaya-biblioteka",
+        "fond-sindrom-lyubvi",
     ),
     min_fit_markdown_chars=200,
 )
