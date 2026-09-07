@@ -70,6 +70,31 @@ def build_content_filter() -> PruningContentFilter:
     return PruningContentFilter()
 
 
+# issue #6 / ADR-001 п.3a: каталожные/листинговые страницы проходят
+# hard-cutoff по длине fit_markdown (вводный абзац + список ссылок легко
+# набирает 2-5к символов), но это не статьи. Link-to-text ratio (LTR) —
+# доля текста внутри markdown-ссылок [text](url) от всего текста —
+# разделяет их: на ручной выборке статьи <0.15, каталоги >0.45 (issue #6).
+# Порог берём консервативно на нижней границе диапазона 0.2-0.3, чтобы не
+# терять пограничные статьи.
+LTR_THRESHOLD = 0.3
+
+_MD_LINK_RE = re.compile(r'\[([^\]]*)\]\([^)]*\)')
+
+
+def link_to_text_ratio(fit_markdown: str) -> float:
+    """Доля символов текста ссылок от общего объёма текста в fit_markdown
+    (issue #6). 0.0 для пустого текста (пустой текст бракуется отдельно, по
+    длине, а не по LTR)."""
+    if not fit_markdown:
+        return 0.0
+    link_chars = sum(len(m.group(1)) for m in _MD_LINK_RE.finditer(fit_markdown))
+    total_chars = len(_MD_LINK_RE.sub(lambda m: m.group(1), fit_markdown).strip())
+    if total_chars == 0:
+        return 0.0
+    return link_chars / total_chars
+
+
 _PDF_LINK_RE = re.compile(r'href="([^"]+\.pdf)"', re.IGNORECASE)
 
 

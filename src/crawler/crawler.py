@@ -42,6 +42,8 @@ from .filters import (
     build_content_filter,
     canonicalize_url,
     find_pdf_teaser_link,
+    link_to_text_ratio,
+    LTR_THRESHOLD,
 )
 
 logger = logging.getLogger(__name__)
@@ -81,6 +83,7 @@ class SourceCrawler:
         saved: list[dict] = []
         skipped_thin = 0
         skipped_dupe = 0
+        rejected_catalog = 0
         async with AsyncWebCrawler() as crawler:
             for seed in self.cfg.seed_urls:
                 results = await crawler.arun(url=seed, config=run_cfg)
@@ -101,13 +104,24 @@ class SourceCrawler:
                             self.pdf_queue.append(pdf_url)
                         else:
                             skipped_thin += 1
+                            self._save_rejected(r, canon, fit_md, "rejected_thin_content")
+                        continue
+
+                    # issue #6 / ADR-001 п.3a: длины достаточно, но это может
+                    # быть каталог/листинг (вводный абзац + список ссылок).
+                    ltr = link_to_text_ratio(fit_md)
+                    if ltr > LTR_THRESHOLD:
+                        rejected_catalog += 1
+                        self._save_rejected(r, canon, fit_md, "rejected_catalog_listing", ltr=ltr)
                         continue
 
                     self._seen_urls.add(canon)
                     saved.append(self._save(r, canon, fit_md))
         logger.info(
-            "saved %d documents for %s (skipped_thin=%d, skipped_dupe=%d, pdf_queue=%d)",
-            len(saved), self.cfg.name, skipped_thin, skipped_dupe, len(self.pdf_queue),
+            "saved %d documents for %s (skipped_thin=%d, rejected_catalog=%d, "
+            "skipped_dupe=%d, pdf_queue=%d)",
+            len(saved), self.cfg.name, skipped_thin, rejected_catalog,
+            skipped_dupe, len(self.pdf_queue),
         )
         return saved
 
@@ -128,11 +142,34 @@ class SourceCrawler:
             "license": self.license_result.status.value,
             "attribution": attribution,
             "content_path": str(md_path),
+            "content_status": "saved",
         }
         (self.out_dir / f"{doc_id}.json").write_text(
             json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
         )
         return meta
+
+    def _save_rejected(
+        self, result, canon_url: str, fit_markdown: str, reason: str, ltr: float | None = None
+    ) -> None:
+        """issue #6: отклонённые (thin content / каталог-листинг) не идут в
+        корпус, но фиксируются в meta для ручного разбора вместо простого
+        счётчика в логах. .md не пишется — данные не нужны при отбраковке."""
+        doc_id = hashlib.sha256(canon_url.encode()).hexdigest()[:16]
+        rejected_dir = self.out_dir / "rejected"
+        rejected_dir.mkdir(exist_ok=True)
+        meta = {
+            "source_url": canon_url,
+            "source_domain": self.cfg.domain,
+            "title": (result.metadata or {}).get("title", ""),
+            "content_status": reason,
+            "fit_markdown_chars": len(fit_markdown.strip()),
+        }
+        if ltr is not None:
+            meta["link_to_text_ratio"] = round(ltr, 3)
+        (rejected_dir / f"{doc_id}.json").write_text(
+            json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
 
 
 async def main():
