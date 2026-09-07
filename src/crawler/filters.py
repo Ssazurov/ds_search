@@ -106,18 +106,16 @@ def link_to_text_ratio(fit_markdown: str) -> float:
 
 
 _PDF_LINK_RE = re.compile(r'href="([^"]+\.pdf)"', re.IGNORECASE)
-
-
-def find_pdf_teaser_link(html: str) -> str | None:
-    """issue #8 п.3: страница-тизер к PDF-отчёту — ищем прямую ссылку на PDF
-    в разметке карточки ("скачать отчёт")."""
-    m = _PDF_LINK_RE.search(html or "")
-    return m.group(1) if m else None
-
-
 _TEASER_MARKER_RE = re.compile(
     r"скачать отчёт|скачать отчет|открыть отчёт|открыть отчет", re.IGNORECASE
 )
+
+
+def find_pdf_teaser_link(html: str) -> str | None:
+    """issue #8/#11: страница-тизер к PDF-отчёту — ищем прямую ссылку на PDF
+    в разметке карточки ("скачать отчёт"/"открыть отчёт")."""
+    m = _PDF_LINK_RE.search(html or "")
+    return m.group(1) if m else None
 
 
 def is_pdf_teaser_page(html: str) -> bool:

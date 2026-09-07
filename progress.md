@@ -126,6 +126,62 @@ LTR (link-to-text ratio) взят как конкретная метрика д�
 - Не сделано / вне scope: реальный запуск на downsideup.org для проверки
   на живых данных (нужен сетевой доступ), скачивание PDF из pdf_queue.
 
+
+## 2026-08-25 — перезапуск краулера на живых данных, 10/10 статей
+
+Тестовый прогон (не production-конфиг): seed_urls сужен до 1 URL:
+https://downsideup.org/o-sindrome-dauna/cifry-i-fakty/ (по запросу
+пользователя), max_pages=10. Старая папка data/raw/downsideup (100+ страниц,
+~40-45% брак) удалена — не закоммичена, заменена новым прогоном.
+- exclude_slugs дополнен: interaktiv, elektronnaya-biblioteka,
+  fond-sindrom-lyubvi (после 1-го прогона — уводили в другие разделы/orgs).
+- filters.py BASE_EXCLUDE_PATTERNS дополнен: "https://*.downsideup.org/*"
+  (поддомены типа dnevnik-razvitiya-rebenka — DomainFilter по basedomain
+  их не отсекает), "https://downsideup.org/" (голая главная), а также
+  bare-root листинг "https://downsideup.org/analytics"/"/analytics/"
+  (страница "Все материалы" со списком ссылок — не статья, hard-cutoff по
+  длине fit_markdown её не ловит, т.к. есть вводный абзац).
+- Итог 3-го прогона: 10/10 сохранённых документов — реальные статьи
+  (1.9к-19к символов), проверено вручную по title+source_url+длине.
+  Известная проблема с PDF-тизером (Page.goto: Download is starting) на
+  https://downsideup.org/Lyudi-s-sindromom-Dauna-v-mire-statistika
+  осталась (см. issue #2) — страница пропущена, на итог не повлияло.
+- Изменено: src/crawler/config.py (seed_urls, exclude_slugs),
+  src/crawler/filters.py (BASE_EXCLUDE_PATTERNS).
+
+
+## 2026-08-25 — issue #11: PDF-тизеры теперь реально скачиваются
+
+Проблема: страница-тизер `.../lyudi-s-sindromom-dauna-v-mire-statistika-i-nadezhnost-dannykh/`
+сохранялась как "документ" без реального контента — `find_pdf_teaser_link()`
+вызывался только при `fit_markdown` короче `min_fit_markdown_chars`, а у этой
+карточки fit_markdown = 2080 символов (за счёт блока "Похожие материалы") —
+порог пройден, PDF-ссылка не искалась. Также `pdf_queue` из issue #8 только
+собирал URL, само скачивание не было реализовано.
+
+- `src/crawler/filters.py`: добавлен `is_pdf_teaser_page()` — детект тизера
+  по маркеру "скачать/открыть отчёт" рядом с `.pdf`-ссылкой в html, не
+  зависит от длины fit_markdown.
+- `src/crawler/crawler.py`: проверка `is_pdf_teaser_page()` выполняется
+  первой (до фильтра по длине); при находке — `_download_pdf()` (httpx,
+  прямой GET, не browser.goto — issue #2) сохраняет `.pdf` + `.json` в
+  data/raw как обычный документ; `pdf_queue` остаётся fallback-ом на случай
+  сетевой ошибки скачивания.
+- ADR-001 п.3b уточнён.
+- Прогон на живых данных (10 seed-статей, config без изменений): 10/10
+  сохранено, 2 из них — реальные PDF (18 и 19 страниц, оба валидны),
+  `pdf_queue=0`. Старая испорченная папка data/raw/downsideup
+  пересобрана.
+
+## 2026-08-25/26 — issue #6 (доп. подтверждение LTR-порога), PR #13
+
+Ручная проверка 8 файлов data/raw/downsideup (без PDF): статьи LTR
+0.05-0.12, каталоги/листинги LTR 0.48-0.86 — порог 0.2-0.3 из ADR-001 п.3a
+подтверждён на реальных данных. 1 статья не по теме (фандрайзинг, LTR=0.12)
+— LTR это не ловит, нужен отдельный keyword/URL-фильтр (следующий шаг,
+зафиксировано в ADR-001 п.3a). ADR-001 дополнен разделом п.3b (детали
+отбора страниц по итогам разбора корпуса).
+
 ## 2026-08-26 — issue #15: search_provider реализован
 
 - `src/search/base.py`: общий контракт `SearchProvider`, `SearchHit` и
@@ -143,46 +199,3 @@ LTR (link-to-text ratio) взят как конкретная метрика д�
   pytest, системная команда `python` также недоступна.
 - Не сделано: подключение реального API-ключа и интеграционный сетевой прогон;
   ключи пока отсутствуют.
-
-## 2026-08-25 — перезапуск краулера на живых данных, 10/10 статей
-
-Тестовый прогон с сужением seed_urls до 1 URL и max_pages=10 (не
-production-конфиг). Старая папка data/raw/downsideup (100+ страниц, ~40-45%
-брак) удалена, заменена новым прогоном.
-- exclude_slugs дополнен: interaktiv, elektronnaya-biblioteka,
-  fond-sindrom-lyubvi (после 1-го прогона — уводили в другие разделы/orgs).
-- filters.py BASE_EXCLUDE_PATTERNS дополнен: "https://*.downsideup.org/*"
-  (поддомены типа dnevnik-razvitiya-rebenka — DomainFilter по basedomain
-  их не отсекает), "https://downsideup.org/" (голая главная), а также
-  bare-root листинг "https://downsideup.org/analytics"/"/analytics/"
-  (страница "Все материалы" со списком ссылок — не статья, hard-cutoff по
-  длине fit_markdown её не ловит, т.к. есть вводный абзац).
-- Итог 3-го прогона: 10/10 сохранённых документов — реальные статьи
-  (1.9к-19к символов), проверено вручную по title+source_url+длине.
-  Известная проблема с PDF-тизером (Page.goto: Download is starting)
-  осталась (issue #2) — страница пропущена, на итог не повлияло.
-
-## 2026-08-25 — issue #11: PDF-тизеры теперь реально скачиваются
-
-Проблема: страница-тизер сохранялась как "документ" без реального
-контента — find_pdf_teaser_link() вызывался только при fit_markdown короче
-min_fit_markdown_chars, а у карточки с блоком "Похожие материалы" порог
-проходит, PDF-ссылка не искалась; pdf_queue только собирал URL, скачивание
-не было реализовано.
-- filters.py: is_pdf_teaser_page() — детект тизера по маркеру "скачать/
-  открыть отчёт" рядом с .pdf-ссылкой в html, не зависит от длины
-  fit_markdown, проверяется до фильтра по длине.
-- crawler.py: _download_pdf() (httpx, прямой GET, не browser.goto —
-  issue #2) сохраняет .pdf + .json в data/raw; pdf_queue остаётся
-  fallback-ом на случай сетевой ошибки.
-- Прогон на живых данных (10 seed-статей): 10/10 сохранено, 2 из них —
-  реальные PDF (18 и 19 страниц), pdf_queue=0.
-
-## 2026-08-25/26 — issue #6 (доп. подтверждение LTR-порога), PR #13
-
-Ручная проверка 8 файлов data/raw/downsideup (без PDF): статьи LTR
-0.05-0.12, каталоги/листинги LTR 0.48-0.86 — порог 0.2-0.3 из ADR-001 п.3a
-подтверждён на реальных данных. 1 статья не по теме (фандрайзинг, LTR=0.12)
-— LTR это не ловит, нужен отдельный keyword/URL-фильтр (следующий шаг,
-зафиксировано в ADR-001 п.3a). ADR-001 дополнен разделом п.3b (детали
-отбора страниц по итогам разбора корпуса).
