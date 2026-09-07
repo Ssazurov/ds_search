@@ -215,3 +215,39 @@ PATCH /discovered-sources/{id}. Смок-тест через TestClient на р�
 Не проверено end-to-end по сети — gar-core-api не поднят как сервис
 локально в этой сессии (только in-process TestClient при разработке #221).
 Ещё не закоммичено/не запушено.
+
+
+## Issue #18: Дедупликация находок
+Ветка feat/issue-18-dedup. Новый src/discovery/dedup.py:
+- loaded_document_urls(data_root) — нормализованные URL уже загруженных
+  документов из data/raw/**/*.json с content_status=="saved" (issue #18 п.а)
+- past_findings_urls(client) — нормализованные URL прошлых находок в
+  статусах approved/rejected/downloaded через GET /discovered-sources
+  (gar-core-api#221); эндпоинт не скоуплен по search_run_id — покрывает
+  все прошлые прогоны, не только текущий (issue #18 п.б, ADR-002 п.6)
+- mark_duplicates(candidates, known_urls) / dedup_candidates(...) —
+  проставляют is_duplicate на кандидатах (dict url/title/snippet/...)
+  через переиспользованный canonicalize_url() из src/crawler/filters.py
+  ДО upsert в discovered_sources
+tests/test_dedup.py: 5 тестов (loaded_document_urls saved-only/missing-root,
+mark_duplicates, past_findings_urls все 3 статуса, dedup_candidates
+локальный+удалённый источники) — py_compile + весь набор 26/26 passed.
+Не закоммичено.
+
+
+## NEXT SESSION: issue #19 (Streamlit UI: справочники + параметры поиска + результаты)
+Не начато. План:
+- Новый каталог ui/ (Streamlit, ADR-002 п.3 "Решено 2026-08-26 (финал)").
+- Справочники: CRUD прямо в config/categories.yaml (не в БД — YAML источник
+  правды, direction/category/doc_type/target_audience/age_group/
+  license_status), select с default "не выбрано".
+- Параметры поиска: тема (текст) + справочники + кнопка "запустить поиск" ->
+  create_search_run + provider.search() (src/search/chain.py, issue #15) ->
+  dedup_candidates() (src/discovery/dedup.py, issue #18) ->
+  upsert_discovered_sources(). Это первый код, который реально создаёт
+  discovered_sources из поиска — сейчас есть только probe (issue #17) и
+  dedup, самого "запуска поиска -> запись находок" ещё нет нигде.
+- Результаты поиска: таблица discovered_sources через
+  GarDiscoveryClient.list_discovered_sources(), фильтры по каждому полю,
+  bulk approve/reject, дубли скрыты по умолчанию (is_duplicate).
+Смотреть PR gar-core-api#222 (discovery API) и src/discovery/{gar_client,dedup,probe}.py.
