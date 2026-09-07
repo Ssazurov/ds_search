@@ -183,3 +183,35 @@ LTR (link-to-text ratio) взят как конкретная метрика д�
 отдельный keyword/URL-фильтр (следующий шаг, зафиксировано в ADR).
 ADR-001 п.3a дополнен, комментарий с деталями — в issue #6.
 Ветка docs/adr001-ltr-confirmed, PR https://github.com/Ssazurov/ds_search/pull/13
+
+
+## gar-core-api#221: Discovery REST API (2026-09-07)
+Затык из issue #16 (доступ в discovered_sources только через REST, не
+напрямую в Postgres — паттерн ds_ingestion/gar_client) закрыт: реализован
+Ssazurov/gar-core-api#221, PR https://github.com/Ssazurov/gar-core-api/pull/222.
+5 эндпоинтов: POST/PATCH /search-runs, POST .../discovered-sources (bulk
+upsert по url), GET /discovered-sources?status=&domain=,
+PATCH /discovered-sources/{id}. Смок-тест через TestClient на реальной БД
+прошёл. dictionary_suggestions endpoints не реализованы — вне скоупа #221.
+
+## Issue #17: Probe-этап (частичная загрузка + скоринг)
+Ветка feat/issue-17-probe-stage. Новый модуль src/discovery/:
+- config.py — Settings (GAR_CORE_API_URL и т.п., по образцу gar_client/config.py)
+- gar_client.py — тонкий REST-клиент к discovery API (#221): create/update
+  search_run, upsert/list/update discovered_sources
+- probe.py — `run_probe_stage()`: тянет discovered_sources status=new через
+  клиент, для каждого URL — потоковый httpx GET с cap PROBE_MAX_BYTES
+  (default 2МБ), `DefaultMarkdownGenerator.generate_markdown()` +
+  переиспользованный `build_content_filter()`/`link_to_text_ratio()` из
+  src/crawler/filters.py (ADR-001 п.3a) дают fit_markdown/LTR.
+  `_score_from_content()`: None при thin content (<200 симв, SPA-случай —
+  relevance_score не трогается, находка не отсеивается, ADR-002), 0.1 при
+  LTR > LTR_THRESHOLD (каталог/листинг), иначе 0.5*длина+0.5*(1-LTR).
+  Обновляет только relevance_score через PATCH — status находки (approve/
+  reject) остаётся решением пользователя, probe его не меняет.
+- tests/test_probe.py: 5 тестов (score для thin/catalog/substantive,
+  probe_source на fake httpx.AsyncClient, run_probe_stage на fake
+  GarDiscoveryClient) — py_compile + весь набор 21/21 passed.
+Не проверено end-to-end по сети — gar-core-api не поднят как сервис
+локально в этой сессии (только in-process TestClient при разработке #221).
+Ещё не закоммичено/не запушено.
