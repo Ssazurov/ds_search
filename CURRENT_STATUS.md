@@ -235,19 +235,33 @@ mark_duplicates, past_findings_urls все 3 статуса, dedup_candidates
 Не закоммичено.
 
 
-## NEXT SESSION: issue #19 (Streamlit UI: справочники + параметры поиска + результаты)
-Не начато. План:
-- Новый каталог ui/ (Streamlit, ADR-002 п.3 "Решено 2026-08-26 (финал)").
-- Справочники: CRUD прямо в config/categories.yaml (не в БД — YAML источник
-  правды, direction/category/doc_type/target_audience/age_group/
-  license_status), select с default "не выбрано".
-- Параметры поиска: тема (текст) + справочники + кнопка "запустить поиск" ->
-  create_search_run + provider.search() (src/search/chain.py, issue #15) ->
-  dedup_candidates() (src/discovery/dedup.py, issue #18) ->
-  upsert_discovered_sources(). Это первый код, который реально создаёт
-  discovered_sources из поиска — сейчас есть только probe (issue #17) и
-  dedup, самого "запуска поиска -> запись находок" ещё нет нигде.
-- Результаты поиска: таблица discovered_sources через
-  GarDiscoveryClient.list_discovered_sources(), фильтры по каждому полю,
-  bulk approve/reject, дубли скрыты по умолчанию (is_duplicate).
-Смотреть PR gar-core-api#222 (discovery API) и src/discovery/{gar_client,dedup,probe}.py.
+## Issue #19: Streamlit UI (справочники + поиск + результаты) — PR #53
+Ветка feat/issue-19-streamlit-ui, закоммичено и запушено, PR #53 создан
+(Closes #19), не смёржен.
+- ui/app.py — 3 таба (Справочники/Поиск/Результаты)
+- ui/dictionaries_tab.py — CRUD directions/doc_types/target_audiences/
+  age_groups прямо в config/categories.yaml через новые
+  src/metadata/schema.py:load_dictionaries()/save_dictionaries()
+  (новый формат YAML с ключом directions; license_statuses — фикс. enum
+  backend'а, не редактируется)
+- ui/search_tab.py — запуск поиска через новый src/discovery/run_search.py
+  (chain.search() -> dedup_candidates() -> upsert_discovered_sources()),
+  пресеты через новый src/discovery/presets.py
+  (config/search_presets.yaml)
+- ui/results_tab.py — таблица discovered_sources
+  (GarDiscoveryClient.list_discovered_sources), фильтры статус/домен/текст,
+  дубли скрыты по умолчанию, bulk approve (лениво триггерит license-check
+  через src/license/checker.py)/reject/queue
+- requirements.txt: +streamlit, +pandas (не хватало — установлено и
+  проверено импортом ui.app)
+py_compile OK, pytest 29/29 (tests/test_run_search.py новый). UI НЕ
+проверен через реальный `streamlit run` (нет браузера в этой сессии) —
+только py_compile + import ui.app в bare-режиме.
+На #20 оставлен комментарий: #19 был закрыт вручную без кода, теперь код
+есть в PR #53.
+
+## NEXT SESSION: issue #20 (вкладки загрузка/документы/источники/дашборд)
+Не начато. Строится поверх ui/ из #19 (см. PR #53) — смёржить #53 в main
+перед началом (либо ветвиться от feat/issue-19-streamlit-ui). п.4 issue #20
+(dictionary_suggestions) — вне скоупа, нужен backend в gar-core-api#221,
+заводить отдельным follow-up.
