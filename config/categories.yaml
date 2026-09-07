@@ -1,23 +1,59 @@
-# Контролируемый словарь категорий по направлениям (ADR-001 п.2).
-# direction -> список допустимых category (НЕ свободный текст).
-# Стартовый набор из видение_проекта.md 3.0, пополняется по ходу разбора
-# реальных источников.
-methodology:
-  - speech_development
-  - motor_development
-  - school_preparation
-  - inclusion
-medicine:
-  - genetics
-  - comorbidities
-  - diagnostics
-  - rehabilitation
-law:
-  - social_protection
-  - education_rights
-  - legal_capacity
-science:
-  - genetics
-  - epidemiology
-  - socialization
-  - method_efficacy
+# Справочники (issue #4 ADR-001 п.2, issue #19 п.1).
+# Источник правды — этот YAML, не БД. Редактируется через ui/ (Справочники).
+directions:
+  methodology:
+    - speech_development
+    - motor_development
+    - school_preparation
+    - inclusion
+  medicine:
+    - genetics
+    - comorbidities
+    - diagnostics
+    - rehabilitation
+  law:
+    - social_protection
+    - education_rights
+    - legal_capacity
+  science:
+    - genetics
+    - epidemiology
+    - socialization
+    - method_efficacy
+
+doc_types:
+  - book
+  - guide
+  - article
+  - law
+  - dissertation
+  - clinical_recommendation
+  - brochure
+  - program
+  - systematic_review
+  - report
+
+target_audiences:
+  - parents
+  - specialists
+  - researchers
+
+# Новый справочник (issue #19): нет поля в discovered_sources backend'а,
+# нужен для ручной разметки документов при загрузке в GAR.
+age_groups:
+  - prenatal
+  - "0-3"
+  - "4-7"
+  - "8-12"
+  - "13-17"
+  - "18+"
+
+# Справочно: фиксированный enum backend'а (gar-core-api PR #222,
+# schemas/discovery.py LICENSE_STATUSES) — НЕ редактируется здесь, любое
+# значение вне этого списка backend отклонит 422.
+license_statuses:
+  - unknown
+  - allow
+  - attribution_required
+  - deny
+  - pending_manual_review
