@@ -233,3 +233,21 @@ tests/test_dedup.py: 5 тестов (loaded_document_urls saved-only/missing-roo
 mark_duplicates, past_findings_urls все 3 статуса, dedup_candidates
 локальный+удалённый источники) — py_compile + весь набор 26/26 passed.
 Не закоммичено.
+
+
+## NEXT SESSION: issue #19 (Streamlit UI: справочники + параметры поиска + результаты)
+Не начато. План:
+- Новый каталог ui/ (Streamlit, ADR-002 п.3 "Решено 2026-08-26 (финал)").
+- Справочники: CRUD прямо в config/categories.yaml (не в БД — YAML источник
+  правды, direction/category/doc_type/target_audience/age_group/
+  license_status), select с default "не выбрано".
+- Параметры поиска: тема (текст) + справочники + кнопка "запустить поиск" ->
+  create_search_run + provider.search() (src/search/chain.py, issue #15) ->
+  dedup_candidates() (src/discovery/dedup.py, issue #18) ->
+  upsert_discovered_sources(). Это первый код, который реально создаёт
+  discovered_sources из поиска — сейчас есть только probe (issue #17) и
+  dedup, самого "запуска поиска -> запись находок" ещё нет нигде.
+- Результаты поиска: таблица discovered_sources через
+  GarDiscoveryClient.list_discovered_sources(), фильтры по каждому полю,
+  bulk approve/reject, дубли скрыты по умолчанию (is_duplicate).
+Смотреть PR gar-core-api#222 (discovery API) и src/discovery/{gar_client,dedup,probe}.py.
