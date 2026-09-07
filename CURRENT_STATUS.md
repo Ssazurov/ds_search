@@ -129,16 +129,16 @@ LTR (link-to-text ratio) взят как конкретная метрика д�
 
 ## 2026-08-25 — перезапуск краулера на живых данных, 10/10 статей
 
-Тестовый прогон (не production-конфиг): seed_urls сужен до 1 URL:
-https://downsideup.org/o-sindrome-dauna/cifry-i-fakty/ (по запросу
-пользователя), max_pages=10. Старая папка data/raw/downsideup (100+ страниц,
-~40-45% брак) удалена — не закоммичена, заменена новым прогоном.
+Старая папка data/raw/downsideup (100+ страниц, ~40-45% брак) удалена —
+не закоммичена, заменена новым прогоном.
+- seed_urls сужен до 1 URL: https://downsideup.org/o-sindrome-dauna/cifry-i-fakty/
+  (по запросу пользователя).
 - exclude_slugs дополнен: interaktiv, elektronnaya-biblioteka,
   fond-sindrom-lyubvi (после 1-го прогона — уводили в другие разделы/orgs).
 - filters.py BASE_EXCLUDE_PATTERNS дополнен: "https://*.downsideup.org/*"
   (поддомены типа dnevnik-razvitiya-rebenka — DomainFilter по basedomain
   их не отсекает), "https://downsideup.org/" (голая главная), а также
-  bare-root листинг "https://downsideup.org/analytics"/"/analytics/"
+  bare-root листинг "https://downsideup.org/analytics" /"/analytics/"
   (страница "Все материалы" со списком ссылок — не статья, hard-cutoff по
   длине fit_markdown её не ловит, т.к. есть вводный абзац).
 - Итог 3-го прогона: 10/10 сохранённых документов — реальные статьи
@@ -173,29 +173,13 @@ https://downsideup.org/o-sindrome-dauna/cifry-i-fakty/ (по запросу
   `pdf_queue=0`. Старая испорченная папка data/raw/downsideup
   пересобрана.
 
-## 2026-08-25/26 — issue #6 (доп. подтверждение LTR-порога), PR #13
-
-Ручная проверка 8 файлов data/raw/downsideup (без PDF): статьи LTR
-0.05-0.12, каталоги/листинги LTR 0.48-0.86 — порог 0.2-0.3 из ADR-001 п.3a
-подтверждён на реальных данных. 1 статья не по теме (фандрайзинг, LTR=0.12)
-— LTR это не ловит, нужен отдельный keyword/URL-фильтр (следующий шаг,
-зафиксировано в ADR-001 п.3a). ADR-001 дополнен разделом п.3b (детали
-отбора страниц по итогам разбора корпуса).
-
-## 2026-08-26 — issue #15: search_provider реализован
-
-- `src/search/base.py`: общий контракт `SearchProvider`, `SearchHit` и
-  `QuotaExceeded`.
-- `src/search/tavily.py`: Tavily REST-провайдер через существующий `httpx`,
-  ключ из `TAVILY_API_KEY` или аргумента, валидация запроса, месячный JSON-счётчик
-  в `data/search_quota.json` (1000 кредитов free-tier), HTTP 402/429 трактуются
-  как исчерпание квоты.
-- `src/search/chain.py`: fallback-цепочка провайдеров; сейчас активен один
-  Tavily, следующие провайдеры можно добавить без изменения вызывающего API.
-- `tests/test_search_provider.py`, `tests/test_search_quota.py`: моки API,
-  разбор находок, валидация, ошибки квоты и fallback без сетевых запросов.
-- Проверено: `git diff --check`, `.venv/bin/python -m compileall -q
-  src/search tests`. Pytest не запущен: в `.venv` отсутствует исполняемый
-  pytest, системная команда `python` также недоступна.
-- Не сделано: подключение реального API-ключа и интеграционный сетевой прогон;
-  ключи пока отсутствуют.
+## Issue #6 (доп. подтверждение LTR-порога), PR #13
+Ручная проверка 8 файлов data/raw/downsideup (без PDF): статьи LTR 0.05-0.12,
+каталоги/листинги LTR 0.48-0.86 — порог 0.2-0.3 из ADR-001 п.3a подтверждён.
+В `src/crawler/filters.py` реализованы `link_to_text_ratio()` и
+`is_listing_page()` с hard-cutoff `LTR_CUTOFF = 0.3`; `src/crawler/crawler.py`
+отбрасывает такие страницы до сохранения и пишет счётчик `skipped_listing`.
+1 статья не по теме (фандрайзинг, LTR=0.12) — LTR это не ловит, нужен
+отдельный keyword/URL-фильтр (следующий шаг, зафиксировано в ADR).
+ADR-001 п.3a дополнен, комментарий с деталями — в issue #6.
+Ветка docs/adr001-ltr-confirmed, PR https://github.com/Ssazurov/ds_search/pull/13
