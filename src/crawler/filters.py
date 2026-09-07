@@ -24,7 +24,8 @@ BASE_EXCLUDE_PATTERNS = [
     "*.jpg", "*.png", "*.zip",
     "*PAGEN_1=*", "*PAGE=*", "*page=*",
     # поддомены (напр. dnevnik-razvitiya-rebenka.downsideup.org) — отдельные
-    # сервисы, не статьи; DomainFilter по basedomain их не отсекает.
+    # сервисы, не статьи; DomainFilter по basedomain их не отсекает
+    # (issue #6, живой прогон 2026-08-25).
     "https://*.downsideup.org/*",
     # главная страница ресурса, если не является posted seed-статьёй.
     "https://downsideup.org/",
@@ -79,17 +80,44 @@ def build_content_filter() -> PruningContentFilter:
     return PruningContentFilter()
 
 
+# issue #6 / ADR-001 п.3a: каталожные/листинговые страницы проходят
+# hard-cutoff по длине fit_markdown (вводный абзац + список ссылок легко
+# набирает 2-5к символов), но это не статьи. Link-to-text ratio (LTR) —
+# доля текста внутри markdown-ссылок [text](url) от всего текста —
+# разделяет их: на ручной выборке статьи <0.15, каталоги >0.45 (issue #6).
+# Порог берём консервативно на нижней границе диапазона 0.2-0.3, чтобы не
+# терять пограничные статьи.
+LTR_THRESHOLD = 0.3
+
+_MD_LINK_RE = re.compile(r'\[([^\]]*)\]\([^)]*\)')
+
+
+def link_to_text_ratio(fit_markdown: str) -> float:
+    """Доля символов текста ссылок от общего объёма текста в fit_markdown
+    (issue #6). 0.0 для пустого текста (пустой текст бракуется отдельно, по
+    длине, а не по LTR)."""
+    if not fit_markdown:
+        return 0.0
+    link_chars = sum(len(m.group(1)) for m in _MD_LINK_RE.finditer(fit_markdown))
+    total_chars = len(_MD_LINK_RE.sub(lambda m: m.group(1), fit_markdown).strip())
+    if total_chars == 0:
+        return 0.0
+    return link_chars / total_chars
+
+
 _PDF_LINK_RE = re.compile(r'href="([^"]+\.pdf)"', re.IGNORECASE)
-_TEASER_MARKER_RE = re.compile(
-    r"скачать отчёт|скачать отчет|открыть отчёт|открыть отчет", re.IGNORECASE
-)
 
 
 def find_pdf_teaser_link(html: str) -> str | None:
-    """issue #8/#11: страница-тизер к PDF-отчёту — ищем прямую ссылку на PDF
-    в разметке карточки ("скачать отчёт"/"открыть отчёт")."""
+    """issue #8 п.3: страница-тизер к PDF-отчёту — ищем прямую ссылку на PDF
+    в разметке карточки ("скачать отчёт")."""
     m = _PDF_LINK_RE.search(html or "")
     return m.group(1) if m else None
+
+
+_TEASER_MARKER_RE = re.compile(
+    r"скачать отчёт|скачать отчет|открыть отчёт|открыть отчет", re.IGNORECASE
+)
 
 
 def is_pdf_teaser_page(html: str) -> bool:
@@ -100,32 +128,3 @@ def is_pdf_teaser_page(html: str) -> bool:
     реального текста статьи нет."""
     html = html or ""
     return bool(_PDF_LINK_RE.search(html) and _TEASER_MARKER_RE.search(html))
-
-
-_MD_LINK_RE = re.compile(r"\[[^\]]*\]\([^)]*\)")
-
-
-def link_to_text_ratio(markdown_text: str) -> float:
-    """issue #6/ADR-001 п.3a: доля символов markdown-ссылок в тексте.
-    Каталожные/листинговые страницы (список подкатегорий/книг/интервью с
-    коротким описанием) почти целиком состоят из ссылок — ratio 0.45-0.9 на
-    ручной проверке корпуса downsideup; реальные статьи — ratio ~0.05-0.15."""
-    text = markdown_text or ""
-    if not text.strip():
-        return 0.0
-    link_chars = sum(len(m) for m in _MD_LINK_RE.findall(text))
-    return link_chars / len(text)
-
-
-# Порог LTR подобран на ручном разборе 8 "мусорных" страниц корпуса
-# downsideup 2026-08-25 (issue #6): 6/8 листингов дали 0.48-0.86,
-# 1 реальная статья — 0.05. 0.3 — с запасом между кластерами.
-LTR_CUTOFF = 0.3
-
-
-def is_listing_page(fit_markdown: str) -> bool:
-    """issue #6: hard-cutoff по link-to-text ratio — отсекает
-    каталожные/листинговые страницы, которые проходят фильтр по длине
-    fit_markdown (min_fit_markdown_chars), но не содержат связного текста
-    статьи, только вводный абзац + список ссылок на подкатегории/материалы."""
-    return link_to_text_ratio(fit_markdown) > LTR_CUTOFF
