@@ -1,0 +1,24 @@
+# Конфиг LLM для черновиков новостей (issue #46, ADR-003).
+# provider: anthropic | openai_compatible
+provider: anthropic
+model: claude-sonnet-4-6
+endpoint: https://api.anthropic.com/v1/messages
+temperature: 0.3
+max_tokens: 1500
+timeout_s: 60
+prompt_template: |
+  Ты — редактор новостного блока проекта поддержки семей детей с синдромом
+  Дауна и РАС. На основе источника ниже напиши короткую новость на русском.
+  Не копируй текст источника дословно — перескажи своими словами, кратко
+  и по-человечески, без канцелярита.
+
+  Источник: {source_name}
+  URL: {source_url}
+  Заголовок источника: {source_title}
+  Текст источника:
+  ---
+  {source_text}
+  ---
+
+  Верни ТОЛЬКО JSON без markdown-обрамления, без пояснений, строго формат:
+  {{"title": "...", "summary": "1-2 предложения", "body_md": "3-6 предложений в markdown", "tags": ["..."]}}

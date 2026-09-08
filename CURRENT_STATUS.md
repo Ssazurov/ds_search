@@ -306,7 +306,40 @@ LTR/content_status уже были реализованы ранее, PR #13):
 py_compile + pytest 43/43. Не прогнано на живых данных с реальным видео-URL
 (нет video-страниц в текущем 10-документном корпусе downsideup).
 
+## Issue #45: news_items — SQLite таблица + миграция — PR #57
+Ветка feat/issue-45-news-table, закоммичено и запушено, PR #57 (Closes #45),
+не смёржен. ADR-003 (новостной блок, весь пайплайн Epic #44) создан.
+- `src/news/db.py`: SQLite `data/news.db` (не GAR Postgres — issue ADR-003).
+  `init_db()` — CREATE TABLE IF NOT EXISTS (без Alembic), схема ровно по
+  ТЗ #45 (source_url UNIQUE, status CHECK draft/published/rejected, tags/
+  channels — JSON-массивы). `insert_news_item/get_news_item/
+  list_news_items(status)/update_status` (published -> ставит published_at).
+- `src/metadata/schema.py`: DIRECTIONS += "news", LICENSE_STATUSES +=
+  "own_generated".
+- tests/test_news_db.py: 7 тестов (init idempotent, insert/get, дубль
+  source_url -> IntegrityError, фильтр по статусу, published_at, invalid
+  status, missing item). pytest 50/50 (было 43).
+
+## Issue #46: LLM-draft модуль — конфиг YAML + генерация черновика — PR TBD
+Ветка feat/issue-46-news-llm-draft.
+- `config/news_llm.yaml` — provider(anthropic|openai_compatible)/model/
+  endpoint/temperature/max_tokens/timeout_s/prompt_template (ADR-003).
+- `src/news/llm_draft.py`: `load_llm_config()` (dataclass LlmConfig из YAML),
+  `build_prompt()` (.format по source dict), `call_llm()` — диспатч по
+  provider (`_call_anthropic` — messages API + ANTHROPIC_API_KEY,
+  `_call_openai_compatible` — chat/completions + OPENAI_API_KEY), сырой
+  httpx (без SDK — по образцу gar_client). `parse_llm_json()` — снимает
+  markdown fence ```json, если модель всё же обернула ответ.
+  `generate_draft(source, config=None)` — prompt->LLM->JSON->dict под
+  `db.insert_news_item` (status=draft, requires_review=True, channels=[]
+  — approve/публикация каналов в issue #48).
+- tests/test_llm_draft.py: 6 тестов (prompt fill, parse plain/fenced/
+  invalid, unknown provider, generate_draft с моком call_llm).
+  py_compile OK, pytest 56/56 (было 50).
+Не проверено на реальном API-ключе (нет ключа в этой сессии) — только
+мок-тесты call_llm.
+
 ## NEXT SESSION
-Issue #21 и #20 (PR #54) уже смёржены в main. Issue #6 — PR готовится
-(эта сессия). Дальше — Epic #44 (news block), начиная с #45 (news_items
-таблица), либо follow-up issues из открытых вопросов ADR-002 п.6-7.
+Epic #44 (news block): #45 (PR #57) и #46 готовы, не смёржены -> дальше #48
+(Streamlit review page), #49 (publish-адаптер в ds_site + GAR ingestion),
+сборка cron-пайплайна.
