@@ -83,6 +83,10 @@ def _render_direct_download() -> None:
     минуя discovered_sources/очередь gar-core-api (та ветка — для находок
     из "Поиска"; здесь пользователь уже знает конкретный URL)."""
     st.subheader("Скачать одну страницу по ссылке")
+    st.caption(
+        "Прямое скачивание файла сейчас же (минуя очередь и модерацию). "
+        "Используйте, если URL уже точно нужен."
+    )
     dictionaries = load_dictionaries()
     directions = list(dictionaries["directions"].keys())
     url = st.text_input("URL страницы", key="direct_dl_url")
@@ -137,6 +141,10 @@ def _render_manual() -> None:
             st.success("Документ сохранён в data/raw/manual/")
             st.rerun()
     else:
+        st.caption(
+            "Добавляет URL в discovered_sources (статус approved) для модерации/скачивания "
+            "через очередь во вкладке «Результаты» — не скачивает сразу."
+        )
         url = st.text_input("URL страницы/документа")
         direction = st.selectbox("Направление", directions, key="link_dir") if directions else st.text_input("Направление", key="link_dir")
         if st.button("Добавить как одобренную находку", disabled=not url.strip()):
