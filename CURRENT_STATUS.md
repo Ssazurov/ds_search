@@ -292,8 +292,21 @@ category через `directions` в categories.yaml. Интегрировано 
 tests/test_classify.py: 6 тестов. py_compile + pytest 43/43 (venv).
 ADR-002 дополнен "п.6 финал". Не закоммичено/не запушено.
 
+## Issue #6 (добивка): video-only детект + отчёт по отклонённым
+Ветка feat/issue-6-content-cleaning. Осталось из issue #6 (thin-content/
+LTR/content_status уже были реализованы ранее, PR #13):
+- `filters.py: is_video_only_page()` — детект `<iframe>` youtube/vk/rutube/
+  vimeo + короткий fit_markdown -> отдельный `content_status=
+  rejected_video_only` (не путается с общим `rejected_thin_content`).
+- `crawler.py` — вызов встроен в существующую ветку thin-content, до общего
+  `rejected_thin_content` fallback; новый счётчик `skipped_video` в логе.
+- `scripts/rejected_report.py` — агрегирует `data/raw/<source>/rejected/
+  *.json` по `content_status` в `data/raw/<source>/rejected_report.md`
+  (url, title, LTR/chars) для ручной проверки.
+py_compile + pytest 43/43. Не прогнано на живых данных с реальным видео-URL
+(нет video-страниц в текущем 10-документном корпусе downsideup).
+
 ## NEXT SESSION
-Закоммитить/запушить issue #21 (PR, Closes #21). Смёржить PR #54 в main.
-Дальше — follow-up issues из открытых вопросов ADR-002 п.6-7 при
-необходимости (dictionary_suggestions backend, сигнал ingestion от
-ds_ingestion), либо новые задачи проекта.
+Issue #21 и #20 (PR #54) уже смёржены в main. Issue #6 — PR готовится
+(эта сессия). Дальше — Epic #44 (news block), начиная с #45 (news_items
+таблица), либо follow-up issues из открытых вопросов ADR-002 п.6-7.

@@ -105,6 +105,22 @@ def link_to_text_ratio(fit_markdown: str) -> float:
     return link_chars / total_chars
 
 
+_VIDEO_EMBED_RE = re.compile(
+    r'<iframe[^>]+src="[^"]*(youtube|youtube-nocookie|vk\.com/video|rutube\.ru|vimeo)',
+    re.IGNORECASE,
+)
+
+
+def is_video_only_page(html: str, fit_markdown: str, min_chars: int) -> bool:
+    """issue #6: страница-видео с короткой подписью без содержательного
+    текста (пример: kormlenie-v-kontekste-logopedicheskoy-raboty-chast-1).
+    Отдельная метка от rejected_thin_content — в отчёте видно, что причина
+    отбраковки конкретно "видео без текста", а не оборванная загрузка/шум."""
+    if not _VIDEO_EMBED_RE.search(html or ""):
+        return False
+    return len((fit_markdown or "").strip()) < min_chars
+
+
 _PDF_LINK_RE = re.compile(r'href="([^"]+\.pdf)"', re.IGNORECASE)
 _TEASER_MARKER_RE = re.compile(
     r"скачать отчёт|скачать отчет|открыть отчёт|открыть отчет", re.IGNORECASE

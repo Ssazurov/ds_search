@@ -43,6 +43,7 @@ from .filters import (
     canonicalize_url,
     find_pdf_teaser_link,
     is_pdf_teaser_page,
+    is_video_only_page,
     link_to_text_ratio,
     LTR_THRESHOLD,
 )
@@ -86,6 +87,7 @@ class SourceCrawler:
         )
         saved: list[dict] = []
         skipped_thin = 0
+        skipped_video = 0
         skipped_dupe = 0
         rejected_catalog = 0
         async with AsyncWebCrawler() as crawler:
@@ -126,6 +128,9 @@ class SourceCrawler:
                                 saved.append(doc)
                             else:
                                 self.pdf_queue.append(pdf_url)
+                        elif is_video_only_page(r.html or "", fit_md, self.cfg.min_fit_markdown_chars):
+                            skipped_video += 1
+                            self._save_rejected(r, canon, fit_md, "rejected_video_only")
                         else:
                             skipped_thin += 1
                             self._save_rejected(r, canon, fit_md, "rejected_thin_content")
@@ -142,10 +147,10 @@ class SourceCrawler:
                     self._seen_urls.add(canon)
                     saved.append(self._save(r, canon, fit_md))
         logger.info(
-            "saved %d documents for %s (skipped_thin=%d, rejected_catalog=%d, "
-            "skipped_dupe=%d, pdf_queue=%d)",
-            len(saved), self.cfg.name, skipped_thin, rejected_catalog,
-            skipped_dupe, len(self.pdf_queue),
+            "saved %d documents for %s (skipped_thin=%d, skipped_video=%d, "
+            "rejected_catalog=%d, skipped_dupe=%d, pdf_queue=%d)",
+            len(saved), self.cfg.name, skipped_thin, skipped_video,
+            rejected_catalog, skipped_dupe, len(self.pdf_queue),
         )
         return saved
 
