@@ -1,5 +1,20 @@
 # Progress ds_search
 
+## 2026-09-08 — issue #69 реализован (CRUD справочников через UI)
+
+- `ui/dictionaries_tab.py`: draft в `st.session_state`, CRUD направлений и
+  категорий с переименованием, проверками при сохранении и подтверждением
+  разрушительных операций; `license_statuses` и остальные справочники
+  недоступны для редактирования.
+- `src/metadata/schema.py`: общая проверка идентификаторов/структуры и
+  атомарное сохранение через временный YAML, повторный `safe_load` и
+  `os.replace`; при ошибке исходный файл и draft остаются без изменений.
+  Неизвестные секции `categories.yaml` сохраняются.
+- Тесты: `tests/test_metadata_schema.py`; focused result — `4 passed`.
+- Полный `python3 -m pytest -q` заблокирован отсутствующей зависимостью
+  `crawl4ai` в текущем окружении (ошибка collection в шести discovery/crawler
+  тестах); изменённые модули успешно прошли `py_compile` и `git diff --check`.
+
 ## Issue #2 — краулер источника (Crawl4AI, ADR-001)
 Статус: ЗАВЕРШЕНО, прогнан на downsideup.org.
 
