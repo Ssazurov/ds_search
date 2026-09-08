@@ -78,6 +78,38 @@ def _save_manual_file(uploaded_file, title: str, direction: str, doc_type: str) 
     (out_dir / f"{doc_id}.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def _render_direct_download() -> None:
+    """issue #67: закачка одной страницы напрямую через download_single,
+    минуя discovered_sources/очередь gar-core-api (та ветка — для находок
+    из "Поиска"; здесь пользователь уже знает конкретный URL)."""
+    st.subheader("Скачать одну страницу по ссылке")
+    dictionaries = load_dictionaries()
+    directions = list(dictionaries["directions"].keys())
+    url = st.text_input("URL страницы", key="direct_dl_url")
+    direction = (
+        st.selectbox("Направление", directions, key="direct_dl_dir")
+        if directions else st.text_input("Направление", key="direct_dl_dir")
+    )
+    dest_dir = st.text_input(
+        "Папка назначения (опционально, относительно data/raw; по умолчанию — домен)",
+        key="direct_dl_dest",
+    )
+    filename = st.text_input(
+        "Имя файла (опционально, без расширения; по умолчанию — хэш URL)",
+        key="direct_dl_name",
+    )
+    if st.button("Скачать сейчас", disabled=not url.strip()):
+        try:
+            meta = asyncio.run(download_single(
+                {"url": url.strip(), "suggested_direction": direction},
+                dest_dir=dest_dir.strip() or None,
+                filename=filename.strip() or None,
+            ))
+            st.success(f"Скачано: {meta['content_path']}")
+        except DownloadError as exc:
+            st.error(f"Ошибка: {exc}")
+
+
 def _add_manual_link(url: str, direction: str) -> None:
     settings = load_settings()
     with GarDiscoveryClient(settings) as client:
@@ -118,5 +150,7 @@ def _render_manual() -> None:
 def render() -> None:
     st.header("Загрузка")
     _render_queue()
+    st.divider()
+    _render_direct_download()
     st.divider()
     _render_manual()
