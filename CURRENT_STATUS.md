@@ -260,8 +260,29 @@ py_compile OK, pytest 29/29 (tests/test_run_search.py новый). UI НЕ
 На #20 оставлен комментарий: #19 был закрыт вручную без кода, теперь код
 есть в PR #53.
 
-## NEXT SESSION: issue #20 (вкладки загрузка/документы/источники/дашборд)
-Не начато. Строится поверх ui/ из #19 (см. PR #53) — смёржить #53 в main
-перед началом (либо ветвиться от feat/issue-19-streamlit-ui). п.4 issue #20
-(dictionary_suggestions) — вне скоупа, нужен backend в gar-core-api#221,
-заводить отдельным follow-up.
+## Issue #20: вкладки загрузка/документы/источники/дашборд — PR #54
+Ветка feat/issue-20-upload-docs-sources-dashboard, закоммичено и запушено,
+PR #54 создан (Closes #20), не смёржен. #19 (PR #53) уже смёржен в main.
+- src/discovery/download.py — скачивание одной одобренной находки:
+  один `AsyncWebCrawler.arun(url)` без deep-crawl (не SourceCrawler.run()),
+  license-check, PDF-тизер/thin-content fallback переиспользован в
+  компактном виде из crawler.py. tests/test_download.py: 7 тестов.
+- ui/upload_tab.py — очередь (status=queued/error) с кнопкой "Скачать";
+  ручная загрузка файла (обязательные метаданные, data/raw/manual/) или
+  ссылки (создаётся как approved находка через gar_client, license-check
+  выполнится при скачивании — issue #20 п.2 "стандартный пайп").
+- ui/documents_tab.py — стадии raw/clean сканированием ФС. metadata/
+  ingestion — всегда not_started (нет сигнала от ds_ingestion).
+- ui/sources_tab.py — CRUD config/licenses.yaml (issue #3, не новая
+  таблица) + агрегация discovered_sources по домену.
+- ui/dashboard_tab.py — воронка found->approved->downloaded->ingested(=0),
+  разбивка по направлениям, таблица ошибок.
+- ADR-002: раздел "Уточнения 2026-09-07" (обоснование выше) + открытые
+  вопросы 6 (dictionary_suggestions вне скоупа #221) и 7 (metadata/
+  ingestion статус нужен от ds_ingestion — follow-up при необходимости).
+py_compile + import ui.app (bare mode) OK, pytest 36/36 (было 29).
+
+## NEXT SESSION
+Смёржить PR #54 в main. Дальше — follow-up issues из открытых вопросов
+ADR-002 п.6-7 при необходимости (dictionary_suggestions backend,
+сигнал ingestion от ds_ingestion), либо новые задачи проекта.
