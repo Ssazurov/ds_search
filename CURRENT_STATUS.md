@@ -339,7 +339,22 @@ py_compile + pytest 43/43. Не прогнано на живых данных с
 Не проверено на реальном API-ключе (нет ключа в этой сессии) — только
 мок-тесты call_llm.
 
+## 2026-09-08 — issue #48: Streamlit-страница «Новости» (ревью черновиков)
+Ветка feat/issue-48-news-review-ui.
+- `src/news/db.py`: добавлены `update_news_item(id, fields)` (частичный
+  апдейт title/summary/body_md/tags/channels, неизвестные ключи
+  игнорируются) и `delete_news_item(id)`.
+- `ui/news_tab.py` — фильтр по статусу (draft/published/rejected/все),
+  список по свежести (list_news_items уже ORDER BY created_at DESC),
+  на каждый item — expander с инлайн-редактированием полей, кнопки
+  Сохранить/Опубликовать (status=published)/Отклонить/Удалить.
+  Публикация здесь — только смена статуса + выбор каналов (channels=
+  ["telegram"]), сама доставка в ds_site/GAR — issue #49 (вне scope).
+- `ui/app.py` — новая вкладка "Новости".
+- tests/test_news_db.py: +5 тестов (update/delete/noop/unknown fields).
+  pytest 60/60 (было 56). py_compile ui/news_tab.py + ui/app.py OK.
+- Не проверено: `streamlit run` вживую (нет браузера в этой сессии).
+
 ## NEXT SESSION
-Epic #44 (news block): #45 (PR #57) и #46 готовы, не смёржены -> дальше #48
-(Streamlit review page), #49 (publish-адаптер в ds_site + GAR ingestion),
-сборка cron-пайплайна.
+Epic #44 (news block): #45/#46/#48 сделаны -> дальше #49 (publish-адаптер
+в ds_site + GAR ingestion doc_type=news), сборка cron-пайплайна сбора.

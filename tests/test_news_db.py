@@ -10,6 +10,8 @@ from src.news.db import (
     get_news_item,
     list_news_items,
     update_status,
+    update_news_item,
+    delete_news_item,
 )
 
 
@@ -79,3 +81,36 @@ def test_update_status_invalid_raises(db_path):
 
 def test_get_news_item_missing_returns_none(db_path):
     assert get_news_item(999, db_path) is None
+
+
+def test_update_news_item_edits_fields(db_path):
+    item_id = insert_news_item(_item(tags=["a"], channels=[]), db_path)
+    update_news_item(item_id, {
+        "title": "Новый заголовок", "summary": "Кратко", "body_md": "Текст",
+        "tags": ["x", "y"], "channels": ["telegram"],
+    }, db_path)
+    item = get_news_item(item_id, db_path)
+    assert item["title"] == "Новый заголовок"
+    assert item["summary"] == "Кратко"
+    assert item["body_md"] == "Текст"
+    assert item["tags"] == ["x", "y"]
+    assert item["channels"] == ["telegram"]
+
+
+def test_update_news_item_ignores_unknown_fields(db_path):
+    item_id = insert_news_item(_item(), db_path)
+    update_news_item(item_id, {"status": "published", "id": 999}, db_path)
+    item = get_news_item(item_id, db_path)
+    assert item["status"] == "draft"  # неизвестные/неразрешённые поля не тронуты
+
+
+def test_update_news_item_noop_on_empty_fields(db_path):
+    item_id = insert_news_item(_item(), db_path)
+    update_news_item(item_id, {}, db_path)  # не должно падать
+    assert get_news_item(item_id, db_path)["title"] == "Заголовок"
+
+
+def test_delete_news_item(db_path):
+    item_id = insert_news_item(_item(), db_path)
+    delete_news_item(item_id, db_path)
+    assert get_news_item(item_id, db_path) is None

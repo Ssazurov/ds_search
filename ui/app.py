@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import streamlit as st
 
 from ui import (
-    dashboard_tab, dictionaries_tab, documents_tab, results_tab,
+    dashboard_tab, dictionaries_tab, documents_tab, news_tab, results_tab,
     search_tab, sources_tab, upload_tab,
 )
 
@@ -22,7 +22,7 @@ st.set_page_config(page_title="ds_search — discovery", layout="wide")
 st.title("ds_search — discovery & курация")
 
 tabs = st.tabs([
-    "Справочники", "Поиск", "Результаты", "Загрузка", "Документы", "Источники", "Дашборд",
+    "Справочники", "Поиск", "Результаты", "Загрузка", "Документы", "Источники", "Дашборд", "Новости",
 ])
 with tabs[0]:
     dictionaries_tab.render()
@@ -38,3 +38,5 @@ with tabs[5]:
     sources_tab.render()
 with tabs[6]:
     dashboard_tab.render()
+with tabs[7]:
+    news_tab.render()
