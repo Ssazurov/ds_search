@@ -422,3 +422,27 @@ download/generate_draft в тестах), сам crontab-job не установ
 Epic #44 (news block) полностью закрыт (#45/#46/#48/#49/#61). PR #60 (#49)
 уже смёржен в main; остаётся смёржить PR #64 (#61), затем по желанию —
 включить cron в реальный crontab на сервере.
+
+
+## 2026-09-08: issue #25 (глоссарий/ссылки export)
+Ветка feature/issue-25-glossary-links-export, PR #66, ADR-005.
+- `scripts/export_glossary_links.py`: читает
+  `~/ds/data/downsyndrome_glossary.xlsx` (лист «Глоссарий СД», 64 термина
+  реально заполнены — заголовок листа «117» устарел; лист «IT» пропущен,
+  не для паблика) и `~/ds/data/sites_ru_down_syndrome.xlsx` (126 из 137
+  строк с name+url).
+- Пишет `data/exports/glossary.json`, `data/exports/links.json` (плоский
+  JSON для ds_site, не коммитятся — data/ в .gitignore, генерятся заново
+  запуском скрипта).
+- Пишет `data/raw/glossary/glossary.json+.md`, `data/raw/links/
+  links.json+.md` — формат идентичен адаптеру ds_ingestion (issue #5):
+  `license=own_generated`, `source_url=internal://ds_search/<slug>`,
+  `direction=methodology`, `category=inclusion`, `doc_type=glossary`/
+  `resource_directory` (новые значения добавлены в
+  `config/categories.yaml`, backend не валидирует doc_type).
+- Решение агрегировать в 2 документа (не 117+137 мелких) — см. ADR-005.
+- Проверено: dry_run через `ds_ingestion.src.adapter.pipeline.run_adapter`
+  на обоих source_dir — 0 skipped/failed.
+Не сделано: реальная загрузка в GAR (нужен запущенный gar-core-api +
+dataset_id), сам `ds_site` (репо пустое, ADR-004 ещё не реализован) —
+экспортированный JSON лежит наготове под будущую сборку страниц.
