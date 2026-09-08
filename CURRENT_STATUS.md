@@ -381,6 +381,44 @@ py_compile + pytest 43/43. Не прогнано на живых данных с
 Не проверено: реальный вызов gar-core-api /ingestion/documents (нет
 поднятого сервиса в этой сессии) — только фейковый клиент в тестах.
 
+## 2026-09-08 — issue #61: cron-пайплайн автосбора новостей
+Ветка feature/issue-61-news-cron, поверх feat/issue-49-news-publish (#49
+ещё не смёржен в main — нужен publish.py). Дубли #62/#63 закрыты, работал
+#61 (более детальный).
+- `src/news/collect.py`: `collect_news(chain, queries=None, max_results=None,
+  ...)` — для каждого query из `config/news_search_queries.yaml` (или
+  переданных явно): SearchProviderChain.search -> canonicalize_url ->
+  дедуп по news_items.source_url (`db.source_url_exists`, до скачивания/
+  LLM) -> discovery.download.download_single (переиспользован ради
+  license-гейта check_license, ADR-001 п.3 — не входит в scope домены без
+  ручной проверки ToS) -> прочитать fit_markdown -> llm_draft.generate_draft
+  -> db.insert_news_item. Каждый источник обёрнут в try/except — сбой
+  одного не роняет прогон (per-item счётчики: drafted/license_denied/
+  download_failed/llm_failed/skipped_duplicate), сбой одного query
+  (QuotaExceeded/любая ошибка) — тоже не роняет остальные query.
+  НЕ пишет в discovered_sources/GAR (см. ADR-003 "Уточнение issue #61") —
+  та очередь для ручной курации основного корпуса (ADR-002), у news своя
+  дедуп-таблица.
+- `src/news/db.py`: `source_url_exists()` — дешёвая проверка перед
+  download+LLM (не тратить их на уже собранный источник).
+- `config/news_search_queries.yaml`: список тем поиска + max_results_per_query
+  (не хардкод, по аналогии с news_llm.yaml).
+- `scripts/collect_news.py` — CLI (`python -m scripts.collect_news`),
+  докстринг содержит пример строки crontab (1 раз/час).
+- ADR-003 дополнен разделом "Уточнение 2026-09-08 (issue #61)", запись в
+  docs/decisions.md.
+- tests/test_news_collect.py: 7 тестов (happy path, дедуп до download,
+  license_denied, download-ошибка не роняет прогон, LLM-ошибка не роняет
+  прогон, QuotaExceeded одного query не роняет остальные, чтение YAML-конфига).
+  pytest 77/77 (было 70).
+- Найден и исправлен баг в процессе: `_collect_one` не передавал `db_path`
+  в `db.insert_news_item` — запись уходила в дефолтный `data/news.db`
+  вместо переданного вызывающим кодом пути; insert падал с "no such table"
+  и по коду ошибочно засчитывался как "дубликат" (тесты это отловили).
+Не проверено: реальный запуск с Tavily/crawl4ai (только фейковые chain/
+download/generate_draft в тестах), сам crontab-job не установлен в систему.
+
 ## NEXT SESSION
-Epic #44 (news block): #45/#46/#48/#49 сделаны (PR #60) -> остаётся
-issue #63 — cron-пайплайн автосбора новостей (SearchChain+Crawl4AI, 1/час).
+Epic #44 (news block) полностью закрыт (#45/#46/#48/#49/#61). PR #60 (#49)
+уже смёржен в main; остаётся смёржить PR #64 (#61), затем по желанию —
+включить cron в реальный crontab на сервере.

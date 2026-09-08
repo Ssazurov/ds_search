@@ -39,6 +39,21 @@ GAR API/RAG — как только новость проиндексирова�
 в ds_site API не нужен и не реализовывался. `news_items` получил колонки
 `gar_document_id`/`publish_error` (идемпотентность/диагностика).
 
+## Уточнение 2026-09-08 (issue #61, cron-пайплайн сбора)
+Автосбор намеренно НЕ пишет в discovered_sources/GAR (discovery.run_search,
+ADR-002) — та очередь для ручной курации основного корпуса с шагом
+review-before-download; news-пайплайн работает автономно (без approve) и
+дедуплицируется по своей news_items (UNIQUE source_url). Смешивание очередей
+запутало бы кураторов основного корпуса находками новостного крон-джоба.
+Переиспользует discovery.download.download_single для получения полного
+текста источника — та же crawl4ai-конфигурация и, что важно, тот же
+license-гейт (check_license/config/licenses.yaml, ADR-001 п.3): домен без
+ручной проверки ToS автосбором новостей не скачивается, это тот же
+safety-барьер, что и для основного корпуса. Запросы поиска — в
+`config/news_search_queries.yaml` (не хардкод, по аналогии с
+news_llm.yaml). Оркестратор: `src/news/collect.py:collect_news()`,
+CLI: `python -m scripts.collect_news`, cron-пример — в докстринге скрипта.
+
 ## Последствия
 - SQLite-файл живёт в data/ (не в git, см. .gitignore data/).
 - Миграции — простые `CREATE TABLE IF NOT EXISTS` в коде (issue #45),
