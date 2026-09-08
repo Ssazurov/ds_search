@@ -17,6 +17,9 @@ from crawl4ai.deep_crawling.filters import (
 )
 from crawl4ai.deep_crawling.scorers import KeywordRelevanceScorer
 from crawl4ai.content_filter_strategy import PruningContentFilter
+from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
+
+from .structure import normalize_headings_for_url
 
 # Базовые паттерны, не зависящие от источника: бинарные файлы и пагинация
 # (issue #8 п.2 — параметры вида ?PAGEN_1=N, ?PAGE=N, ?page=N).
@@ -78,6 +81,17 @@ def build_content_filter() -> PruningContentFilter:
     result.markdown.fit_markdown. Порог по длине fit_markdown (не отдельная
     метрика) — короткий/пустой fit_markdown = листинг/навигация."""
     return PruningContentFilter()
+
+
+class AdaptiveMarkdownGenerator(DefaultMarkdownGenerator):
+    """Default Crawl4AI generator with source-specific heading normalization."""
+
+    def generate_markdown(self, input_html: str, base_url: str = "", **kwargs):
+        return super().generate_markdown(
+            input_html=normalize_headings_for_url(input_html, base_url),
+            base_url=base_url,
+            **kwargs,
+        )
 
 
 # issue #6 / ADR-001 п.3a: каталожные/листинговые страницы проходят
