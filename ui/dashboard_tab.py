@@ -46,7 +46,7 @@ def render() -> None:
     if errors:
         st.dataframe(
             [{"url": r["url"], "domain": r.get("domain", ""), "title": r.get("title", "")} for r in errors],
-            hide_index=True, use_container_width=True,
+            hide_index=True, width="stretch",
         )
     else:
         st.info("Ошибок нет")

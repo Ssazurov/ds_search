@@ -116,3 +116,13 @@ def test_sanitize_filename_strips_unsafe_chars():
     assert dl._sanitize_filename("../../etc/passwd") == "passwd"
     assert dl._sanitize_filename("отчёт 2026.pdf") == "отчёт_2026"
     assert dl._sanitize_filename("   ") == "document"
+
+
+@pytest.mark.parametrize("dest_dir", ["/tmp/outside", "../outside"])
+def test_download_single_rejects_destination_outside_data_root(monkeypatch, tmp_path, dest_dir):
+    """issue #67: dest_dir не должен позволять запись вне data_root
+    (ни абсолютным путём, ни через .. )."""
+    source = {"url": "https://downsideup.org/a"}
+
+    with pytest.raises(dl.DownloadError, match="папка назначения"):
+        asyncio.run(dl.download_single(source, tmp_path, dest_dir=dest_dir))

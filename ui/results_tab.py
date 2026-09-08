@@ -64,7 +64,7 @@ def render() -> None:
         "doc_type", "relevance_score", "license_status", "is_duplicate", "status", "found_at",
     ] if c in df.columns]
     edited = st.data_editor(
-        df[display_cols], hide_index=True, use_container_width=True,
+        df[display_cols], hide_index=True, width="stretch",
         disabled=[c for c in display_cols if c != "select"], key="results_editor",
     )
     selected_ids = df.loc[edited["select"], "id"].tolist() if "id" in df.columns else []
