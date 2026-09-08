@@ -94,3 +94,25 @@ def test_download_single_fetch_failed(monkeypatch, tmp_path):
     source = {"url": "https://downsideup.org/a", "domain": "downsideup.org"}
     with pytest.raises(dl.DownloadError, match="fetch failed"):
         asyncio.run(dl.download_single(source, tmp_path))
+
+
+def test_download_single_dest_dir_and_filename(monkeypatch, tmp_path):
+    """issue #67: явная папка (относительно data_root) и имя файла."""
+    monkeypatch.setattr(dl, "check_license", lambda domain, url: _license())
+    html = "<html><body>обычная страница без формы</body></html>"
+    result = FakeResult(success=True, html=html, markdown="Статья про раннее развитие. " * 50,
+                         metadata={"title": "Заголовок"})
+    _patch_crawler(monkeypatch, result)
+    source = {"url": "https://downsideup.org/a", "suggested_direction": "methodology"}
+    meta = asyncio.run(dl.download_single(
+        source, tmp_path, dest_dir="custom/sub", filename="my article!",
+    ))
+    expected = tmp_path / "custom" / "sub" / "my_article.md"
+    assert meta["content_path"] == str(expected)
+    assert expected.exists()
+
+
+def test_sanitize_filename_strips_unsafe_chars():
+    assert dl._sanitize_filename("../../etc/passwd") == "passwd"
+    assert dl._sanitize_filename("отчёт 2026.pdf") == "отчёт_2026"
+    assert dl._sanitize_filename("   ") == "document"
