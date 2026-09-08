@@ -320,7 +320,7 @@ py_compile + pytest 43/43. Не прогнано на живых данных с
   source_url -> IntegrityError, фильтр по статусу, published_at, invalid
   status, missing item). pytest 50/50 (было 43).
 
-## Issue #46: LLM-draft модуль — конфиг YAML + генерация черновика — PR TBD
+## Issue #46: LLM-draft модуль — конфиг YAML + генерация черновика — PR #58
 Ветка feat/issue-46-news-llm-draft.
 - `config/news_llm.yaml` — provider(anthropic|openai_compatible)/model/
   endpoint/temperature/max_tokens/timeout_s/prompt_template (ADR-003).
