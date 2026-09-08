@@ -218,3 +218,10 @@ source_fingerprint/document_key в gar-core-api клиенте нет -
 (127.0.0.1:8100) сейчас недоступен на машине. Запускать
 python -m src.adapter.cli downsideup с логированием в
 logs/run_1788714293.log, когда сервис поднят.
+
+## 2026-09-08 -- issue #27 закрыт (not planned)
+
+100 статей downsideup признаны нерелевантными - догрузка остатка в GAR
+отменена. Issue закрыт как not planned. PR Ssazurov/ds_ingestion#1
+(фикс идемпотентности state) остаётся смёрженным/актуальным для
+следующего релевантного прогона.
