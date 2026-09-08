@@ -23,6 +23,7 @@ from crawl4ai import AsyncWebCrawler, CrawlerRunConfig
 from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
 
 from ..crawler.filters import (
+    AdaptiveMarkdownGenerator,
     build_content_filter,
     canonicalize_url,
     find_pdf_teaser_link,
@@ -116,16 +117,21 @@ async def download_single(
     if not license_result.downloadable:
         raise DownloadError(f"license status {license_result.status.value}: {license_result.reason}")
 
+    data_root_resolved = Path(data_root).resolve()
     if dest_dir is not None:
         dest_dir = Path(dest_dir)
-        out_dir = dest_dir if dest_dir.is_absolute() else data_root / dest_dir
+        if dest_dir.is_absolute():
+            raise DownloadError("папка назначения должна быть относительной data_root")
+        out_dir = (data_root_resolved / dest_dir).resolve()
+        if out_dir != data_root_resolved and data_root_resolved not in out_dir.parents:
+            raise DownloadError("папка назначения не может выходить за пределы data_root")
     else:
-        out_dir = data_root / domain
+        out_dir = data_root_resolved / domain
     out_dir.mkdir(parents=True, exist_ok=True)
     canon = canonicalize_url(url)
     base_name = _sanitize_filename(filename) if filename else None
 
-    run_cfg = CrawlerRunConfig(markdown_generator=DefaultMarkdownGenerator(content_filter=build_content_filter()))
+    run_cfg = CrawlerRunConfig(markdown_generator=AdaptiveMarkdownGenerator(content_filter=build_content_filter()))
     async with AsyncWebCrawler() as crawler:
         result = await crawler.arun(url=url, config=run_cfg)
         result = result[0] if isinstance(result, list) else result

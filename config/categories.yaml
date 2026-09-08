@@ -1,61 +1,52 @@
-# Справочники (issue #4 ADR-001 п.2, issue #19 п.1).
-# Источник правды — этот YAML, не БД. Редактируется через ui/ (Справочники).
 directions:
   methodology:
-    - speech_development
-    - motor_development
-    - school_preparation
-    - inclusion
+  - speech_development
+  - motor_development
+  - school_preparation
+  - inclusion
   medicine:
-    - genetics
-    - comorbidities
-    - diagnostics
-    - rehabilitation
+  - genetics
+  - comorbidities
+  - diagnostics
+  - rehabilitation
   law:
-    - social_protection
-    - education_rights
-    - legal_capacity
+  - social_protection
+  - education_rights
+  - legal_capacity
   science:
-    - genetics
-    - epidemiology
-    - socialization
-    - method_efficacy
-
+  - genetics
+  - epidemiology
+  - socialization
+  - method_efficacy
+  basic:
+  - basic
 doc_types:
-  - book
-  - guide
-  - article
-  - law
-  - dissertation
-  - clinical_recommendation
-  - brochure
-  - program
-  - systematic_review
-  - report
-  - glossary
-  - resource_directory
-
+- book
+- guide
+- article
+- law
+- dissertation
+- clinical_recommendation
+- brochure
+- program
+- systematic_review
+- report
+- glossary
+- resource_directory
 target_audiences:
-  - parents
-  - specialists
-  - researchers
-
-# Новый справочник (issue #19): нет поля в discovered_sources backend'а,
-# нужен для ручной разметки документов при загрузке в GAR.
+- parents
+- specialists
+- researchers
 age_groups:
-  - prenatal
-  - "0-3"
-  - "4-7"
-  - "8-12"
-  - "13-17"
-  - "18+"
-
-# Справочно: фиксированный enum backend'а (gar-core-api PR #222,
-# schemas/discovery.py LICENSE_STATUSES) — НЕ редактируется здесь, любое
-# значение вне этого списка backend отклонит 422.
+- prenatal
+- 0-3
+- 4-7
+- 8-12
+- 13-17
+- 18+
 license_statuses:
-  - unknown
-  - allow
-  - attribution_required
-  - deny
-  - pending_manual_review
+- unknown
+- allow
+- attribution_required
+- deny
+- pending_manual_review
