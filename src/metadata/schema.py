@@ -14,7 +14,7 @@ from pathlib import Path
 
 import yaml
 
-DIRECTIONS = ["methodology", "medicine", "law", "science"]
+DIRECTIONS = ["methodology", "medicine", "law", "science", "news"]
 
 DOC_TYPES = [
     "book", "guide", "article", "law", "dissertation",
@@ -29,7 +29,7 @@ AGE_GROUPS = ["prenatal", "0-3", "4-7", "8-12", "13-17", "18+"]
 # Фиксированный enum backend'а (gar-core-api PR #222, LICENSE_STATUSES) —
 # не редактируется через справочники, любое другое значение backend
 # отклонит 422.
-LICENSE_STATUSES = ["unknown", "allow", "attribution_required", "deny", "pending_manual_review"]
+LICENSE_STATUSES = ["unknown", "allow", "attribution_required", "deny", "pending_manual_review", "own_generated"]
 
 # Обязательные поля документа при загрузке в GAR (ADR-001 п.2).
 REQUIRED_FIELDS = ["source_url", "source_domain", "title", "license", "direction"]
