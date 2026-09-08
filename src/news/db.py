@@ -127,3 +127,34 @@ def update_status(item_id: int, status: str, db_path: Path = DB_PATH) -> None:
             (status, item_id),
         )
         conn.commit()
+
+
+EDITABLE_FIELDS = ("title", "summary", "body_md", "tags", "channels")
+
+
+def update_news_item(item_id: int, fields: dict, db_path: Path = DB_PATH) -> None:
+    """Частичное обновление редактируемых полей (issue #48, ревью в UI).
+    tags/channels — списки, сериализуются в JSON. Неизвестные ключи в
+    fields игнорируются.
+    """
+    cols, params = [], []
+    for key in EDITABLE_FIELDS:
+        if key not in fields:
+            continue
+        value = fields[key]
+        if key in ("tags", "channels"):
+            value = json.dumps(value, ensure_ascii=False)
+        cols.append(f"{key} = ?")
+        params.append(value)
+    if not cols:
+        return
+    params.append(item_id)
+    with get_connection(db_path) as conn:
+        conn.execute(f"UPDATE news_items SET {', '.join(cols)} WHERE id = ?", params)
+        conn.commit()
+
+
+def delete_news_item(item_id: int, db_path: Path = DB_PATH) -> None:
+    with get_connection(db_path) as conn:
+        conn.execute("DELETE FROM news_items WHERE id = ?", (item_id,))
+        conn.commit()
