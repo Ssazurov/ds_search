@@ -252,3 +252,17 @@ fallback по исчерпанию дневной квоты (счётчик р�
    файла на диске/в GAR). Нужен явный сигнал от `ds_ingestion` (issue вне
    `ds_search`), чтобы вкладка "Документы" не показывала эти стадии всегда
    как "not_started".
+
+## п.6 финал (issue #21, 2026-09-08)
+
+Keyword-эвристика реализована: `src/discovery/classify.py` +
+`config/classifier_keywords.yaml` (RU-словоформы по category/doc_type/
+target_audience, ключи сверяются с `config/categories.yaml`). Substring-count
+по title+snippet, метка с максимальным счётом; при отсутствии совпадений —
+`None` (не гадаем). direction выводится из category через
+`directions.<direction>: [category, ...]` в categories.yaml.
+Интегрировано в `src/discovery/run_search.py:_hit_to_candidate()` — каждая
+находка получает suggested_* черновым значением; явный `metadata` параметра
+поиска (issue #19 п.2) приоритетнее и перезаписывает эвристику.
+`dictionary_suggestions` (авто-находка новых терминов) по-прежнему вне
+скоупа — нет backend-модели (см. п.6 выше), не реализовано в #21.
