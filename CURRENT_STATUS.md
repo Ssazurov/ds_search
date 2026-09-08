@@ -355,6 +355,32 @@ py_compile + pytest 43/43. Не прогнано на живых данных с
   pytest 60/60 (было 56). py_compile ui/news_tab.py + ui/app.py OK.
 - Не проверено: `streamlit run` вживую (нет браузера в этой сессии).
 
+## 2026-09-08 — issue #49: publish-адаптер news_items -> GAR ingestion
+Ветка feat/issue-49-news-publish. ds_site (пустой репо, README: "свой
+контент не хранит, данные через GAR API") — уточнение внесено в ADR-003:
+публикация в ds_site == ingestion в GAR, отдельного push-API в сайт нет.
+- `src/news/db.py`: миграция `gar_document_id`/`publish_error` (ALTER
+  TABLE, best-effort — CREATE TABLE IF NOT EXISTS колонки не добавляет),
+  `set_publish_result()`.
+- `src/news/publish.py`: `GarNewsClient` (ensure_dataset/ingest_document,
+  по образцу ds_ingestion/gar_client — не переиспользован напрямую, чужой
+  репозиторий/пакет), `build_content_md()` (# title + body_md/summary),
+  `build_metadata()` (doc_type=news, license=own_generated, direction,
+  source_domain, keywords из tags, publish_date), `publish_news_item()` —
+  идемпотентно (skip если gar_document_id уже есть, если не force),
+  ошибка GAR пишется в publish_error и пробрасывается вызывающему.
+- `scripts/publish_news.py` — CLI батч (`python -m scripts.publish_news
+  [--force]`) для cron/бэкфилла уже published item без gar_document_id.
+- `ui/news_tab.py`: кнопка "Опубликовать" теперь дергает publish_news_item
+  сразу после update_status; кнопка "Переотправить в GAR" при ошибке;
+  publish_error показывается в UI.
+- ADR-003 дополнен разделом "Уточнение 2026-09-08".
+- tests/test_news_publish.py: 9 тестов (build_content/build_metadata,
+  happy path на fake-клиенте, идемпотентность, force, missing/wrong
+  status, запись ошибки). pytest 70/70 (было 60).
+Не проверено: реальный вызов gar-core-api /ingestion/documents (нет
+поднятого сервиса в этой сессии) — только фейковый клиент в тестах.
+
 ## NEXT SESSION
-Epic #44 (news block): #45/#46/#48 сделаны -> дальше #49 (publish-адаптер
-в ds_site + GAR ingestion doc_type=news), сборка cron-пайплайна сбора.
+Epic #44 (news block): #45/#46/#48/#49 сделаны (PR #60) -> остаётся
+issue #63 — cron-пайплайн автосбора новостей (SearchChain+Crawl4AI, 1/час).

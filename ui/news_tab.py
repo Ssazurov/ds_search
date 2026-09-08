@@ -2,13 +2,14 @@
 
 Список/сортировка по свежести (created_at DESC — уже в list_news_items),
 фильтр по статусу, инлайн-редактирование, удаление, публикация (смена
-статуса на published; сама доставка в ds_site/GAR — issue #49, вне scope).
+статуса на published + ingestion в GAR doc_type=news, issue #49 — ds_site
+свой контент не хранит, читает через GAR, отдельного push в сайт не нужно).
 """
 from __future__ import annotations
 
 import streamlit as st
 
-from src.news import db
+from src.news import db, publish
 
 CHANNEL_OPTIONS = ["telegram"]
 STATUS_LABELS = {"draft": "Черновик", "published": "Опубликовано", "rejected": "Отклонено"}
@@ -42,8 +43,21 @@ def _render_item(item: dict) -> None:
             st.rerun()
         if item["status"] != "published" and cols[1].button("Опубликовать", key=f"pub_{item['id']}"):
             db.update_status(item["id"], "published")
-            st.success("Опубликовано")
+            try:
+                publish.publish_news_item(item["id"])
+                st.success("Опубликовано и загружено в GAR")
+            except publish.GarPublishError as exc:
+                st.warning(f"Статус изменён, но ingestion в GAR не удался: {exc}")
             st.rerun()
+        if item.get("gar_document_id") and cols[1].button("Переотправить в GAR", key=f"repub_{item['id']}"):
+            try:
+                publish.publish_news_item(item["id"], force=True)
+                st.success("Переотправлено в GAR")
+            except publish.GarPublishError as exc:
+                st.warning(f"Ingestion в GAR не удался: {exc}")
+            st.rerun()
+        elif item["status"] == "published" and item.get("publish_error"):
+            st.error(f"GAR ingestion не удался: {item['publish_error']}")
         if item["status"] != "rejected" and cols[2].button("Отклонить", key=f"rej_{item['id']}"):
             db.update_status(item["id"], "rejected")
             st.rerun()
