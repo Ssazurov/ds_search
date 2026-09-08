@@ -31,6 +31,14 @@
 - Отдельный Node/FastAPI сервис под новости — отклонено: overhead ради
   MVP, Streamlit уже покрывает admin-flow остального проекта.
 
+## Уточнение 2026-09-08 (issue #49)
+"Публикация в ds_site" технически сводится к ingestion в GAR: ds_site
+(см. ds_site/README.md) свой контент не хранит, читает материалы через
+GAR API/RAG — как только новость проиндексирована с `doc_type=news`, она
+видна сайту тем же путём, что и остальной корпус. Отдельный push-запрос
+в ds_site API не нужен и не реализовывался. `news_items` получил колонки
+`gar_document_id`/`publish_error` (идемпотентность/диагностика).
+
 ## Последствия
 - SQLite-файл живёт в data/ (не в git, см. .gitignore data/).
 - Миграции — простые `CREATE TABLE IF NOT EXISTS` в коде (issue #45),

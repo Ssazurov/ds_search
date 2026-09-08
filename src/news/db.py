@@ -37,6 +37,14 @@ CREATE TABLE IF NOT EXISTS news_items (
 CREATE INDEX IF NOT EXISTS idx_news_items_status ON news_items(status);
 """
 
+# issue #49: идемпотентность publish-адаптера (GAR ingestion) + диагностика
+# последней ошибки публикации. ALTER TABLE — т.к. CREATE TABLE IF NOT EXISTS
+# не добавляет колонки в уже существующую БД (data/news.db).
+_MIGRATIONS = (
+    "ALTER TABLE news_items ADD COLUMN gar_document_id TEXT",
+    "ALTER TABLE news_items ADD COLUMN publish_error TEXT",
+)
+
 
 @contextmanager
 def get_connection(db_path: Path = DB_PATH) -> Iterator[sqlite3.Connection]:
@@ -54,6 +62,11 @@ def init_db(db_path: Path = DB_PATH) -> None:
     """Идемпотентная миграция: создать таблицу news_items, если её нет."""
     with get_connection(db_path) as conn:
         conn.executescript(SCHEMA_SQL)
+        for stmt in _MIGRATIONS:
+            try:
+                conn.execute(stmt)
+            except sqlite3.OperationalError:
+                pass  # колонка уже существует
         conn.commit()
 
 
@@ -157,4 +170,23 @@ def update_news_item(item_id: int, fields: dict, db_path: Path = DB_PATH) -> Non
 def delete_news_item(item_id: int, db_path: Path = DB_PATH) -> None:
     with get_connection(db_path) as conn:
         conn.execute("DELETE FROM news_items WHERE id = ?", (item_id,))
+        conn.commit()
+
+
+def set_publish_result(
+    item_id: int, gar_document_id: str | None, error: str | None, db_path: Path = DB_PATH,
+) -> None:
+    """Итог попытки publish-адаптера (issue #49): document_id при успехе,
+    error при неудаче (успех всегда чистит error, ошибка не трогает
+    предыдущий document_id, если он уже был)."""
+    with get_connection(db_path) as conn:
+        if gar_document_id is not None:
+            conn.execute(
+                "UPDATE news_items SET gar_document_id = ?, publish_error = NULL WHERE id = ?",
+                (gar_document_id, item_id),
+            )
+        else:
+            conn.execute(
+                "UPDATE news_items SET publish_error = ? WHERE id = ?", (error, item_id),
+            )
         conn.commit()
