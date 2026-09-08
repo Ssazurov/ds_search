@@ -32,6 +32,8 @@ doc_types:
   - program
   - systematic_review
   - report
+  - glossary
+  - resource_directory
 
 target_audiences:
   - parents
