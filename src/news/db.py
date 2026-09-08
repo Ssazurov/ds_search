@@ -110,6 +110,16 @@ def insert_news_item(item: dict, db_path: Path = DB_PATH) -> int:
         return cur.lastrowid
 
 
+def source_url_exists(source_url: str, db_path: Path = DB_PATH) -> bool:
+    """Дешёвая проверка перед download+LLM в cron-пайплайне (issue #61) —
+    не тратить скачивание/LLM-вызов на источник, уже собранный раньше."""
+    with get_connection(db_path) as conn:
+        row = conn.execute(
+            "SELECT 1 FROM news_items WHERE source_url = ?", (source_url,)
+        ).fetchone()
+        return row is not None
+
+
 def get_news_item(item_id: int, db_path: Path = DB_PATH) -> dict | None:
     with get_connection(db_path) as conn:
         row = conn.execute(
