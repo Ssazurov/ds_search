@@ -446,3 +446,32 @@ Epic #44 (news block) полностью закрыт (#45/#46/#48/#49/#61). PR 
 Не сделано: реальная загрузка в GAR (нужен запущенный gar-core-api +
 dataset_id), сам `ds_site` (репо пустое, ADR-004 ещё не реализован) —
 экспортированный JSON лежит наготове под будущую сборку страниц.
+
+
+## 2026-09-08 — issue #26/#28: публичный шлюз GAR (ADR-052 в gar-core-api)
+
+Статус: код готов и запушен (gar-core-api PR #224), деплой-часть — ручные
+шаги, не сделаны. #28 и #26 остаются открытыми.
+
+- Обнаружено: `services/tenant_context.py` (gar-core-api) слепо доверяет
+  клиентскому `X-User-ID` (`admin-` префикс = полный обход ACL) — так
+  нельзя пускать наружу без изменений.
+- Решение — ADR-052 (gar-core-api/docs/adr/052-public-gateway-cloudflare-tunnel.md):
+  новые `routers/public.py` + `services/public_gateway.py` —
+  `POST /public/chat`, `GET /public/documents/scope-tree`. Требуют
+  `X-Public-Api-Key` (env `GAR_PUBLIC_API_KEY`, fail-closed 503 без него),
+  игнорируют клиентские X-User-ID/X-Tenant-ID, всегда резолвятся в
+  фиксированную личность `public-site-readonly` (ACL — только read на
+  1 датасет, `scripts/seed_public_acl.py`).
+- `docs/cloudflared/config.yml` (gar-core-api) — path-based ingress,
+  наружу только `/public/*` и `/health`.
+- Проверено локально: gar-core-api перезапущен, test_tenant_context.py +
+  test_document_scope.py зелёные (9/9), `/public/documents/scope-tree`
+  без ключа -> 503 (ожидаемо).
+- Не сделано (ручные шаги, вне агента): cloudflared tunnel
+  login/create/route dns, Cloudflare Zero Trust Access app + Service
+  Token, генерация GAR_PUBLIC_API_KEY (в gar-core-api и в будущем
+  ds_site), seed ACL на реальный dataset_id, `cloudflared tunnel run`.
+- `ds_site` — репозиторий пока пустой (только README), хотя #24/#25
+  закрыты в трекере без кода; #26 (proxy-код на стороне сайта) не
+  начат — ждёт этих ручных шагов инфраструктуры.
