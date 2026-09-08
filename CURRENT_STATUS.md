@@ -282,7 +282,18 @@ PR #54 создан (Closes #20), не смёржен. #19 (PR #53) уже см�
   ingestion статус нужен от ds_ingestion — follow-up при необходимости).
 py_compile + import ui.app (bare mode) OK, pytest 36/36 (было 29).
 
+## Issue #21: keyword/BM25 классификатор direction/category/doc_type/audience
+Ветка feat/issue-21-classifier. `src/discovery/classify.py` +
+`config/classifier_keywords.yaml` — substring-count RU-ключевиков по
+title+snippet, best-label или None (без гадания); direction выводится из
+category через `directions` в categories.yaml. Интегрировано в
+`run_search.py:_hit_to_candidate()` — suggested_* черновым значением на
+каждую находку, явный `metadata` поиска (issue #19) приоритетнее.
+tests/test_classify.py: 6 тестов. py_compile + pytest 43/43 (venv).
+ADR-002 дополнен "п.6 финал". Не закоммичено/не запушено.
+
 ## NEXT SESSION
-Смёржить PR #54 в main. Дальше — follow-up issues из открытых вопросов
-ADR-002 п.6-7 при необходимости (dictionary_suggestions backend,
-сигнал ingestion от ds_ingestion), либо новые задачи проекта.
+Закоммитить/запушить issue #21 (PR, Closes #21). Смёржить PR #54 в main.
+Дальше — follow-up issues из открытых вопросов ADR-002 п.6-7 при
+необходимости (dictionary_suggestions backend, сигнал ingestion от
+ds_ingestion), либо новые задачи проекта.

@@ -14,6 +14,7 @@ from urllib.parse import urlsplit
 from ..crawler.filters import canonicalize_url
 from ..search.base import QuotaExceeded, SearchHit
 from ..search.chain import SearchProviderChain
+from .classify import classify
 from .config import Settings, load_settings
 from .dedup import dedup_candidates
 from .gar_client import GarDiscoveryClient
@@ -29,9 +30,13 @@ def _hit_to_candidate(hit: SearchHit, metadata: dict | None = None) -> dict:
         "title": hit.title,
         "snippet": hit.snippet,
     }
+    # issue #21: keyword-эвристика по title+snippet заполняет suggested_*
+    # черновым значением (или None, если нет уверенного совпадения).
+    candidate.update(classify(hit.title, hit.snippet))
     if metadata:
-        # issue #19 п.2: direction/category/target_audience из параметров
-        # поиска -> suggested_* поля discovered_sources (gar-core-api PR #222).
+        # issue #19 п.2: явные direction/category/... из параметров поиска
+        # приоритетнее эвристики issue #21 -> suggested_* поля
+        # discovered_sources (gar-core-api PR #222).
         candidate.update({k: v for k, v in metadata.items() if v})
     return candidate
 
