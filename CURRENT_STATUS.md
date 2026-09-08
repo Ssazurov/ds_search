@@ -1,5 +1,19 @@
 # Progress ds_search
 
+## 2026-09-08 — issue #72: адаптивное распознавание структуры HTML→MD
+
+- `src/crawler/structure.py`: профильный механизм выбора структуры по домену и
+  DOM-нормализация заголовков на стандартной библиотеке Python; существующие
+  `h1..h6` сохраняются, визуальные `<b>`-подзаголовки внутри `.sln-news-wrap`
+  сайта `sindromlubvi.ru` преобразуются в семантические `h2`.
+- `src/crawler/filters.py`: `AdaptiveMarkdownGenerator` передаёт нормализованный
+  HTML в стандартный Crawl4AI Markdown generator; неизвестные домены остаются
+  без изменений.
+- Тесты: `tests/test_structure.py` (профиль домена, сохранение h1,
+  визуальный подзаголовок, неизвестный источник).
+- Проверка: `py_compile` и `git diff --check` прошли. Pytest заблокирован
+  отсутствующей локальной зависимостью `crawl4ai`.
+
 ## 2026-09-08 — issue #69 реализован (CRUD справочников через UI)
 
 - `ui/dictionaries_tab.py`: draft в `st.session_state`, CRUD направлений и

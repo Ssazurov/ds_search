@@ -32,7 +32,6 @@ from pathlib import Path
 
 from crawl4ai import AsyncWebCrawler, CrawlerRunConfig
 from crawl4ai.deep_crawling import BestFirstCrawlingStrategy
-from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
 
 from ..license.checker import LicenseCheckResult, LicenseStatus, check_license
 from .config import SourceConfig
@@ -40,6 +39,7 @@ from .filters import (
     build_filter_chain,
     build_relevance_scorer,
     build_content_filter,
+    AdaptiveMarkdownGenerator,
     canonicalize_url,
     find_pdf_teaser_link,
     is_pdf_teaser_page,
@@ -81,7 +81,7 @@ class SourceCrawler:
 
         run_cfg = CrawlerRunConfig(
             deep_crawl_strategy=self._strategy(),
-            markdown_generator=DefaultMarkdownGenerator(
+            markdown_generator=AdaptiveMarkdownGenerator(
                 content_filter=build_content_filter(),
             ),
         )
