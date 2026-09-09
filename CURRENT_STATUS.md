@@ -1,5 +1,17 @@
 # Progress ds_search
 
+## 2026-09-09 — issue #36: patient_profile в RAG-контракте
+
+- `src/rag/patient_profile.py` валидирует профиль диагностической карты
+  (возраст, пол, диагноз, сопутствующие состояния, этап) и фильтрует chunks по
+  `lifecycle_stage`/`comorbidity_tags`; остальные поля остаются контекстом
+  генерации и не используются для догадок.
+- `src/rag/response_modes.py`: `prepare_generation_request()` и system prompt
+  принимают `patient_profile`, сохраняя retrieved chunks неизменными при
+  отсутствии retrieval-фильтров.
+- Тесты: `tests/test_patient_profile.py` и существующие response-mode тесты —
+  8 passed; `py_compile` и `git diff --check` — успешно.
+
 ## 2026-09-09 — issue #34: RAG response modes
 
 - `src/rag/response_modes.py` adds the generation-side `response_mode`
