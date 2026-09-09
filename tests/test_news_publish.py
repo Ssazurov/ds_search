@@ -48,6 +48,9 @@ def test_build_metadata_mapping():
     assert meta["source_domain"] == "example.com"
     assert meta["keywords"] == "сд, новости"
     assert meta["publish_date"] == "2026-09-08 10:00:00"
+    assert meta["category"] == "basic"
+    assert meta["lifecycle_stage"] == "unspecified"
+    assert meta["date_indexed"]
 
 
 def test_build_metadata_omits_empty_fields():

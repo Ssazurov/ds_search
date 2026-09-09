@@ -34,6 +34,7 @@ from crawl4ai import AsyncWebCrawler, CrawlerRunConfig
 from crawl4ai.deep_crawling import BestFirstCrawlingStrategy
 
 from ..license.checker import LicenseCheckResult, LicenseStatus, check_license
+from ..metadata.profile import build_ingestion_metadata
 from .config import SourceConfig
 from .filters import (
     build_filter_chain,
@@ -173,17 +174,13 @@ class SourceCrawler:
         attribution = self.license_result.build_attribution(
             title="", source_url=teaser_url,
         )
-        meta = {
-            "source_url": teaser_url,
-            "pdf_url": pdf_url,
-            "source_domain": self.cfg.domain,
-            "title": "",
-            "direction": self.cfg.direction,
-            "license": self.license_result.status.value,
-            "attribution": attribution,
-            "content_path": str(pdf_path),
-            "content_status": "saved",
-        }
+        meta = build_ingestion_metadata(
+            source_url=teaser_url, source_domain=self.cfg.domain, title="",
+            license=self.license_result.status.value, category=self.cfg.category,
+            lifecycle_stage=self.cfg.lifecycle_stage, pdf_url=pdf_url,
+            direction=self.cfg.direction, attribution=attribution,
+            content_path=str(pdf_path), content_status="saved",
+        )
         (self.out_dir / f"{doc_id}.json").write_text(
             json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
         )
@@ -198,16 +195,12 @@ class SourceCrawler:
         attribution = self.license_result.build_attribution(
             title=title, source_url=result.url,
         )
-        meta = {
-            "source_url": canon_url,
-            "source_domain": self.cfg.domain,
-            "title": title,
-            "direction": self.cfg.direction,
-            "license": self.license_result.status.value,
-            "attribution": attribution,
-            "content_path": str(md_path),
-            "content_status": "saved",
-        }
+        meta = build_ingestion_metadata(
+            source_url=canon_url, source_domain=self.cfg.domain, title=title,
+            license=self.license_result.status.value, category=self.cfg.category,
+            lifecycle_stage=self.cfg.lifecycle_stage, direction=self.cfg.direction,
+            attribution=attribution, content_path=str(md_path), content_status="saved",
+        )
         (self.out_dir / f"{doc_id}.json").write_text(
             json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
         )

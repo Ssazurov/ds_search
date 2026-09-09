@@ -27,6 +27,7 @@ except ImportError:
     pass
 
 from . import db
+from ..metadata.profile import build_ingestion_metadata
 
 
 class GarPublishError(RuntimeError):
@@ -110,16 +111,13 @@ def build_metadata(item: dict) -> dict:
     """Маппинг news_item -> доменный профиль метаданных GAR (issue #4/#5),
     doc_type=news (issue #49), license=own_generated (ADR-003)."""
     source_url = item["source_url"]
-    metadata = {
-        "source_url": source_url,
-        "source_domain": urlparse(source_url).netloc,
-        "title": item["title"],
-        "direction": item.get("direction", "news"),
-        "doc_type": "news",
-        "license": "own_generated",
-        "description": item.get("summary"),
-        "publish_date": item.get("published_at") or item.get("source_published_at"),
-    }
+    metadata = build_ingestion_metadata(
+        source_url=source_url, source_domain=urlparse(source_url).netloc,
+        title=item["title"], license="own_generated", category=item.get("category"),
+        lifecycle_stage=item.get("lifecycle_stage"), direction=item.get("direction", "news"),
+        doc_type="news", description=item.get("summary"),
+        publish_date=item.get("published_at") or item.get("source_published_at"),
+    )
     if item.get("tags"):
         metadata["keywords"] = ", ".join(item["tags"])
     return {k: v for k, v in metadata.items() if v is not None}

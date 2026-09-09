@@ -19,6 +19,8 @@ from typing import Any
 
 import yaml
 
+from .profile import LIFECYCLE_STAGES
+
 DIRECTIONS = ["methodology", "medicine", "law", "science", "news"]
 
 DOC_TYPES = [
@@ -36,8 +38,11 @@ AGE_GROUPS = ["prenatal", "0-3", "4-7", "8-12", "13-17", "18+"]
 # отклонит 422.
 LICENSE_STATUSES = ["unknown", "allow", "attribution_required", "deny", "pending_manual_review", "own_generated"]
 
-# Обязательные поля документа при загрузке в GAR (ADR-001 п.2).
-REQUIRED_FIELDS = ["source_url", "source_domain", "title", "license", "direction"]
+# Обязательные поля документа при загрузке в GAR (ADR-0002).
+REQUIRED_FIELDS = [
+    "source_url", "source_domain", "title", "license", "direction",
+    "date_indexed", "category", "lifecycle_stage", "comorbidity_tags", "reviewed_by",
+]
 
 _CATEGORIES_PATH = Path(__file__).resolve().parents[2] / "config" / "categories.yaml"
 _IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
@@ -47,6 +52,7 @@ _DEFAULT_DICTIONARIES = {
     "doc_types": list(DOC_TYPES),
     "target_audiences": list(TARGET_AUDIENCES),
     "age_groups": list(AGE_GROUPS),
+    "lifecycle_stages": list(LIFECYCLE_STAGES),
     "license_statuses": list(LICENSE_STATUSES),
 }
 
@@ -119,7 +125,7 @@ def save_dictionaries(dictionaries: dict, path: Path = _CATEGORIES_PATH) -> None
     if "license_statuses" in original and candidate.get("license_statuses") != original["license_statuses"]:
         raise ValueError("license_statuses нельзя изменять через UI")
     original["directions"] = candidate["directions"]
-    for key in ("doc_types", "target_audiences", "age_groups", "license_statuses"):
+    for key in ("doc_types", "target_audiences", "age_groups", "lifecycle_stages", "license_statuses"):
         if key in candidate:
             original[key] = candidate[key]
     validate_dictionaries(original)

@@ -6,6 +6,7 @@ import streamlit as st
 from src.discovery.presets import delete_preset, load_presets, save_preset
 from src.discovery.run_search import run_search
 from src.metadata.schema import load_dictionaries
+from src.metadata.profile import LIFECYCLE_STAGES
 from src.search.base import QuotaExceeded
 from src.search.chain import SearchProviderChain
 from src.search.tavily import TavilyProvider
@@ -39,12 +40,14 @@ def render() -> None:
         index=(dictionaries["target_audiences"].index(preset["target_audience"]) + 1
                if preset.get("target_audience") in dictionaries["target_audiences"] else 0),
     )
+    lifecycle_stage = st.selectbox("Этап жизненного пути", ["— не выбрано —"] + dictionaries.get("lifecycle_stages", LIFECYCLE_STAGES))
     max_results = st.slider("Кол-во результатов", 1, 50, preset.get("max_results", 10))
 
     metadata = {
         "suggested_direction": direction if direction != _NONE else None,
         "suggested_category": category if category != _NONE else None,
         "suggested_target_audience": target_audience if target_audience != _NONE else None,
+        "lifecycle_stage": lifecycle_stage if lifecycle_stage != _NONE else None,
     }
 
     col1, col2 = st.columns(2)

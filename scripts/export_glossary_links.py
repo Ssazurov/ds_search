@@ -12,6 +12,8 @@ from pathlib import Path
 
 import openpyxl
 
+from src.metadata.profile import build_ingestion_metadata
+
 ROOT = Path(__file__).resolve().parents[1]
 DS_ROOT = ROOT.parent  # ~/ds — где лежат исходные xlsx
 GLOSSARY_XLSX = DS_ROOT / "data" / "downsyndrome_glossary.xlsx"
@@ -89,17 +91,13 @@ def write_rag_doc(source_dir: Path, slug: str, title: str, content_md: str) -> N
     md_path = source_dir / f"{slug}.md"
     json_path = source_dir / f"{slug}.json"
     md_path.write_text(content_md, encoding="utf-8")
-    meta = {
-        "source_url": f"internal://ds_search/{slug}",
-        "source_domain": "ds_search",
-        "title": title,
-        "direction": "methodology",
-        "category": "inclusion",
-        "doc_type": "glossary" if slug == "glossary" else "resource_directory",
-        "license": "own_generated",
-        "target_audience": "parents,specialists",
-        "content_path": str(md_path),
-    }
+    meta = build_ingestion_metadata(
+        source_url=f"internal://ds_search/{slug}", source_domain="ds_search",
+        title=title, license="own_generated", category="inclusion",
+        direction="methodology",
+        doc_type="glossary" if slug == "glossary" else "resource_directory",
+        target_audience="parents,specialists", content_path=str(md_path),
+    )
     write_json(json_path, meta)
 
 

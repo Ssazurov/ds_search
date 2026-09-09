@@ -75,6 +75,11 @@ def test_download_single_substantive_saves_md(monkeypatch, tmp_path):
     meta = asyncio.run(dl.download_single(source, tmp_path))
     assert meta["content_status"] == "saved"
     assert meta["title"] == "Заголовок"
+    assert meta["category"] == "basic"
+    assert meta["lifecycle_stage"] == "unspecified"
+    assert meta["comorbidity_tags"] == ""
+    assert meta["reviewed_by"] == ""
+    assert len(meta["date_indexed"]) == 10
     assert (tmp_path / "downsideup.org" / f"{dl.doc_id_for('https://downsideup.org/a')}.md").exists()
 
 
@@ -85,6 +90,18 @@ def test_download_single_thin_without_pdf_link_fails(monkeypatch, tmp_path):
     source = {"url": "https://downsideup.org/a", "domain": "downsideup.org"}
     with pytest.raises(dl.DownloadError, match="thin content"):
         asyncio.run(dl.download_single(source, tmp_path))
+
+
+def test_download_single_preserves_curated_information_architecture(monkeypatch, tmp_path):
+    monkeypatch.setattr(dl, "check_license", lambda domain, url: _license())
+    result = FakeResult(markdown="Содержательный материал. " * 50, metadata={"title": "Заголовок"})
+    _patch_crawler(monkeypatch, result)
+    meta = asyncio.run(dl.download_single({
+        "url": "https://downsideup.org/a", "suggested_category": "comorbidities",
+        "lifecycle_stage": "medical",
+    }, tmp_path))
+    assert meta["category"] == "comorbidities"
+    assert meta["lifecycle_stage"] == "medical"
 
 
 def test_download_single_fetch_failed(monkeypatch, tmp_path):
