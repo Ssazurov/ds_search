@@ -28,6 +28,15 @@ def test_response_mode_does_not_change_retrieved_chunks():
     assert full.system_prompt != summary.system_prompt
 
 
+def test_prompt_requires_inline_citations_from_chunk_urls():
+    prompt = build_system_prompt("full")
+
+    assert "инлайн-ссылку" in prompt
+    assert "source_url" in prompt
+    assert "Не выдумывай URL" in prompt
+    assert "сразу после утверждения" in prompt
+
+
 def test_unknown_response_mode_is_rejected():
     with pytest.raises(ValueError, match="response_mode"):
         build_system_prompt("brief")  # type: ignore[arg-type]
