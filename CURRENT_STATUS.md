@@ -566,3 +566,12 @@ dataset_id), сам `ds_site` (репо пустое, ADR-004 ещё не реа
 - Файл `data/raw/basic/ds_o-sindrome3.md` отсутствует в текущем checkout
   (в каталоге есть только `ds_o-sindrome.md` и `ds_o-sindrome2.md`), поэтому
   его содержимое не изменялось.
+
+## 2026-09-09 — ADR-0002 перенесён для issue #33
+
+- Root ADR `ds/docs/adr/0002-rag-agent-capabilities.md` перенесён без
+  содержательных правок в `docs/adr/0002-rag-agent-capabilities.md`.
+- Ссылочная запись добавлена в `docs/decisions.md`.
+- Следующий implementation-ready slice: роль `coder` реализует issue #33,
+  добавив metadata `category` и `lifecycle_stage` в контракт/пайплайн ds_search
+  с тестами; архитектурные решения и scope зафиксированы в ADR-0002.
