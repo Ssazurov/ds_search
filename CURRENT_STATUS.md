@@ -1,5 +1,26 @@
 # Progress ds_search
 
+## 2026-09-09 — issue #33: metadata information architecture
+
+- `src/metadata/profile.py` централизует обязательные поля ADR-0002: `date_indexed`,
+  `category`, `lifecycle_stage`, `comorbidity_tags`, `reviewed_by`; неизвестные
+  значения жизненного этапа не угадываются и получают `unspecified`.
+- Профиль подключён к crawler/download, ручной загрузке, экспорту glossary/links
+  и публикации news; ручная загрузка и поиск позволяют выбрать категорию/этап.
+- `config/categories.yaml` содержит справочник этапов жизненного пути;
+  `schema.REQUIRED_FIELDS` обновлён под ADR-0002.
+- Проверка: focused pytest — 28 passed, `py_compile` и `git diff --check` — успешно.
+
+## 2026-09-09 — issue #33: локализация ADR-0002
+
+- Перенесён `/home/vector/projects/ds/docs/adr/0002-rag-agent-capabilities.md`
+  в `docs/adr/0002-rag-agent-capabilities.md` без содержательных изменений.
+- В `docs/decisions.md` зафиксировано решение по `category`, `lifecycle_stage` и
+  обязательным ingestion metadata: `source_url`, `license`, `date_indexed`,
+  `category`, `lifecycle_stage`, `comorbidity_tags`, `reviewed_by`.
+- Код не изменялся. Следующий bounded slice: роль ingestion реализует/проверяет
+  заполнение этих полей; роль search использует `category`/`lifecycle_stage` в
+  рамках issue #33.
 ## 2026-09-08 — issue #72: адаптивное распознавание структуры HTML→MD
 
 - `src/crawler/structure.py`: профильный механизм выбора структуры по домену и

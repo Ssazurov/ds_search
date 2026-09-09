@@ -44,6 +44,14 @@ age_groups:
 - 8-12
 - 13-17
 - 18+
+lifecycle_stages:
+- unspecified
+- prenatal
+- early_development
+- preschool_school
+- medical
+- legal_benefits
+- adult_life
 license_statuses:
 - unknown
 - allow

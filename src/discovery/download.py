@@ -30,6 +30,7 @@ from ..crawler.filters import (
     is_pdf_teaser_page,
 )
 from ..license.checker import check_license
+from ..metadata.profile import build_ingestion_metadata
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +69,8 @@ def find_local_document(domain: str, url: str, data_root: Path = DEFAULT_DATA_RO
 
 
 async def _save_pdf(pdf_url: str, teaser_url: str, domain: str, direction: str,
-                     license_result, out_dir: Path, base_name: str | None = None) -> dict | None:
+                     license_result, out_dir: Path, base_name: str | None = None,
+                     category: str | None = None, lifecycle_stage: str | None = None) -> dict | None:
     pdf_url = urljoin(teaser_url, pdf_url)
     doc_id = base_name or doc_id_for(teaser_url)
     pdf_path = out_dir / f"{doc_id}.pdf"
@@ -81,17 +83,13 @@ async def _save_pdf(pdf_url: str, teaser_url: str, domain: str, direction: str,
         logger.warning("не удалось скачать PDF %s: %s", pdf_url, exc)
         return None
 
-    meta = {
-        "source_url": teaser_url,
-        "pdf_url": pdf_url,
-        "source_domain": domain,
-        "title": "",
-        "direction": direction,
-        "license": license_result.status.value,
-        "attribution": license_result.build_attribution(title="", source_url=teaser_url),
-        "content_path": str(pdf_path),
-        "content_status": "saved",
-    }
+    meta = build_ingestion_metadata(
+        source_url=teaser_url, source_domain=domain, title="",
+        license=license_result.status.value, category=category,
+        lifecycle_stage=lifecycle_stage, pdf_url=pdf_url, direction=direction,
+        attribution=license_result.build_attribution(title="", source_url=teaser_url),
+        content_path=str(pdf_path), content_status="saved",
+    )
     (out_dir / f"{doc_id}.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
     return meta
 
@@ -112,6 +110,8 @@ async def download_single(
     url = source["url"]
     domain = source.get("domain") or urlsplit(url).netloc
     direction = source.get("suggested_direction") or "methodology"
+    category = source.get("suggested_category") or source.get("category")
+    lifecycle_stage = source.get("lifecycle_stage") or source.get("suggested_lifecycle_stage")
 
     license_result = check_license(domain, url)
     if not license_result.downloadable:
@@ -142,7 +142,7 @@ async def download_single(
         if is_pdf_teaser_page(html):
             pdf_url = find_pdf_teaser_link(html)
             if pdf_url:
-                meta = await _save_pdf(pdf_url, canon, domain, direction, license_result, out_dir, base_name)
+                meta = await _save_pdf(pdf_url, canon, domain, direction, license_result, out_dir, base_name, category, lifecycle_stage)
                 if meta:
                     return meta
             raise DownloadError("PDF-тизер без доступной прямой ссылки")
@@ -152,7 +152,7 @@ async def download_single(
         if len(fit_md.strip()) < MIN_FIT_MARKDOWN_CHARS:
             pdf_url = find_pdf_teaser_link(html)
             if pdf_url:
-                meta = await _save_pdf(pdf_url, canon, domain, direction, license_result, out_dir, base_name)
+                meta = await _save_pdf(pdf_url, canon, domain, direction, license_result, out_dir, base_name, category, lifecycle_stage)
                 if meta:
                     return meta
             raise DownloadError("контент слишком короткий (thin content/SPA)")
@@ -161,15 +161,12 @@ async def download_single(
         md_path = out_dir / f"{doc_id}.md"
         md_path.write_text(fit_md, encoding="utf-8")
         title = (result.metadata or {}).get("title", source.get("title", ""))
-        meta = {
-            "source_url": canon,
-            "source_domain": domain,
-            "title": title,
-            "direction": direction,
-            "license": license_result.status.value,
-            "attribution": license_result.build_attribution(title=title, source_url=canon),
-            "content_path": str(md_path),
-            "content_status": "saved",
-        }
+        meta = build_ingestion_metadata(
+            source_url=canon, source_domain=domain, title=title,
+            license=license_result.status.value, category=category,
+            lifecycle_stage=lifecycle_stage, direction=direction,
+            attribution=license_result.build_attribution(title=title, source_url=canon),
+            content_path=str(md_path), content_status="saved",
+        )
         (out_dir / f"{doc_id}.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
         return meta

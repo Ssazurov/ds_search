@@ -17,6 +17,7 @@ from src.discovery.config import load_settings
 from src.discovery.download import DownloadError, download_single
 from src.discovery.gar_client import GarDiscoveryClient
 from src.metadata.schema import load_dictionaries
+from src.metadata.profile import LIFECYCLE_STAGES, build_ingestion_metadata
 
 DATA_ROOT = Path(__file__).resolve().parents[1] / "data" / "raw"
 
@@ -54,7 +55,10 @@ def _render_queue() -> None:
             st.rerun()
 
 
-def _save_manual_file(uploaded_file, title: str, direction: str, doc_type: str) -> None:
+def _save_manual_file(
+    uploaded_file, title: str, direction: str, doc_type: str,
+    category: str | None = None, lifecycle_stage: str | None = None,
+) -> None:
     import hashlib
     domain = "manual"
     pseudo_url = f"manual://{uploaded_file.name}"
@@ -64,17 +68,12 @@ def _save_manual_file(uploaded_file, title: str, direction: str, doc_type: str) 
     suffix = Path(uploaded_file.name).suffix or ".bin"
     content_path = out_dir / f"{doc_id}{suffix}"
     content_path.write_bytes(uploaded_file.getvalue())
-    meta = {
-        "source_url": pseudo_url,
-        "source_domain": domain,
-        "title": title,
-        "direction": direction,
-        "doc_type": doc_type,
-        "license": "manual_upload",
-        "attribution": None,
-        "content_path": str(content_path),
-        "content_status": "saved",
-    }
+    meta = build_ingestion_metadata(
+        source_url=pseudo_url, source_domain=domain, title=title,
+        license="manual_upload", category=category, lifecycle_stage=lifecycle_stage,
+        direction=direction, doc_type=doc_type, attribution=None,
+        content_path=str(content_path), content_status="saved",
+    )
     (out_dir / f"{doc_id}.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
@@ -135,9 +134,12 @@ def _render_manual() -> None:
         uploaded = st.file_uploader("Файл документа")
         title = st.text_input("Заголовок (обязательно)")
         direction = st.selectbox("Направление", directions) if directions else st.text_input("Направление")
+        categories = dictionaries["directions"].get(direction, [])
+        category = st.selectbox("Категория", [""] + categories)
+        lifecycle_stage = st.selectbox("Этап жизненного пути", dictionaries.get("lifecycle_stages", LIFECYCLE_STAGES))
         doc_type = st.selectbox("Тип документа", dictionaries.get("doc_types", []) or [""])
         if st.button("Сохранить файл", disabled=not (uploaded and title.strip())):
-            _save_manual_file(uploaded, title.strip(), direction, doc_type)
+            _save_manual_file(uploaded, title.strip(), direction, doc_type, category or None, lifecycle_stage)
             st.success("Документ сохранён в data/raw/manual/")
             st.rerun()
     else:
