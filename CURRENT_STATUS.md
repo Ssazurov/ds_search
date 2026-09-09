@@ -1,5 +1,16 @@
 # Progress ds_search
 
+## 2026-09-09 — issue #34: RAG response modes
+
+- `src/rag/response_modes.py` adds the generation-side `response_mode`
+  contract: `full` produces a detailed synthesis prompt, `summary` asks for
+  concise bullets. Unknown values are rejected.
+- `prepare_generation_request()` passes the retrieved chunk sequence through
+  unchanged, so response mode changes only generation instructions and never
+  retrieval.
+- Tests: `tests/test_rag_response_modes.py` covers both prompts, retrieval
+  invariance, and invalid-mode rejection.
+
 ## 2026-09-09 — issue #33: metadata information architecture
 
 - `src/metadata/profile.py` централизует обязательные поля ADR-0002: `date_indexed`,
