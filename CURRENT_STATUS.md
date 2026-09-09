@@ -1,5 +1,14 @@
 # Progress ds_search
 
+## 2026-09-09 — issue #37: инлайн-цитирование источников
+
+- `src/rag/response_modes.py`: system prompt требует ставить ссылку на
+  `source_url` сразу после каждого проверяемого утверждения, запрещает
+  выдумывать URL и отдельный список источников без инлайн-ссылок.
+- `tests/test_rag_response_modes.py`: добавлена проверка требований к prompt.
+- Проверка: focused pytest `5 passed`, `py_compile` и `git diff --check` —
+  успешно.
+
 ## 2026-09-09 — issue #36: patient_profile в RAG-контракте
 
 - `src/rag/patient_profile.py` валидирует профиль диагностической карты
