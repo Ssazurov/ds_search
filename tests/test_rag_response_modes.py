@@ -44,6 +44,14 @@ def test_prompt_requires_explicit_coverage_gap_statement():
     assert "Не дополняй этот аспект общими знаниями" in prompt
 
 
+def test_prompt_requests_profile_aware_follow_up_questions():
+    prompt = build_system_prompt("full", {"age": 3, "lifecycle_stage": "early_development"})
+
+    assert "ровно 2–3 коротких вопроса-продолжения" in prompt
+    assert "релевантных ответу и контексту пациента" in prompt
+    assert "не повторять исходный вопрос" in prompt
+
+
 def test_unknown_response_mode_is_rejected():
     with pytest.raises(ValueError, match="response_mode"):
         build_system_prompt("brief")  # type: ignore[arg-type]
