@@ -37,6 +37,13 @@ def test_prompt_requires_inline_citations_from_chunk_urls():
     assert "сразу после утверждения" in prompt
 
 
+def test_prompt_requires_explicit_coverage_gap_statement():
+    prompt = build_system_prompt("full")
+
+    assert "мои источники не содержат ответа" in prompt
+    assert "Не дополняй этот аспект общими знаниями" in prompt
+
+
 def test_unknown_response_mode_is_rejected():
     with pytest.raises(ValueError, match="response_mode"):
         build_system_prompt("brief")  # type: ignore[arg-type]
