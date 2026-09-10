@@ -34,6 +34,8 @@ from crawl4ai import AsyncWebCrawler, CrawlerRunConfig
 from crawl4ai.deep_crawling import BestFirstCrawlingStrategy
 
 from ..license.checker import LicenseCheckResult, LicenseStatus, check_license
+from ..metadata import classify as classify_mod
+from ..metadata import gar_schema
 from ..metadata.meta_extract import extract_page_meta
 from ..metadata.profile import build_ingestion_metadata
 from .config import SourceConfig
@@ -63,6 +65,7 @@ class SourceCrawler:
         self.out_dir.mkdir(parents=True, exist_ok=True)
         self._seen_urls: set[str] = set()
         self.pdf_queue: list[str] = []  # issue #8 п.3: тизеры -> прямые PDF
+        self._gar_fields: dict | None = None  # issue #93: кэш схемы GAR на run()
 
     def _strategy(self) -> BestFirstCrawlingStrategy:
         return BestFirstCrawlingStrategy(
@@ -156,6 +159,32 @@ class SourceCrawler:
         )
         return saved
 
+    def _apply_classification(self, meta: dict, title: str, text: str) -> dict:
+        """issue #93: автозаполнение полей схемы GAR (age/target_audience/
+        doc_type) через classify.classify() (LLM issue #91 + per-source
+        fallback gar_mapping issue #90). direction/category уже заданы
+        SourceConfig вручную (курируется) — classify их не переопределяет,
+        участвует только в определении needs_review. needs_review=True не
+        блокирует сохранение документа, только помечает для ручной проверки
+        (см. scripts/needs_review_report.py)."""
+        try:
+            if self._gar_fields is None:
+                self._gar_fields = gar_schema.load_gar_schema()
+            fields = self._gar_fields
+        except gar_schema.GarSchemaError as exc:
+            logger.warning("схема GAR недоступна (%s) — needs_review без автозаполнения", exc)
+            meta["needs_review"] = True
+            return meta
+
+        result = classify_mod.classify(title, text, fields, domain=self.cfg.domain)
+        for key in ("age", "target_audience", "doc_type"):
+            if result.get(key) is not None:
+                meta[key] = result[key]
+
+        required = gar_schema.required_field_keys(fields)
+        meta["needs_review"] = any(not meta.get(key) for key in required)
+        return meta
+
     async def _download_pdf(self, pdf_url: str, teaser_url: str) -> dict | None:
         """issue #11: скачивает сам PDF-отчёт прямым http-запросом (не
         browser.goto — известная проблема issue #2, Playwright трактует
@@ -182,6 +211,7 @@ class SourceCrawler:
             direction=self.cfg.direction, attribution=attribution,
             content_path=str(pdf_path), content_status="saved",
         )
+        meta = self._apply_classification(meta, title="", text="")
         (self.out_dir / f"{doc_id}.json").write_text(
             json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
         )
@@ -204,6 +234,7 @@ class SourceCrawler:
             attribution=attribution, content_path=str(md_path), content_status="saved",
             **page_meta,
         )
+        meta = self._apply_classification(meta, title, fit_markdown)
         (self.out_dir / f"{doc_id}.json").write_text(
             json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
         )
