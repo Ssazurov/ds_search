@@ -1,5 +1,21 @@
 # Progress ds_search
 
+## 2026-09-10 — issue #40: экспорт ответа и диалога
+
+- `src/rag/export.py`: чистый renderer поверх готового ответа/истории без
+  повторного retrieval или generation. `export_answer()` и `export_dialogue()`
+  поддерживают `pdf`, `markdown`/`md` и `text`/`txt`; в экспорт попадают вопрос,
+  ответ и нормализованный список уникальных `source_url`.
+- PDF рендерится через `reportlab` с Unicode-шрифтом; при отсутствии зависимости
+  выбрасывается явный `PdfExportError`, Markdown и текст работают независимо.
+  `requirements.txt` дополнен `reportlab>=4.0`.
+- `tests/test_rag_export.py`: проверены источники, полная история, форматы,
+  plain-text ссылки и валидация формата. Проверка: focused pytest `6 passed`,
+  PDF-тест пропущен из-за отсутствующего `reportlab` в текущем `.venv`,
+  `py_compile` успешен.
+- В `ds_search` пока нет экрана RAG-чата; download-кнопки должны передать
+  готовую историю в этот renderer на стороне будущего chat UI/API.
+
 ## 2026-09-09 — issue #39: follow-up вопросы после ответа
 
 - `src/rag/response_modes.py`: system prompt требует после основного ответа
