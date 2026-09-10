@@ -1,0 +1,24 @@
+# Fallback-дефолты metadata-полей на уровне источника (issue #90, эпик #88).
+#
+# Используются, когда LLM-классификатор (issue #91) недоступен/дал ошибку —
+# пайплайн подставляет отсюда то, что можно, остальное уходит в needs_review
+# (см. src/metadata/gar_mapping.py resolve_defaults()).
+#
+# Ключ — "domain" (общий дефолт для источника) или "domain/dest_dir"
+# (более специфичный, побеждает при слиянии). Значения должны быть
+# активными опциями из словаря метаданных GAR (см. gar_schema.py
+# field_options()/category_options_for_direction() для сверки).
+sources:
+  "downsideup.org":
+    direction: razvitie-i-navyki
+
+  # scripts/batch_family_support.py: листинг с тегом "rasskazy-roditeley"
+  # (личные истории родителей) -> направление "Поддержка семьи" и
+  # категория "Исследования и опыт семей".
+  "downsideup.org/family_support":
+    direction: podderzhka-semi
+    category: issledovaniya-i-opyt-semey
+    target_audience: parents
+    doc_type: article
+    # age намеренно не задан: единого возраста для всех историй нет,
+    # безопаснее уйти в needs_review, чем угадать.
