@@ -34,6 +34,7 @@ from crawl4ai import AsyncWebCrawler, CrawlerRunConfig
 from crawl4ai.deep_crawling import BestFirstCrawlingStrategy
 
 from ..license.checker import LicenseCheckResult, LicenseStatus, check_license
+from ..metadata.meta_extract import extract_page_meta
 from ..metadata.profile import build_ingestion_metadata
 from .config import SourceConfig
 from .filters import (
@@ -192,6 +193,7 @@ class SourceCrawler:
         md_path.write_text(fit_markdown, encoding="utf-8")
 
         title = (result.metadata or {}).get("title", "")
+        page_meta = extract_page_meta(result.metadata)  # issue #92
         attribution = self.license_result.build_attribution(
             title=title, source_url=result.url,
         )
@@ -200,6 +202,7 @@ class SourceCrawler:
             license=self.license_result.status.value, category=self.cfg.category,
             lifecycle_stage=self.cfg.lifecycle_stage, direction=self.cfg.direction,
             attribution=attribution, content_path=str(md_path), content_status="saved",
+            **page_meta,
         )
         (self.out_dir / f"{doc_id}.json").write_text(
             json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
