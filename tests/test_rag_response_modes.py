@@ -55,3 +55,38 @@ def test_prompt_requests_profile_aware_follow_up_questions():
 def test_unknown_response_mode_is_rejected():
     with pytest.raises(ValueError, match="response_mode"):
         build_system_prompt("brief")  # type: ignore[arg-type]
+
+
+def test_parent_audience_adds_simple_language_instruction():
+    prompt = build_system_prompt("full", audience="parent")
+
+    assert "простым языком" in prompt
+    assert "без пояснения" in prompt
+
+
+def test_specialist_audience_adds_terminology_instruction():
+    prompt = build_system_prompt("full", audience="specialist")
+
+    assert "профессиональную медицинскую терминологию" in prompt
+    assert "клинические рекомендации" in prompt
+
+
+def test_audience_is_independent_from_response_mode():
+    full_parent = build_system_prompt("full", audience="parent")
+    summary_parent = build_system_prompt("summary", audience="parent")
+
+    assert "простым языком" in full_parent
+    assert "простым языком" in summary_parent
+    assert full_parent != summary_parent
+
+
+def test_unknown_audience_is_rejected():
+    with pytest.raises(ValueError, match="audience"):
+        build_system_prompt("full", audience="child")  # type: ignore[arg-type]
+
+
+def test_audience_is_stored_in_generation_request():
+    request = prepare_generation_request("Вопрос", [], audience="parent")
+
+    assert request.audience == "parent"
+    assert "простым языком" in request.system_prompt

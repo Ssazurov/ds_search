@@ -1,5 +1,18 @@
 # Progress ds_search
 
+## 2026-09-10 — issue #42: уровень аудитории parent/specialist в system prompt
+
+- `src/rag/response_modes.py`: добавлен параметр `audience: parent | specialist`
+  в `build_system_prompt()` и `prepare_generation_request()`. `parent` добавляет
+  инструкцию объяснять простым языком без сложной терминологии; `specialist` —
+  использовать профессиональную терминологию и ссылаться на клинические
+  рекомендации. Параметр независим от `response_mode`, не меняет retrieved chunks.
+- `tests/test_rag_response_modes.py`: 5 новых тестов — простой язык для parent,
+  терминология для specialist, независимость от response_mode, rejection未知ного
+  значения, хранение в `GenerationRequest`.
+- Проверка: focused pytest `16 passed`, `py_compile` и `git diff --check` —
+  успешно.
+
 ## 2026-09-10 — issue #41: query decomposition для сложных вопросов
 
 - `src/rag/query_decomposition.py`: эвристическая декомпозиция сложных вопросов
