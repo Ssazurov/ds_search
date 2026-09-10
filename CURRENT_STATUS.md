@@ -1,5 +1,28 @@
 # Progress ds_search
 
+## 2026-09-10 — issue #91: LLM-классификатор select-полей (эпик #88)
+
+- `src/metadata/classify.py`: `classify(title, text, fields, domain=, dest_dir=)`
+  строит промпт из активной схемы GAR (`gar_schema.field_options`/
+  `category_options_for_direction`) с списком допустимых опций по
+  age/target_audience/direction/category(dependent)/doc_type, зовёт LLM
+  (переиспользует `src/news/llm_draft.call_llm`/`parse_llm_json`,
+  провайдер/модель — `config/classify_llm.yaml`), валидирует ответ против
+  схемы (невалидное значение -> None).
+- Fallback-цепочка: ошибка/таймаут LLM или незакрытые LLM полем ->
+  `gar_mapping.resolve_defaults` (issue #90) по домену/dest_dir; поле, не
+  закрытое ни LLM, ни дефолтом, остаётся `None`. Результат содержит
+  `needs_review` (True, если есть None) и `source`
+  (`llm`/`llm+fallback`/`fallback`/`none`) — интеграция needs_review-статуса
+  в краулер — issue #93 (не в этом issue).
+- `tests/test_classify_llm.py`: 7 тестов (mock `call_llm`) — успех все
+  поля, невалидное значение -> None+needs_review, fallback при ошибке LLM,
+  дозаполнение частичного LLM-ответа дефолтами, без domain -> needs_review
+  без fallback, парсинг реального yaml-конфига. PR #97 (squash в main),
+  Closes #91.
+- Полный прогон `pytest`: 178 passed, 1 fail не связан с изменением
+  (`test_rag_export.py` — `NameError: mm` в reportlab-коде, эпик #43).
+
 ## 2026-09-10 — issue #43: тематические сессии (notebooks) по этапам
 
 - `src/rag/sessions.py`: реализация тематических сессий (notebooks) — диалог
