@@ -1,5 +1,21 @@
 # Progress ds_search
 
+## 2026-09-10 — issue #41: query decomposition для сложных вопросов
+
+- `src/rag/query_decomposition.py`: эвристическая декомпозиция сложных вопросов
+  на 2-5 под-запросов перед retrieval. `decompose_query()` возвращает
+  `DecomposedQuery` с `original`, `sub_queries` и `decomposed`; для простых
+  вопросов (менее 2 topic-marker'ов: союзы `и`/`или`/`а также`, `;`, запятые)
+  возвращает исходный вопрос без изменений. Дубликаты под-запросов удаляются,
+  количество ограничивается `max_sub_queries` (default 5).
+- `tests/test_query_decomposition.py`: 34 теста — детекция сложности, сплит по
+  разделителям, дедупликация, clamp, пустые входы, frozen dataclass.
+  Проверка: focused pytest `34 passed`, `py_compile` и `git diff --check` —
+  успешно.
+- В `ds_search` пока нет экрана RAG-чата; `decompose_query()` предназначен
+  для использования будущим `/chat` endpoint'ом или внешним RAG-оркестратором
+  (ds_ingestion/ds_site) перед retrieval.
+
 ## 2026-09-10 — issue #40: экспорт ответа и диалога
 
 - `src/rag/export.py`: чистый renderer поверх готового ответа/истории без
@@ -78,6 +94,7 @@
 - Код не изменялся. Следующий bounded slice: роль ingestion реализует/проверяет
   заполнение этих полей; роль search использует `category`/`lifecycle_stage` в
   рамках issue #33.
+
 ## 2026-09-08 — issue #72: адаптивное распознавание структуры HTML→MD
 
 - `src/crawler/structure.py`: профильный механизм выбора структуры по домену и
