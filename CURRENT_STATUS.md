@@ -1,5 +1,24 @@
 # Progress ds_search
 
+## 2026-09-10 — issue #43: тематические сессии (notebooks) по этапам
+
+- `src/rag/sessions.py`: реализация тематических сессий (notebooks) — диалог
+  привязывается к теме (этап/категория из information architecture), история
+  сессий не смешивается между собой. `SessionTopic` валидирует
+  `lifecycle_stage` по `LIFECYCLE_STAGES` и требует `lifecycle_stage` или
+  `category`. `ThematicSession` хранит историю `SessionTurn` и снапшот
+  `patient_profile` (наследуется при переключении темы, не теряется).
+  `SessionStore` — in-memory реестр с общим профилем пользователя, который
+  наследуется в каждую новую сессию; метод `switch()` создаёт пустую сессию в
+  новой теме, сохраняя профиль, но не историю.
+- `tests/test_rag_sessions.py`: 6 тестов — привязка к теме и наследование
+  профиля, изоляция историй, переключение темы с сохранением профиля,
+  валидация `lifecycle_stage`, требование темы, KeyError для пропущенной
+  сессии. Проверка: focused pytest `6 passed`, `py_compile` и
+  `git diff --check` — успешно.
+- В `ds_search` нет экрана RAG-чата; `SessionStore` предназначается для
+  будущего `/chat` endpoint'а или внешнего RAG-оркестратора (ds_site).
+
 ## 2026-09-10 — issue #42: уровень аудитории parent/specialist в system prompt
 
 - `src/rag/response_modes.py`: добавлен параметр `audience: parent | specialist`
