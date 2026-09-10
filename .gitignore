@@ -4,3 +4,4 @@ __pycache__/
 *.pyc
 .env
 data/
+config/gar_schema_cache.json
