@@ -1,5 +1,18 @@
 # Progress ds_search
 
+## 2026-09-10 — issue #92: meta_extract.py (эпик #88)
+
+- `src/metadata/meta_extract.py`: `extract_page_meta(metadata)` — author/
+  publish_date/description из `result.metadata` (crawl4ai уже парсит
+  og:*/article:*/name=description|author из HTML head). Приоритет:
+  og:*/article:* > обычный meta-тег > twitter:*. Без LLM.
+- Интеграция: `crawler.py:_save()` передаёт `page_meta` в
+  `build_ingestion_metadata(**page_meta)`.
+- Тесты: `tests/test_meta_extract.py` (3). Полный прогон: 181 passed,
+  1 fail не связан (test_rag_export pdf/reportlab, `mm` NameError в
+  src/rag/export.py — существовал до этого issue).
+- PR #98 (squash, merged), issue #92 закрыт (Closes).
+
 ## 2026-09-10 — issue #91: LLM-классификатор select-полей (эпик #88)
 
 - `src/metadata/classify.py`: `classify(title, text, fields, domain=, dest_dir=)`
