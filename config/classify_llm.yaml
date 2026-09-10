@@ -1,0 +1,8 @@
+# Конфиг LLM-классификатора select-полей metadata (issue #91, эпик #88).
+# provider: anthropic | openai_compatible
+provider: anthropic
+model: claude-sonnet-4-6
+endpoint: https://api.anthropic.com/v1/messages
+temperature: 0
+max_tokens: 400
+timeout_s: 30
