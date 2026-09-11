@@ -15,6 +15,8 @@ from pathlib import Path
 from typing import Any, Literal
 from xml.sax.saxutils import escape as escape_xml
 
+from .glossary_highlight import highlight_glossary_terms
+
 
 ExportFormat = Literal["pdf", "markdown", "text"]
 _FORMAT_ALIASES: dict[str, ExportFormat] = {
@@ -151,13 +153,18 @@ def render_answer_markdown(
     *,
     question: str | None = None,
     sources: Sequence[SourceReference | Mapping[str, Any] | str] | None = None,
+    glossary_terms: Sequence[Mapping[str, object]] | None = None,
+    glossary_path: str = "/glossary",
     title: str = "Ответ",
 ) -> str:
     """Render one assistant answer as Markdown, including source references."""
     lines = [f"# {title.strip() or 'Ответ'}", ""]
     if question and question.strip():
         lines.extend(["## Вопрос", "", question.strip(), ""])
-    lines.extend(["## Ответ", "", answer.strip(), ""])
+    answer_text = highlight_glossary_terms(
+        answer.strip(), glossary_terms or (), glossary_path=glossary_path
+    )
+    lines.extend(["## Ответ", "", answer_text, ""])
     _append_sources_markdown(lines, normalize_sources(sources))
     return "\n".join(lines).rstrip() + "\n"
 
@@ -355,6 +362,8 @@ def _register_unicode_font(pdfmetrics: Any, ttf_type: Any) -> str:
 
 
 def _draw_page_number(canvas: Any, document: Any) -> None:
+    from reportlab.lib.units import mm
+
     canvas.saveState()
     canvas.setFont("Helvetica", 8)
     canvas.drawRightString(

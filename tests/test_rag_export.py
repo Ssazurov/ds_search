@@ -10,6 +10,30 @@ from src.rag.export import (
     render_answer_markdown,
     render_dialogue_text,
 )
+from src.rag.glossary_highlight import highlight_glossary_terms
+
+
+def test_glossary_highlighter_links_matches_and_protects_markdown():
+    answer = "Гипотония и гипотония. `гипотония` [гипотония](https://example.test).\n```\nгипотония\n```"
+
+    highlighted = highlight_glossary_terms(
+        answer, [{"id": "term/1", "term": "гипотония"}]
+    )
+
+    assert highlighted.startswith(
+        "[Гипотония](/glossary/term%2F1) и [гипотония](/glossary/term%2F1)."
+    )
+    assert "`гипотония`" in highlighted
+    assert "[гипотония](https://example.test)" in highlighted
+    assert "```\nгипотония\n```" in highlighted
+
+
+def test_answer_export_can_highlight_glossary_terms():
+    markdown = render_answer_markdown(
+        "Термин важен.", glossary_terms=[{"id": "1", "term": "термин"}]
+    )
+
+    assert "[Термин](/glossary/1)" in markdown
 
 
 def test_answer_markdown_keeps_answer_and_deduplicates_chunk_sources():

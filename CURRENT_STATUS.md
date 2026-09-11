@@ -1,3 +1,25 @@
+## 2026-09-10 -- issue #94: тестовая загрузка test1.md новым пайплайном (эпик #88 закрыт)
+
+- SourceCrawler (не download_single) на одиночном URL (max_pages=1,
+  SourceConfig direction=podderzhka-semi, category=issledovaniya-i-opyt-semey
+  по gar_mapping family_support) -> data/raw/family_support/test1.md+json.
+- needs_review=true: age/target_audience/doc_type=null. LLM недоступна
+  в окружении, fallback ушёл на доменный gar_mapping (только direction) --
+  dest_dir-специфичный fallback (target_audience/doc_type) не подхватился,
+  т.к. _apply_classification зовёт classify() без dest_dir.
+- Найдено: нужен доп. фикс -- пробрасывать dest_dir в classify() из
+  crawler._save, иначе fallback по dest_dir из gar_mapping мёртвый код
+  для основного pipeline. Отдельный issue не заведён.
+- Issue #94 закрыт, эпик #88 (6/6) закрыт.
+
+## 2026-09-11 -- issue #103: автоподсветка терминов глоссария
+
+- `src/rag/glossary_highlight.py`: детерминированная подсветка вхождений термина
+  Markdown-ссылкой `/glossary/{id}`; longest-first, case-insensitive,
+  границы слов; существующие ссылки, inline/fenced code не изменяются.
+- `render_answer_markdown()` принимает `glossary_terms` и `glossary_path`.
+- Тесты добавлены в `tests/test_rag_export.py`.
+
 # Progress ds_search
 
 ## 2026-09-10 — issue #92: meta_extract.py (эпик #88)
