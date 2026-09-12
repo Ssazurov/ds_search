@@ -1,3 +1,17 @@
+## 2026-09-12 -- UI: кнопки "Загрузить в GAR" в documents_tab (issue #116, ADR-006 п.5)
+
+- `ui/documents_tab.py`: кнопка на строку документа (одиночная ingestion через
+  `src.gar_ingest.documents.ingest_document`) + кнопка "Загрузить все не
+  загруженные" по текущему фильтру направление/источник, с прогресс-баром.
+- Фильтры направление/источник добавлены (`_apply_filters`).
+- Колонка `ingested` в таблице теперь по факту `gar_document_id` в sidecar
+  `.json` (done/error/not_started), а не хардкод `not_started`.
+- Ошибки ingestion — `st.error` с текстом исключения (`ingest_error` пишется
+  в sidecar `.json` самой `ingest_document`), батч не падает целиком.
+- Метрика "В GAR" на dashboard_tab.py — отдельная задача, issue #117.
+- PR #124 (squash-merge в main), depends on #115 (closed).
+- Проверено: `py_compile`, импорт модуля, `pytest -k document` (9 passed).
+
 ## 2026-09-12 -- интеграция классификатора в download_single
 
 - `src/discovery/download.py`: после успешного сохранения `.md` и `.json`
@@ -828,3 +842,9 @@ dataset_id), сам `ds_site` (репо пустое, ADR-004 ещё не реа
   запись в `docs/decisions.md`.
 - Не сделано в этом issue: планировщик (cron/systemd timer) для регулярного
   запуска -- заводится отдельно при развёртывании.
+## 2026-09-12 -- бэкфилл шапок DownsideUp
+
+- Запущен `scripts/backfill_downsideup_header.py`: обновлён `test1.json`, шапка удалена из `test1.md`.
+- Остальные 110 файлов пропущены: в них нет распознаваемой текстовой шапки; всего остаётся 31 JSON без `description` или `author`.
+- Перезапись этих файлов без метаданных страницы не выполнялась.
+- Проверка: `git diff --check`; pytest заблокирован отсутствующей зависимостью `crawl4ai`.
