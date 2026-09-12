@@ -1,6 +1,6 @@
 """Дашборд — воронка found->approved->downloaded->ingested, разбивка по
-направлениям, ошибки (issue #20 п.5). ingested — всегда 0/not_started,
-см. ADR-002 открытый вопрос п.7 (нет сигнала от ds_ingestion)."""
+направлениям, ошибки (issue #20 п.5). ingested считается по факту
+gar_document_id в sidecar .json (issue #117, закрывает ADR-002 п.7)."""
 from __future__ import annotations
 
 from collections import Counter
@@ -29,13 +29,14 @@ def render() -> None:
     approved = status_counts.get("approved", 0) + status_counts.get("queued", 0) + \
         status_counts.get("downloading", 0) + status_counts.get("downloaded", 0)
     downloaded = status_counts.get("downloaded", 0)
-    ingested = 0  # ADR-002 п.7: нет сигнала от ds_ingestion
+    raw_docs = _scan_raw()
+    ingested = sum(1 for r in raw_docs if r.get("gar_document_id"))
 
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Найдено", found)
     c2.metric("Одобрено", approved)
     c3.metric("Скачано", downloaded)
-    c4.metric("В GAR", ingested, help="Не трекается программно — см. ADR-002 открытый вопрос п.7")
+    c4.metric("В GAR", ingested, help="По факту gar_document_id в sidecar .json (issue #117)")
 
     st.subheader("По направлениям")
     by_direction = Counter(r.get("direction") or "—" for r in rows)
@@ -51,4 +52,4 @@ def render() -> None:
     else:
         st.info("Ошибок нет")
 
-    st.caption(f"Документов на диске (raw): {len(_scan_raw())}")
+    st.caption(f"Документов на диске (raw): {len(raw_docs)}")
