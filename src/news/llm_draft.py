@@ -24,6 +24,7 @@ class LlmConfig:
     max_tokens: int
     prompt_template: str
     timeout_s: float = 60.0
+    api_key: str = ""
 
 
 def load_llm_config(path: Path = CONFIG_PATH) -> LlmConfig:
@@ -34,8 +35,9 @@ def load_llm_config(path: Path = CONFIG_PATH) -> LlmConfig:
         endpoint=data["endpoint"],
         temperature=float(data.get("temperature", 0.3)),
         max_tokens=int(data.get("max_tokens", 1500)),
-        prompt_template=data["prompt_template"],
+        prompt_template=data.get("prompt_template", ""),
         timeout_s=float(data.get("timeout_s", 60.0)),
+        api_key=str(data.get("api_key", "")),
     )
 
 
@@ -73,7 +75,7 @@ def _call_anthropic(prompt: str, config: LlmConfig) -> str:
 
 
 def _call_openai_compatible(prompt: str, config: LlmConfig) -> str:
-    api_key = os.environ.get("OPENAI_API_KEY", "")
+    api_key = config.api_key or os.environ.get("OPENAI_API_KEY", "")
     headers = {"content-type": "application/json"}
     if api_key:
         headers["authorization"] = f"Bearer {api_key}"

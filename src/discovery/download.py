@@ -34,6 +34,16 @@ from ..metadata.profile import build_ingestion_metadata
 
 logger = logging.getLogger(__name__)
 
+# Optional automatic classification after download (requires gar-core-api categories file).
+# Falls back to None when the classifier or its dependencies are unavailable.
+try:
+    import sys
+    from pathlib import Path as _Path
+    sys.path.insert(0, str(_Path(__file__).resolve().parents[2]))
+    from scripts.classify_article import classify_article  # type: ignore[import]
+except Exception:  # noqa: BLE001
+    classify_article = None
+
 MIN_FIT_MARKDOWN_CHARS = 200
 DEFAULT_DATA_ROOT = Path(__file__).resolve().parents[2] / "data" / "raw"
 
@@ -169,4 +179,18 @@ async def download_single(
             content_path=str(md_path), content_status="saved",
         )
         (out_dir / f"{doc_id}.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+
+        # Automatic classification after download (integrate classifier into pipeline).
+        # If classification fails, keep the original direction/category values.
+        if classify_article is not None:
+            try:
+                classification = classify_article(md_path)
+                meta["direction"] = classification.get("direction", meta.get("direction"))
+                meta["category"] = classification.get("category", meta.get("category"))
+                (out_dir / f"{doc_id}.json").write_text(
+                    json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("классификация не удалась для %s: %s", md_path, exc)
+
         return meta

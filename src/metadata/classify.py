@@ -35,6 +35,7 @@ def load_llm_config(path: Path = CONFIG_PATH) -> LlmConfig:
         max_tokens=int(data.get("max_tokens", 400)),
         prompt_template="",
         timeout_s=float(data.get("timeout_s", 30.0)),
+        api_key=str(data.get("api_key", "")),
     )
 
 

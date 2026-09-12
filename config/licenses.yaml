@@ -10,3 +10,8 @@ sindromlubvi.ru:
   checked_date: null
   notes: На сайте не найден запрет на скачивание и использование материалов
   status: attribution_required
+vk.ru:
+  attribution_template: 'Источник: {title} ({source_url}), Синдром любви (vk.ru)'
+  checked_date: null
+  notes: ''
+  status: attribution_required

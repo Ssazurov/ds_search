@@ -1,3 +1,26 @@
+## 2026-09-12 -- интеграция классификатора в download_single
+
+- `src/discovery/download.py`: после успешного сохранения `.md` и `.json`
+  вызывается `scripts.classify_article.classify_article(md_path)`, который
+  возвращает `direction` и `category` из `gar-core-api/docs/Направления_Категории_СД.md`.
+- При успехе поля `direction/category` в JSON обновляются на классифицированные.
+- При ошибке классификации (LLM недоступен, таймаут, невалидный ответ) —
+  ошибка логируется, скачивание не откатывается, `direction/category` остаются
+  исходными значениями из `source`.
+- Импорт `classify_article` опционален: если `scripts/classify_article.py` или
+  его зависимости недоступны, `classify_article = None` и классификация
+  пропускается.
+- Проверка: `download_single` на `https://downsideup.org/elektronnaya-biblioteka/alisa-i-chudesa`
+  с `suggested_direction/category = "family_support"` -> JSON получил
+  `direction: "ПОДДЕРЖКА СЕМЬИ"`, `category: "Первая реакция на диагноз (шок, принятие — пре- и постнатально)"`
+  вместо заглушки `family_support`.
+- Обработка ошибок: при недоступном LLM исходные `direction/category`
+  сохраняются в JSON, скачивание завершается успешно.
+- Тесты `tests/test_download.py` обновлены: `classify_article` замокан
+  в `test_download_single_substantive_saves_md` и
+  `test_download_single_preserves_curated_information_architecture`.
+- Прогон: `pytest tests/test_download.py` — 12 passed.
+
 ## 2026-09-10 -- issue #94: тестовая загрузка test1.md новым пайплайном (эпик #88 закрыт)
 
 - SourceCrawler (не download_single) на одиночном URL (max_pages=1,
@@ -19,6 +42,25 @@
   границы слов; существующие ссылки, inline/fenced code не изменяются.
 - `render_answer_markdown()` принимает `glossary_terms` и `glossary_path`.
 - Тесты добавлены в `tests/test_rag_export.py`.
+
+## 2026-09-11 -- issue #30: импорт сокращений в GAR
+
+- `scripts/import_glossary_expansions.py` выбирает из `data/ds_glossary.xlsx`
+  только сокращения, строит payload `term/expansion/aliases/status/active` для
+  `POST /datasets/{id}/glossary-terms`, пропускает уже существующие термины.
+- Есть `--dry-run`; dataset берётся из `GAR_DATASET_ID` или ищется по
+  `GAR_DATASET_NAME` (по умолчанию `sindrom-dauna`).
+- Добавлены тесты выбора сокращений. Реальный POST требует доступный GAR API.
+
+## 2026-09-11 -- классификация статьи по категориям СД
+
+- `scripts/classify_article.py` принимает путь к Markdown-статье, читает категории
+  из `gar-core-api/docs/Направления_Категории_СД.md`, вызывает настроенный LLM и
+  проверяет, что выбрана ровно одна категория из списка.
+- `_local_path()` принимает как полный, так и shell-съеденный вариант WSL UNC-пути
+  (`\\wsl.localhost\\Ubuntu\\...` и `\wsl.localhost\Ubuntu\...`).
+- В корневом `.kilo/command/classify-article.md` добавлена команда
+  `/classify-article <путь-к-статье>`.
 
 # Progress ds_search
 
