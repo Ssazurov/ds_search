@@ -30,6 +30,7 @@ from ..crawler.filters import (
     is_pdf_teaser_page,
 )
 from ..license.checker import check_license
+from ..metadata.downsideup_header import parse_header
 from ..metadata.profile import build_ingestion_metadata
 
 logger = logging.getLogger(__name__)
@@ -167,6 +168,10 @@ async def download_single(
                     return meta
             raise DownloadError("контент слишком короткий (thin content/SPA)")
 
+        header_meta: dict = {}
+        if domain == "downsideup.org":
+            header_meta, fit_md = parse_header(fit_md)
+
         doc_id = base_name or doc_id_for(canon)
         md_path = out_dir / f"{doc_id}.md"
         md_path.write_text(fit_md, encoding="utf-8")
@@ -178,6 +183,7 @@ async def download_single(
             attribution=license_result.build_attribution(title=title, source_url=canon),
             content_path=str(md_path), content_status="saved",
         )
+        meta.update(header_meta)
         (out_dir / f"{doc_id}.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
 
         # Automatic classification after download (integrate classifier into pipeline).
