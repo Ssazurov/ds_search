@@ -1,3 +1,29 @@
+## 2026-09-12 -- issue #127: маппинг glossary/links в схему фильтров сайта (эпик #126)
+
+- Новый `src/metadata/glossary_links_mapping.py`: `map_glossary_item()` /
+  `map_link_item()` — по-элементный маппинг category/age из
+  `data/exports/glossary.json`/`links.json` в direction/category/doc_type/
+  target_audience/age (активные опции GAR, `gar_schema.py`).
+- `GLOSSARY_CATEGORY_MAP` (6/6 категорий) и `LINK_CATEGORY_MAP` (25/25,
+  включая соцсети) покрывают все текущие значения — проверено скриптом
+  сверки с `data/exports/*.json` и `category_options_for_direction()`
+  (0 непокрытых категорий, 0 невалидных пар direction/category).
+- `doc_type` = `glossary_term`/`link` по требованию issue, но этих значений
+  ещё нет среди активных опций поля `doc_type` в GAR
+  (`config/gar_schema_cache.json`) — **блокер для #128**, нужно
+  завести/активировать на стороне GAR перед индексацией.
+- `age`: однозначно мапится только `"18+" -> "18+ лет"`; "Все"/"Дети"/
+  "Взрослые" оставлены `None` (needs_review) — не угадываем жизненный этап.
+- `region`/`relevance` из links.json сознательно не переносятся — не входят
+  в целевую схему фильтров (direction/category/doc_type/age/target_audience).
+- `target_audience` = `"parents"` везде (было некорректной comma-строкой
+  "parents,specialists" в старом профиле — поле single-select).
+- `gar_mapping.py`/`classify.py` менять не потребовалось: doc_type там
+  тянется динамически из схемы GAR (`_SELECT_FIELDS`), правки не нужны,
+  пока новые опции не заведены на стороне GAR.
+- `tests/test_glossary_links_mapping.py` — 5 passed.
+- Готово к использованию в #128 (per-item ingestion glossary/links в GAR).
+
 ## 2026-09-12 -- UI: кнопки "Загрузить в GAR" в documents_tab (issue #116, ADR-006 п.5)
 
 - `ui/documents_tab.py`: кнопка на строку документа (одиночная ingestion через
