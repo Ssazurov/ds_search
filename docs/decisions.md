@@ -8,6 +8,9 @@
 | 2026-09-08 | ADR-003 (issue #61) | Cron-автосбор новостей не пишет в discovered_sources/GAR (та очередь — для ручной курации основного корпуса, ADR-002); переиспользует discovery.download.download_single (тот же license-гейт), дедуп по своей news_items. |
 | 2026-09-08 | ADR-005 | Экспорт glossary/links xlsx -> JSON для ds_site + 2 агрегированных документа (не поштучно) в RAG, license=own_generated, source_url=internal://, новые doc_type glossary/resource_directory в categories.yaml. |
 | 2026-09-07 | ADR-0002 | Возможности RAG-агента: агрегатор, режимы ответа, диагностическая карта и обязательные metadata `category`/`lifecycle_stage`; перенесено из root `ds/docs/adr/0002-rag-agent-capabilities.md`. |
+| 2026-09-12 | амендмент ADR-001 п.2 / ADR-002 п.2 | Уточнение направления синхронизации схемы metadata-fields: источник правды — GAR (`sindrom-dauna`), редактируется только там; `ds_search/config/categories.yaml` и `ensure_domain_schema` (ds_ingestion) — локальная копия/bootstrap, не канал записи в GAR. Найдено при разборе alisa-i-chudesa.json (см. CURRENT_STATUS ds_search 2026-09-12). |
+
+| 2026-09-12 | ADR-006 | Ingestion обычных документов в GAR через UI (не только новости): общий `GarIngestClient` (рефакторинг из news/publish.py), ingestion одного/пакета документов из `data/raw`, статус в sidecar `.json` (`gar_document_id`), дашборд считает «В GAR» по факту — закрывает ADR-002 п.7. `ds_ingestion` CLI остаётся для bulk/bootstrap. |
 
 ## 2026-09-08 — ADR-052 (gar-core-api): публичный шлюз для сайта
 Не автономное ADR ds_search (репозиторий gar-core-api ведёт свою нумерацию
