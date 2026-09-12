@@ -37,6 +37,7 @@ from ..license.checker import LicenseCheckResult, LicenseStatus, check_license
 from ..metadata import classify as classify_mod
 from ..metadata import gar_schema
 from ..metadata.meta_extract import extract_page_meta
+from ..metadata.downsideup_header import parse_header
 from ..metadata.profile import build_ingestion_metadata
 from .config import SourceConfig
 from .filters import (
@@ -218,12 +219,21 @@ class SourceCrawler:
         return meta
 
     def _save(self, result, canon_url: str, fit_markdown: str) -> dict:
+        header_meta: dict = {}
+        if self.cfg.domain == "downsideup.org":
+            # шапка статьи (дата/описание/автор) — текст, не HTML og:*-теги,
+            # extract_page_meta её не видит; вырезаем перед сохранением .md.
+            header_meta, fit_markdown = parse_header(fit_markdown)
+
         doc_id = hashlib.sha256(canon_url.encode()).hexdigest()[:16]
         md_path = self.out_dir / f"{doc_id}.md"
         md_path.write_text(fit_markdown, encoding="utf-8")
 
         title = (result.metadata or {}).get("title", "")
         page_meta = extract_page_meta(result.metadata)  # issue #92
+        for key, value in header_meta.items():
+            if value:
+                page_meta[key] = value
         attribution = self.license_result.build_attribution(
             title=title, source_url=result.url,
         )
