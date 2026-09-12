@@ -87,3 +87,31 @@ class GarIngestClient:
         if resp.status_code != 200:
             raise GarPublishError(f"ingest {file_path.name} failed: {resp.status_code} {resp.text}")
         return resp.json()
+
+    def list_documents(self, dataset_id: str, status: str | None = "indexed") -> list[dict]:
+        """GET /ingestion/documents?dataset_id=... (issue #110). status=None
+        передаётся как пустая строка, чтобы получить все статусы, как в API."""
+        params = {"dataset_id": dataset_id, "status": status or ""}
+        resp = self._client.get("/ingestion/documents", params=params)
+        if resp.status_code != 200:
+            raise GarPublishError(f"list documents failed: {resp.status_code} {resp.text}")
+        return resp.json().get("documents", [])
+
+    def get_document_text(self, document_id: str) -> str:
+        """Канонический markdown документа (assets/canonical-md) для анализа
+        текста (issue #110). Пустая строка, если ассет недоступен (404)."""
+        resp = self._client.get(f"/ingestion/documents/{document_id}/assets/canonical-md")
+        if resp.status_code == 404:
+            return ""
+        if resp.status_code != 200:
+            raise GarPublishError(f"get document text {document_id} failed: {resp.status_code} {resp.text}")
+        return resp.text
+
+    def patch_document_metadata(self, document_id: str, metadata: dict) -> dict:
+        """PATCH /ingestion/documents/{id}: сервер мержит metadata с
+        существующей (services/document_edit_service.update_document),
+        так что здесь безопасно передавать только изменяемые поля."""
+        resp = self._client.patch(f"/ingestion/documents/{document_id}", json={"metadata": metadata})
+        if resp.status_code != 200:
+            raise GarPublishError(f"patch document {document_id} failed: {resp.status_code} {resp.text}")
+        return resp.json()

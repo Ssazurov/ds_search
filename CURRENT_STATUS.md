@@ -809,3 +809,22 @@ dataset_id), сам `ds_site` (репо пустое, ADR-004 ещё не реа
   «мои источники не содержат ответа», если retrieved-фрагменты не покрывают
   аспект вопроса; запрещено дополнять пробел общими знаниями или скрывать его.
 - `tests/test_rag_response_modes.py`: добавлена проверка этого требования.
+
+## 2026-09-12 -- issue #110: фоновый джоб автозаполнения keywords (ADR-007)
+
+- `src/gar_ingest/client.py`: +3 метода к `GarIngestClient` -- `list_documents`,
+  `get_document_text` (canonical-md), `patch_document_metadata` (merge на
+  сервере). Проверены против routers/ingestion.py + schemas/documents.py в
+  gar-core-api -- сигнатуры/поля совпадают.
+- `src/metadata/keywords_worker.py`: `process_dataset()` проходит indexed-
+  документы, пропускает уже имеющие `keywords` (кроме `--force`), извлекает
+  keywords LLM'ом (`config/keywords_llm.yaml`, отдельный от classify_llm.yaml),
+  пишет PATCH. Ошибка на документе не роняет джоб. CLI:
+  `python -m src.metadata.keywords_worker [--dataset][--limit][--force][--dry-run]`.
+- `tests/test_keywords_worker.py`: 7 тестов (FakeClient, mock call_llm) --
+  extract_keywords парсинг, обновление/skip/force/dry-run/сбор ошибок/limit.
+  `pytest tests/test_keywords_worker.py` -- 7 passed.
+- ADR-007 (`docs/adr/ADR-007-avtozapolnenie-keywords-fonovym-dzhobom.md`),
+  запись в `docs/decisions.md`.
+- Не сделано в этом issue: планировщик (cron/systemd timer) для регулярного
+  запуска -- заводится отдельно при развёртывании.

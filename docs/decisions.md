@@ -12,6 +12,8 @@
 
 | 2026-09-12 | ADR-006 | Ingestion обычных документов в GAR через UI (не только новости): общий `GarIngestClient` (рефакторинг из news/publish.py), ingestion одного/пакета документов из `data/raw`, статус в sidecar `.json` (`gar_document_id`), дашборд считает «В GAR» по факту — закрывает ADR-002 п.7. `ds_ingestion` CLI остаётся для bulk/bootstrap. |
 
+| 2026-09-12 | ADR-007 (issue #110) | Автозаполнение GAR-поля keywords — отдельный фоновый джоб `src/metadata/keywords_worker.py` ПОСЛЕ ingestion (не в pre-upload download.py/classify.py): читает indexed-документы через `GarIngestClient.list_documents`/`get_document_text`, извлекает keywords LLM'ом (`config/keywords_llm.yaml`), пишет `patch_document_metadata` (сервер мержит). Идемпотентно (skip если keywords уже есть), `--force`/`--dry-run`. |
+
 ## 2026-09-08 — ADR-052 (gar-core-api): публичный шлюз для сайта
 Не автономное ADR ds_search (репозиторий gar-core-api ведёт свою нумерацию
 ADR). Решение: Cloudflare Tunnel с path-based ingress (только /public/*,
