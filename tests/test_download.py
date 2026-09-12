@@ -71,6 +71,7 @@ def test_download_single_substantive_saves_md(monkeypatch, tmp_path):
     result = FakeResult(success=True, html=html, markdown="Статья про раннее развитие. " * 50,
                          metadata={"title": "Заголовок"})
     _patch_crawler(monkeypatch, result)
+    monkeypatch.setattr(dl, "classify_article", lambda path: {"direction": "methodology", "category": "basic"})
     source = {"url": "https://downsideup.org/a", "domain": "downsideup.org", "suggested_direction": "methodology"}
     meta = asyncio.run(dl.download_single(source, tmp_path))
     assert meta["content_status"] == "saved"
@@ -96,6 +97,7 @@ def test_download_single_preserves_curated_information_architecture(monkeypatch,
     monkeypatch.setattr(dl, "check_license", lambda domain, url: _license())
     result = FakeResult(markdown="Содержательный материал. " * 50, metadata={"title": "Заголовок"})
     _patch_crawler(monkeypatch, result)
+    monkeypatch.setattr(dl, "classify_article", lambda path: {"direction": "methodology", "category": "comorbidities"})
     meta = asyncio.run(dl.download_single({
         "url": "https://downsideup.org/a", "suggested_category": "comorbidities",
         "lifecycle_stage": "medical",

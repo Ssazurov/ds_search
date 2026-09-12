@@ -1,25 +1,44 @@
 directions:
-  methodology:
-  - speech_development
-  - motor_development
-  - school_preparation
-  - inclusion
-  medicine:
-  - genetics
-  - comorbidities
-  - diagnostics
-  - rehabilitation
-  law:
-  - social_protection
-  - education_rights
-  - legal_capacity
-  science:
-  - genetics
-  - epidemiology
-  - socialization
-  - method_efficacy
-  basic:
-  - basic
+  zdorove:
+  - prenatalnaya-diagnostika-i-pervye-nedeli-posle-diagnoza
+  - medicinskoe-nablyudenie
+  - pitanie-son-fizicheskaya-aktivnost
+  - psihicheskoe-zdorove
+  - vozrastnye-izmeneniya-i-demenciya
+  - palliativnaya-pomosch-i-uhod-v-konce-zhizni
+  razvitie-i-navyki:
+  - rannee-vmeshatelstvo
+  - logopediya-i-alternativnaya-kommunikaciya
+  - metodiki-obucheniya-i-korrekcii-povedeniya
+  - kognitivnoe-razvitie
+  - bytovaya-samostoyatelnost
+  - assistivnye-tehnologii
+  obrazovanie-i-trud:
+  - doshkolnoe-i-shkolnoe-obrazovanie-inklyuziya
+  - profobuchenie-i-proforientaciya
+  - trudoustroystvo-i-soprovozhdaemaya-zanyatost
+  - samozanyatost
+  - praktiki-rabotodateley
+  otnosheniya-i-socialnaya-zhizn:
+  - druzhba-lyubov-partnerstvo
+  - lichnye-granicy-i-bezopasnost
+  - dosug-i-soobschestva
+  - lichnyy-opyt-lyudey-s-sd
+  vzroslaya-zhizn-i-prava:
+  - perehod-vo-vzroslost
+  - prozhivanie
+  - opeka-podderzhka-prinyatiya-resheniy
+  - prava-lgoty-vyplaty
+  - finansy-i-dokumenty
+  - planirovanie-posle-nas
+  podderzhka-semi:
+  - pervaya-reakciya-na-diagnoz
+  - psihologicheskaya-podderzhka-na-vseh-etapah
+  - obuchenie-roditeley-i-blizkih
+  - soobschestva-i-vzaimopomosch
+  - advocacy-i-zaschita-prav
+  - gore-i-utrata
+  - issledovaniya-i-opyt-semey
 doc_types:
 - book
 - guide
