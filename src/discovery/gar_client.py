@@ -52,6 +52,12 @@ class GarDiscoveryClient:
             raise GarDiscoveryClientError(f"upsert discovered sources for run {run_id} failed: {resp.status_code} {resp.text}")
         return resp.json()
 
+    def list_search_runs(self, limit: int = 20) -> list[dict]:
+        resp = self._client.get("/search-runs", params={"limit": limit})
+        if resp.status_code != 200:
+            raise GarDiscoveryClientError(f"list search runs failed: {resp.status_code} {resp.text}")
+        return resp.json()
+
     def list_discovered_sources(self, status: str | None = None, domain: str | None = None) -> list[dict]:
         params = {k: v for k, v in {"status": status, "domain": domain}.items() if v is not None}
         resp = self._client.get("/discovered-sources", params=params)
