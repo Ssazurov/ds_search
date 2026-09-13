@@ -115,3 +115,24 @@ class GarIngestClient:
         if resp.status_code != 200:
             raise GarPublishError(f"patch document {document_id} failed: {resp.status_code} {resp.text}")
         return resp.json()
+
+    def archive_document(self, document_id: str) -> dict:
+        """POST /ingestion/documents/{id}/archive: скрыть из /public и
+        chat-retrieval без удаления данных (issue #133)."""
+        resp = self._client.post(f"/ingestion/documents/{document_id}/archive")
+        if resp.status_code != 200:
+            raise GarPublishError(f"archive document {document_id} failed: {resp.status_code} {resp.text}")
+        return resp.json()
+
+    def unarchive_document(self, document_id: str) -> dict:
+        resp = self._client.post(f"/ingestion/documents/{document_id}/unarchive")
+        if resp.status_code != 200:
+            raise GarPublishError(f"unarchive document {document_id} failed: {resp.status_code} {resp.text}")
+        return resp.json()
+
+    def delete_document(self, document_id: str) -> dict:
+        """DELETE /ingestion/documents/{id}: полное удаление (hard delete)."""
+        resp = self._client.delete(f"/ingestion/documents/{document_id}")
+        if resp.status_code != 200:
+            raise GarPublishError(f"delete document {document_id} failed: {resp.status_code} {resp.text}")
+        return resp.json()

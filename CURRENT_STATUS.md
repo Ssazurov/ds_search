@@ -1,3 +1,18 @@
+## 2026-09-13 -- issue #133: archive/unarchive документов (admin UI)
+
+- gar-core-api: эндпоинты `POST /documents/{id}/archive` и
+  `/unarchive` (по образцу PATCH /documents/{document_id}), status
+  меняется через существующий merge-PATCH сервис. `/chat-retrieval`
+  уже фильтрует по `status == "indexed"` — archived исключаются
+  автоматически, отдельный фикс по ADR-0005 не требуется (закрыт по
+  факту). Тесты зелёные (99 passed). PR gar-core-api #314.
+- ds_search: методы `archive_document`/`unarchive_document` в
+  `GarIngestClient`; карточка материала в Streamlit admin UI (кнопки
+  archive/unarchive), таб зарегистрирован в `app.py`. Синтаксис
+  проверен. PR ds_search #135 (Closes #133).
+- Не сделано: миграция старых архивных документов задним числом —
+  не требовалась (новая функциональность применяется вперёд).
+
 ## 2026-09-13 -- issue #131: поэлементная загрузка glossary/links в GAR
 
 - `doc_type`: добавлены опции `link`, `glossary_term`, `glossary_abb` в GAR
