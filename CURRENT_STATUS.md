@@ -1,3 +1,18 @@
+## 2026-09-13 -- issue #134: Streamlit таб «Статус агентов»
+
+- gar-core-api: эндпоинт `GET /search-runs` (limit, tenant-scoped, сортировка
+  по `started_at desc`) в `routers/discovery.py`. Тесты зелёные (559 passed,
+  1 pre-existing error в test_routing_observability, не связан). PR
+  gar-core-api `feat/list-search-runs-endpoint`.
+- ds_search: `GarDiscoveryClient.list_search_runs()`; новый
+  `ui/agents_status_tab.py` — таблица последних search-runs, bar_chart
+  discovered_sources по статусу, метрики новостей (всего/за сегодня) +
+  последний news_item из `src/news/db.list_news_items()`. Таб подключён в
+  `ui/app.py`. Тесты: 208 passed, 1 pre-existing fail (test_classify, не
+  связан с изменениями). PR ds_search #136 (Closes #134).
+- Не сделано: PR gar-core-api не смёржен на момент записи — таб не будет
+  работать до мёржа/деплоя эндпоинта `/search-runs`.
+
 ## 2026-09-13 -- issue #133: archive/unarchive документов (admin UI)
 
 - gar-core-api: эндпоинты `POST /documents/{id}/archive` и
