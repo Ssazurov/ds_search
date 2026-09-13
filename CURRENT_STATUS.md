@@ -1,3 +1,20 @@
+## 2026-09-13 -- issue #131: поэлементная загрузка glossary/links в GAR
+
+- `doc_type`: добавлены опции `link`, `glossary_term`, `glossary_abb` в GAR
+  (dataset `sindrom-dauna`), кэш схемы обновлён (ds_ingestion#43d1a9d).
+- `glossary_links_mapping.py`: `_is_abbreviation()` (`term.isupper()`) →
+  23 сокращения размечены `glossary_abb`, остальные `glossary_term`. Тест
+  добавлен, 6/6 зелёные.
+- Новый `scripts/export_glossary_links_items.py`: генерирует поэлементные
+  `data/raw/glossary_items/*.json+*.md` (64) и `data/raw/links_items/*.json+*.md`
+  (126). 0 `needs_review` (все direction/category замаплены).
+- Загружено в GAR через `ds_ingestion` CLI: glossary_items 64/64,
+  links_items 126/126 (подтверждено по `data/*.ingested.json`).
+- Коммиты: ds_search `ff58dae` (Closes #131), ds_ingestion `43d1a9d`.
+- Не сделано в рамках этой задачи: судьба старых агрегированных
+  документов `glossary`/`links` в GAR (issue #128) не решена; facets в
+  `/public/documents` (ds_site) на новые doc_type не проверялись.
+
 ## 2026-09-12 -- issue #128: индексация glossary/links в GAR через ingestion-пайплайн
 
 - `python -m src.adapter.cli glossary` / `links` успешно загрузили оба
