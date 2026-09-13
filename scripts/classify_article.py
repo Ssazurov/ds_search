@@ -19,8 +19,8 @@ DEFAULT_CATEGORIES_PATH = (
     / "docs"
     / "Направления_Категории_СД.md"
 )
-_SUBCATEGORY_RE = re.compile(r"^\s*[├└]─\s+(.+?)\s*$")
-_DIRECTION_RE = re.compile(r"^\s*\d+\.\s+(.+?)\s*$")
+_SUBCATEGORY_RE = re.compile(r"^\s*[├└]─\s+(.+?)(?:\s*\(([^)]+)\))?\s*$")
+_DIRECTION_RE = re.compile(r"^\s*(?:\d+\.\s+)?(.+?)(?:\s*\(([^)]+)\))?\s*$")
 _TEXT_LIMIT = 4000
 
 
@@ -42,17 +42,31 @@ def _local_path(path: Path) -> Path:
 
 
 def parse_categories(markdown: str) -> list[tuple[str, str]]:
-    """Извлечь пары «направление, категория» из Markdown-списка."""
+    """Извлечь пары «направление, категория» из Markdown-списка.
+
+    Поддерживает два формата заголовков направлений:
+    - нумерованный: ``1. ЗДОРОВЬЕ``
+    - с slug в скобках: ``ЗДОРОВЬЕ (zdorove)``
+
+    Если slug присутствует — возвращается он (это значение ожидает GAR),
+    иначе — русское название.
+    """
     pairs: list[tuple[str, str]] = []
     direction: str | None = None
     for line in markdown.splitlines():
+        category_match = _SUBCATEGORY_RE.match(line)
+        if category_match and direction:
+            name = category_match.group(1).strip()
+            slug = category_match.group(2)
+            category = slug if slug else name
+            pairs.append((direction, category))
+            continue
         direction_match = _DIRECTION_RE.match(line)
         if direction_match:
-            direction = direction_match.group(1)
+            name = direction_match.group(1).strip()
+            slug = direction_match.group(2)
+            direction = slug if slug else name
             continue
-        category_match = _SUBCATEGORY_RE.match(line)
-        if direction and category_match:
-            pairs.append((direction, category_match.group(1)))
     if not pairs:
         raise ValueError("В файле категорий не найдено ни одной подкатегории")
     return pairs

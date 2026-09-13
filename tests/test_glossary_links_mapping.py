@@ -11,6 +11,11 @@ def test_map_glossary_item_known_category():
     assert result["age"] is None
 
 
+def test_map_glossary_item_abbreviation_detected():
+    result = m.map_glossary_item({"category": "Медицина и генетика СД", "term": "ОВЗ"})
+    assert result["doc_type"] == "glossary_abb"
+
+
 def test_map_glossary_item_unknown_category_is_none():
     result = m.map_glossary_item({"category": "неизвестное"})
     assert result["direction"] is None

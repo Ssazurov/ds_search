@@ -28,7 +28,15 @@ LLM: справочник маленький и стабильный, 6 кате
 from __future__ import annotations
 
 DOC_TYPE_GLOSSARY = "glossary_term"
+DOC_TYPE_GLOSSARY_ABB = "glossary_abb"
 DOC_TYPE_LINK = "link"
+
+# Эвристика "это сокращение, а не термин" (issue #131): term без строчных
+# букв ("ОВЗ", "MVP", "АДК (AAC)") -- отдельного флага в словаре нет,
+# проверено на всех 64 записях data/exports/glossary.json (23 сокращения),
+# ложных срабатываний не найдено.
+def _is_abbreviation(term: str) -> bool:
+    return bool(term) and term.isupper()
 
 DEFAULT_TARGET_AUDIENCE = "parents"
 
@@ -84,10 +92,11 @@ def map_glossary_item(item: dict) -> dict:
     age}. category/direction = None, если исходная категория не из таблицы
     (needs_review при последующей интеграции с #93-подобным пайплайном)."""
     direction, category = GLOSSARY_CATEGORY_MAP.get(item.get("category", ""), (None, None))
+    doc_type = DOC_TYPE_GLOSSARY_ABB if _is_abbreviation(item.get("term", "")) else DOC_TYPE_GLOSSARY
     return {
         "direction": direction,
         "category": category,
-        "doc_type": DOC_TYPE_GLOSSARY,
+        "doc_type": doc_type,
         "target_audience": DEFAULT_TARGET_AUDIENCE,
         "age": None,
     }

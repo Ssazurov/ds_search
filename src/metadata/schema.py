@@ -33,15 +33,29 @@ TARGET_AUDIENCES = ["parents", "specialists", "researchers"]
 
 AGE_GROUPS = ["prenatal", "0-3", "4-7", "8-12", "13-17", "18+"]
 
+# Активные required select-опции поля age в датасете sindrom-dauna
+# (GET /datasets/.../metadata-fields, 2026-09-12). Отличается от AGE_GROUPS —
+# это enum backend'а, а не наш внутренний справочник.
+AGE_OPTIONS = [
+    "Беременность", "Все возрасты", "0-1 год", "1-3 года",
+    "3-7 лет", "7-12 лет", "12-18 лет", "18+ лет",
+]
+
 # Фиксированный enum backend'а (gar-core-api PR #222, LICENSE_STATUSES) —
 # не редактируется через справочники, любое другое значение backend
 # отклонит 422.
 LICENSE_STATUSES = ["unknown", "allow", "attribution_required", "deny", "pending_manual_review", "own_generated"]
 
 # Обязательные поля документа при загрузке в GAR (ADR-0002).
+# age — required select в датасете sindrom-dauna (опции: Беременность,
+# Все возрасты, 0-1 год, 1-3 года, 3-7 лет, 7-12 лет, 12-18 лет, 18+ лет).
+# Добавлен 2026-09-12: sidecar-профиль не включал age, из-за этого
+# 105/106 документов family_support отклонялись 422
+# "required field age must not be blank".
 REQUIRED_FIELDS = [
     "source_url", "source_domain", "title", "license", "direction",
-    "date_indexed", "category", "lifecycle_stage", "comorbidity_tags", "reviewed_by",
+    "date_indexed", "category", "lifecycle_stage", "comorbidity_tags",
+    "reviewed_by", "age",
 ]
 
 _CATEGORIES_PATH = Path(__file__).resolve().parents[2] / "config" / "categories.yaml"
