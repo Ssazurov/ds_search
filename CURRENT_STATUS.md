@@ -1,3 +1,19 @@
+## 2026-09-14 -- ADR-0009: staged real-source re-crawl adapter реализован
+
+- Root ADR: `ds/docs/adr/0009-real-source-recrawl-reload.md`.
+- Requirements: `ds/docs/requirements/real-source-recrawl-reload.md`.
+- Решение: crawler выдаёт staged `.md`+`.json` и typed JSON; до validation
+  рабочие raw/state не меняются. Canonical URL identity, `doc_id` стабилен;
+  provenance merge сохраняет отсутствующие manual metadata и не удаляет по
+  `null`. Реализация GAR update остаётся в ds_ingestion: PATCH metadata,
+  затем PUT content, rollback snapshot при ошибке PUT, lock per document.
+- `recrawl_cli` принимает отдельный staging-каталог, читает исходный sidecar
+  только из рабочего raw, возвращает typed JSON с provenance/correlation ID и
+  завершает CLI с exit 1 при rejection; рабочие raw/state при staged запуске не
+  перезаписываются.
+- Проверки: focused crawler tests 6 passed; `py_compile`; `git diff --check`.
+- Следующий bounded slice: **ds_ingestion orchestration owner**.
+
 ## 2026-09-14 -- материалы GAR: ACL для admin UI
 
 - Исправлен HTTP 403 при загрузке списка материалов: в GAR выдан idempotent
