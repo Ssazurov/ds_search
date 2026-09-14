@@ -13,6 +13,11 @@
   (буквальные \n вместо переноса строки) — сделано. `scripts/detect_broken_files.py`
   сканирует data/raw/<source>/*.md на литеральный `\n`, пишет
   broken_files_report.md. PR ds_search#144 (branch feat/142-detect-broken-files).
+- #145: кнопка "🔄 Перезагрузить из источника" в `ui/materials_tab.py`
+  (заменяет ds_site#23, закрытый — ADR-0005: админка только тут). POST
+  {DS_INGESTION_URL}/reload_by_gar_id {gar_document_id} (ds_ingestion#13),
+  показывает changed_fields/preserved_fields/content_replaced. Auth не
+  реализован — прода нет. PR ds_search#146 (squash, смёржен).
 
 ## 2026-09-14 -- issue #139: doc_type не проставлялся статьям веб-краулинга
 
