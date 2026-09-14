@@ -28,6 +28,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import uuid
 from pathlib import Path
 
 from crawl4ai import AsyncWebCrawler, CrawlerRunConfig
@@ -324,23 +325,36 @@ class SourceCrawler:
         )
 
 
-async def recrawl_cli(source: str, doc_id: str | None, url: str | None) -> dict | None:
+async def recrawl_cli(source: str, doc_id: str | None, url: str | None,
+                      staging_dir: str | None = None) -> dict | None:
     """issue #141: вызывается ds_ingestion reload-пайплайном (subprocess) как
     `python -m src.crawler.crawler --recrawl --source <name> --doc-id <id>`.
     Если url не передан явно — берётся source_url из существующего sidecar
     .json по doc_id (обычный сценарий reload: ds_ingestion знает doc_id, не url)."""
     from .config import SOURCES
     cfg = SOURCES[source]
-    out_dir = Path(__file__).resolve().parents[2] / "data" / "raw" / cfg.name
+    source_dir = Path(__file__).resolve().parents[2] / "data" / "raw" / cfg.name
+    out_dir = Path(staging_dir) if staging_dir else source_dir
+    out_dir.mkdir(parents=True, exist_ok=True)
     if url is None:
         if doc_id is None:
             raise SystemExit("--doc-id или --url обязателен")
-        json_path = out_dir / f"{doc_id}.json"
+        json_path = source_dir / f"{doc_id}.json"
         if not json_path.is_file():
             raise SystemExit(f"sidecar не найден: {json_path}")
         url = json.loads(json_path.read_text(encoding="utf-8"))["source_url"]
     crawler = SourceCrawler(cfg, out_dir)
-    return await crawler.recrawl_url(url)
+    meta = await crawler.recrawl_url(url)
+    if meta is None:
+        return None
+    canonical = meta.get("source_url") or url
+    result_id = hashlib.sha256(canonical.encode()).hexdigest()[:16]
+    return {
+        "source": source, "doc_id": result_id, "canonical_url": canonical,
+        "content_path": meta.get("content_path"),
+        "metadata_path": str(out_dir / f"{result_id}.json"), "metadata": meta,
+        "provenance": {"source": "crawl", "correlation_id": str(uuid.uuid4())},
+    }
 
 
 async def main():
@@ -351,11 +365,15 @@ async def main():
     parser.add_argument("--source", default="downsideup")
     parser.add_argument("--doc-id")
     parser.add_argument("--url")
+    parser.add_argument("--staging-dir")
     args = parser.parse_args()
 
     if args.recrawl:
-        doc = await recrawl_cli(args.source, args.doc_id, args.url)
-        print(json.dumps(doc, ensure_ascii=False) if doc else "recrawl: отклонено (см. лог)")
+        doc = await recrawl_cli(args.source, args.doc_id, args.url, args.staging_dir)
+        if doc is None:
+            print(json.dumps({"error": "recrawl_rejected"}), flush=True)
+            raise SystemExit(1)
+        print(json.dumps(doc, ensure_ascii=False), flush=True)
         return
 
     from .config import SOURCES
