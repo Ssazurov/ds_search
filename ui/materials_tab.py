@@ -5,11 +5,28 @@ ADR-0005 п.2). Список документов датасета из gar-core
 фильтруют по status=='indexed') и полное удаление (hard delete)."""
 from __future__ import annotations
 
+import os
+
+import httpx
 import streamlit as st
 
 from src.gar_ingest.client import GarIngestClient, GarPublishError, load_settings
 
 _STATUS_OPTIONS = {"Активные": "indexed", "Архив": "archived", "Все": None}
+_DS_INGESTION_URL = os.environ.get("DS_INGESTION_URL", "http://127.0.0.1:8200")
+
+
+def _reload_from_source(document_id: str) -> dict:
+    """POST /reload_by_gar_id на ds_ingestion (issue ds_search#145 /
+    ADR-0007): полная перезагрузка metadata+content из локального источника.
+    Auth не реализован намеренно — прода нет (ADR-0007 п.4)."""
+    resp = httpx.post(
+        f"{_DS_INGESTION_URL}/reload_by_gar_id",
+        json={"gar_document_id": document_id}, timeout=120,
+    )
+    if resp.status_code != 200:
+        raise GarPublishError(f"reload {document_id} failed: {resp.status_code} {resp.text}")
+    return resp.json()
 
 
 @st.cache_resource
@@ -31,7 +48,7 @@ def _render_card(client: GarIngestClient, doc: dict) -> None:
                     f"doc_type={doc.get('doc_type')} · version={doc.get('version')}")
         new_title = st.text_input("Заголовок", value=meta.get("title", ""), key=f"title_{doc_id}")
         new_summary = st.text_area("Summary", value=meta.get("summary", ""), key=f"sum_{doc_id}")
-        c1, c2, c3 = st.columns(3)
+        c1, c2, c3, c4 = st.columns(4)
         if c1.button("💾 Сохранить", key=f"save_{doc_id}"):
             try:
                 client.patch_document_metadata(doc_id, {"title": new_title, "summary": new_summary})
@@ -54,6 +71,17 @@ def _render_card(client: GarIngestClient, doc: dict) -> None:
                     st.rerun()
                 except GarPublishError as exc:
                     st.error(str(exc))
+        if c4.button("🔄 Перезагрузить из источника", key=f"reload_{doc_id}"):
+            try:
+                report = _reload_from_source(doc_id)
+                st.success(
+                    f"Перезагружено. changed={report['changed_fields']} "
+                    f"preserved={report['preserved_fields']} "
+                    f"content_replaced={report['content_replaced']}"
+                )
+                st.cache_resource.clear()
+            except GarPublishError as exc:
+                st.error(str(exc))
         confirm_key = f"del_confirm_{doc_id}"
         if st.session_state.get(confirm_key):
             st.warning("Удалить безвозвратно? Данные и ассеты будут стёрты.")
