@@ -1,3 +1,17 @@
+## 2026-09-14 -- issue #138: просмотр статьи по лицензии (ADR-0006)
+
+- ADR-0006 принят: полный текст на сайте, если canonical_md скачан
+  (переиспользован существующий признак `assets.canonical_md.available`,
+  отдельное поле `full_text_available` заводить не стали).
+- gar-core-api: `GET /public/documents/{id}` и `/public/documents/{id}/content`
+  (`services/document_search_service.get_document_detail`). Тесты зелёные
+  (7 passed по document_search/public). PR gar-core-api#315 (смёржен).
+- ds_site: роут `/articles/[id]` — полный текст + автор + ссылка на источник,
+  либо карточка метаданных + ссылка без текста. Прокси
+  `app/api/gar/documents/[id]` и `.../content`. Заголовки в `/articles` теперь
+  ссылки на `/articles/[id]`. PR ds_site#21 (смёржен, Closes #138).
+- Issue #138 закрыт.
+
 ## 2026-09-13 -- issue #134: Streamlit таб «Статус агентов»
 
 - gar-core-api: эндпоинт `GET /search-runs` (limit, tenant-scoped, сортировка
