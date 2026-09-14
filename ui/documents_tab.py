@@ -117,7 +117,7 @@ def render() -> None:
     st.caption(f"Всего: {len(df)}, clean: {int(df['clean'].sum())}, в GAR: {int((df['ingested'] == 'done').sum())}")
 
     st.subheader("Загрузка по одному документу")
-    for row in filtered:
+    for i, row in enumerate(filtered):
         c1, c2, c3 = st.columns([5, 2, 2])
         c1.write(f"**{row['title'] or row['doc_id']}** — {row['direction']}/{row['domain']}")
         if row["gar_document_id"]:
@@ -126,6 +126,8 @@ def render() -> None:
             c2.write(f"⚠️ {row['ingest_error']}")
         else:
             c2.write("не загружен")
-        c3.button("Загрузить в GAR", key=f"ingest_{row['doc_id']}",
+        # key включает индекс и domain: doc_id (stem файла) может повторяться
+        # между разными доменами/папками raw/<domain>/<doc_id>.json.
+        c3.button("Загрузить в GAR", key=f"ingest_{i}_{row['domain']}_{row['doc_id']}",
                    disabled=bool(row["gar_document_id"]),
                    on_click=_ingest_one, args=(row,))

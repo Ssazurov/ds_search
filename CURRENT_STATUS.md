@@ -1,3 +1,17 @@
+## 2026-09-14 -- issue #141, #142: Full source reload (root ADR-0007, ds_ingestion#7)
+
+- Root ADR: `ds/docs/adr/0007-full-source-reload-pipeline.md`.
+- #141: re-crawl конкретного документа по URL/doc_id — сделано. `SourceCrawler.
+  recrawl_url(url)` (src/crawler/crawler.py) краулит один URL (без deep-crawl
+  стратегии), применяет ту же фильтрацию (thin/catalog/pdf-teaser), пишет
+  .md/.json по тому же doc_id (sha256 от canon_url — детерминирован, файлы
+  перезаписываются). CLI: `python -m src.crawler.crawler --recrawl --source
+  <name> --doc-id <id>` (URL берётся из sidecar) или `--url <url>` явно.
+  Вызывается reload-пайплайном ds_ingestion (issue #8) как subprocess.
+  PR ds_search#... (branch feat/141-recrawl-url).
+- #142: заменить эвристику детекта битых файлов ("1 строка") на устойчивую
+  (буквальные \n вместо переноса строки). Реализация не начата.
+
 ## 2026-09-14 -- issue #139: doc_type не проставлялся статьям веб-краулинга
 
 - Причина: `doc_type` не в REQUIRED_FIELDS, не передавался в
