@@ -100,6 +100,7 @@ async def _save_pdf(pdf_url: str, teaser_url: str, domain: str, direction: str,
         lifecycle_stage=lifecycle_stage, pdf_url=pdf_url, direction=direction,
         attribution=license_result.build_attribution(title="", source_url=teaser_url),
         content_path=str(pdf_path), content_status="saved",
+        doc_type="article",  # issue: doc_type не проставлялся веб-статьям (0 из 107)
     )
     (out_dir / f"{doc_id}.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
     return meta
@@ -182,6 +183,7 @@ async def download_single(
             lifecycle_stage=lifecycle_stage, direction=direction,
             attribution=license_result.build_attribution(title=title, source_url=canon),
             content_path=str(md_path), content_status="saved",
+            doc_type="article",  # issue: doc_type не проставлялся веб-статьям (0 из 107)
         )
         meta.update(header_meta)
         (out_dir / f"{doc_id}.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
