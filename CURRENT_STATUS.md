@@ -10,7 +10,9 @@
   Вызывается reload-пайплайном ds_ingestion (issue #8) как subprocess.
   PR ds_search#... (branch feat/141-recrawl-url).
 - #142: заменить эвристику детекта битых файлов ("1 строка") на устойчивую
-  (буквальные \n вместо переноса строки). Реализация не начата.
+  (буквальные \n вместо переноса строки) — сделано. `scripts/detect_broken_files.py`
+  сканирует data/raw/<source>/*.md на литеральный `\n`, пишет
+  broken_files_report.md. PR ds_search#144 (branch feat/142-detect-broken-files).
 
 ## 2026-09-14 -- issue #139: doc_type не проставлялся статьям веб-краулинга
 
