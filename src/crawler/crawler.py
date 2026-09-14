@@ -186,6 +186,55 @@ class SourceCrawler:
         meta["needs_review"] = any(not meta.get(key) for key in required)
         return meta
 
+    async def recrawl_url(self, url: str) -> dict | None:
+        """issue #141 (ADR-0007 п.5): точечный re-crawl одной страницы по URL,
+        без full-scan источника. doc_id детерминирован от canon_url (sha256),
+        поэтому повторный краул той же страницы перезаписывает те же .md/.json
+        файлы — используется reload-пайплайном ds_ingestion (issue #8) для
+        обновления "битого" контента. Возвращает None при отказе лицензии,
+        thin content, catalog listing или ошибке загрузки."""
+        self.license_result = check_license(self.cfg.domain, url)
+        if not self.license_result.downloadable:
+            logger.warning(
+                "recrawl %s: источник %s требует ручного сбора: %s",
+                url, self.cfg.domain, self.license_result.reason,
+            )
+            return None
+
+        run_cfg = CrawlerRunConfig(
+            markdown_generator=AdaptiveMarkdownGenerator(
+                content_filter=build_content_filter(),
+            ),
+        )
+        async with AsyncWebCrawler() as crawler:
+            r = await crawler.arun(url=url, config=run_cfg)
+            r = r[0] if isinstance(r, list) else r
+            if not r.success:
+                logger.warning("recrawl %s: загрузка не удалась", url)
+                return None
+
+            canon = canonicalize_url(r.url)
+
+            if is_pdf_teaser_page(r.html or ""):
+                pdf_url = find_pdf_teaser_link(r.html or "")
+                if pdf_url:
+                    return await self._download_pdf(pdf_url, canon)
+                logger.warning("recrawl %s: тизер без ссылки на PDF", url)
+                return None
+
+            fit_md = getattr(r.markdown, "fit_markdown", None) or r.markdown or ""
+            fit_md = fit_md if isinstance(fit_md, str) else str(fit_md)
+            if len(fit_md.strip()) < self.cfg.min_fit_markdown_chars:
+                self._save_rejected(r, canon, fit_md, "rejected_thin_content")
+                return None
+
+            ltr = link_to_text_ratio(fit_md)
+            if ltr > LTR_THRESHOLD:
+                self._save_rejected(r, canon, fit_md, "rejected_catalog_listing", ltr=ltr)
+                return None
+
+            return self._save(r, canon, fit_md)
+
     async def _download_pdf(self, pdf_url: str, teaser_url: str) -> dict | None:
         """issue #11: скачивает сам PDF-отчёт прямым http-запросом (не
         browser.goto — известная проблема issue #2, Playwright трактует
@@ -275,9 +324,42 @@ class SourceCrawler:
         )
 
 
-async def main():
+async def recrawl_cli(source: str, doc_id: str | None, url: str | None) -> dict | None:
+    """issue #141: вызывается ds_ingestion reload-пайплайном (subprocess) как
+    `python -m src.crawler.crawler --recrawl --source <name> --doc-id <id>`.
+    Если url не передан явно — берётся source_url из существующего sidecar
+    .json по doc_id (обычный сценарий reload: ds_ingestion знает doc_id, не url)."""
     from .config import SOURCES
-    cfg = SOURCES["downsideup"]
+    cfg = SOURCES[source]
+    out_dir = Path(__file__).resolve().parents[2] / "data" / "raw" / cfg.name
+    if url is None:
+        if doc_id is None:
+            raise SystemExit("--doc-id или --url обязателен")
+        json_path = out_dir / f"{doc_id}.json"
+        if not json_path.is_file():
+            raise SystemExit(f"sidecar не найден: {json_path}")
+        url = json.loads(json_path.read_text(encoding="utf-8"))["source_url"]
+    crawler = SourceCrawler(cfg, out_dir)
+    return await crawler.recrawl_url(url)
+
+
+async def main():
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--recrawl", action="store_true", help="re-crawl одного URL вместо full-scan (issue #141)")
+    parser.add_argument("--source", default="downsideup")
+    parser.add_argument("--doc-id")
+    parser.add_argument("--url")
+    args = parser.parse_args()
+
+    if args.recrawl:
+        doc = await recrawl_cli(args.source, args.doc_id, args.url)
+        print(json.dumps(doc, ensure_ascii=False) if doc else "recrawl: отклонено (см. лог)")
+        return
+
+    from .config import SOURCES
+    cfg = SOURCES[args.source]
     out_dir = Path(__file__).resolve().parents[2] / "data" / "raw" / cfg.name
     crawler = SourceCrawler(cfg, out_dir)
     docs = await crawler.run()
