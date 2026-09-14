@@ -1,3 +1,20 @@
+## 2026-09-14 -- issue #139: doc_type не проставлялся статьям веб-краулинга
+
+- Причина: `doc_type` не в REQUIRED_FIELDS, не передавался в
+  `build_ingestion_metadata()` из `crawler.py::_save/_save_pdf` и
+  `download.py::download_single/_save_pdf` (в отличие от всех остальных
+  вызывающих сторон). 107/300 документов в gar_core.documents имели
+  `metadata.doc_type = NULL` -> `/articles` на сайте показывал 1 статью.
+- Фикс: `doc_type="article"` добавлен во все 4 места. PR
+  ds_search#140 (смёржен, Closes #139).
+- Бэкфилл 103 существующих документов через `PATCH /ingestion/documents/{id}`
+  (без прямых UPDATE в Postgres) — `ds_ingestion/scripts/backfill_doc_type_article.py`,
+  ds_ingestion PR#6 (смёржен). Проверено: `GET /public/documents?doc_type=article`
+  отдаёт 104 (было 1).
+- Остались 4 документа без doc_type — не относятся к family_support/downsideup
+  (легаси "Евангелие"/"Деяния", 2 экспорта glossary/resource_directory из
+  ds_search) — вне scope этого issue.
+
 ## 2026-09-14 -- issue #138: просмотр статьи по лицензии (ADR-0006)
 
 - ADR-0006 принят: полный текст на сайте, если canonical_md скачан
