@@ -1,3 +1,11 @@
+## 2026-09-14 -- материалы GAR: ACL для admin UI
+
+- Исправлен HTTP 403 при загрузке списка материалов: в GAR выдан idempotent
+  ACL `read` для `ds-search-news-publish` на dataset
+  `81f35f18-8d32-458e-bf33-ddb68349e015`.
+- Проверка: `GET /ingestion/documents?dataset_id=...&status=indexed` с
+  `X-User-ID: ds-search-news-publish` вернул документы.
+
 ## 2026-09-14 -- issue #141, #142: Full source reload (root ADR-0007, ds_ingestion#7)
 
 - Root ADR: `ds/docs/adr/0007-full-source-reload-pipeline.md`.
@@ -262,4 +270,3 @@
   Closes #91.
 - Полный прогон `pytest`: 178 passed, 1 fail не связан с изменением
   (`test_rag_export.py` — `NameError: mm` в reportlab-коде, эпик #43).
-

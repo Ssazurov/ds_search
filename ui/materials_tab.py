@@ -19,10 +19,14 @@ _DS_INGESTION_URL = os.environ.get("DS_INGESTION_URL", "http://127.0.0.1:8200")
 def _reload_from_source(document_id: str) -> dict:
     """POST /reload_by_gar_id на ds_ingestion (issue ds_search#145 /
     ADR-0007): полная перезагрузка metadata+content из локального источника.
-    Auth не реализован намеренно — прода нет (ADR-0007 п.4)."""
+    Auth: X-Ingestion-Key, см. ADR-0008."""
+    headers = {}
+    api_key = os.environ.get("DS_INGESTION_API_KEY")
+    if api_key:
+        headers["X-Ingestion-Key"] = api_key
     resp = httpx.post(
         f"{_DS_INGESTION_URL}/reload_by_gar_id",
-        json={"gar_document_id": document_id}, timeout=120,
+        json={"gar_document_id": document_id}, headers=headers, timeout=120,
     )
     if resp.status_code != 200:
         raise GarPublishError(f"reload {document_id} failed: {resp.status_code} {resp.text}")
