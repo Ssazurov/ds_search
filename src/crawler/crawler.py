@@ -55,7 +55,7 @@ from .filters import (
 )
 
 import httpx
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 logger = logging.getLogger(__name__)
 
@@ -332,7 +332,20 @@ async def recrawl_cli(source: str, doc_id: str | None, url: str | None,
     Если url не передан явно — берётся source_url из существующего sidecar
     .json по doc_id (обычный сценарий reload: ds_ingestion знает doc_id, не url)."""
     from .config import SOURCES
-    cfg = SOURCES[source]
+    cfg = SOURCES.get(source)
+    if cfg is None:
+        # ds_ingestion#22: caller-supplied `source` может быть raw-категорией
+        # документа (например "family_support"), не ключом SOURCES — сами
+        # ключи SOURCES это имена сайтов-источников. Резолвим по домену URL,
+        # т.к. re-crawl и так идёт по canonical_url, а не по ключу source.
+        if url is None:
+            raise SystemExit(
+                f"неизвестный --source {source!r} и --url не передан для резолва по домену"
+            )
+        domain = urlparse(url).netloc
+        cfg = next((c for c in SOURCES.values() if c.domain == domain), None)
+        if cfg is None:
+            raise SystemExit(f"нет SOURCES с domain={domain!r} (--source {source!r})")
     source_dir = Path(__file__).resolve().parents[2] / "data" / "raw" / cfg.name
     out_dir = Path(staging_dir) if staging_dir else source_dir
     out_dir.mkdir(parents=True, exist_ok=True)
