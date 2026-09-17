@@ -53,3 +53,10 @@ www.unicef.org:
     reproduction or translation of anything more than a de minimis portion...
     requires the express prior written permission" (unicef.org/legal).'
   status: deny
+forbes.kz:
+  attribution_template: null
+  checked_date: '2026-09-17'
+  notes: 'ЗАПРЕЩЕНО: "Использование материалов сайта допускается исключительно
+    в личных целях. Использование ... в иных целях возможно только с
+    письменного согласия Администратора" (forbes.kz/pages/agreement, п.2.2).'
+  status: deny
