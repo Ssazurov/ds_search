@@ -349,3 +349,25 @@
 - Полный прогон: 228 passed, 3 fail не связаны (test_classify эпик,
   test_collect_rss — существовали до issue).
 - PR #173, Closes #171.
+
+## 2026-09-17 — issue #165: падали test_classify + test_collect_rss на main
+
+- Причина разная для каждого теста (не общий баг):
+  - test_collect_rss x2: PR #161 добавил tests/test_collect_rss.py и
+    scripts/collect_rss.py, но саму функцию `collect_rss` в
+    src/news/collect.py не добавил (AttributeError). Реализована по
+    образцу collect_news(): rss.fetch_all -> dedup по
+    news_items.source_url -> _collect_one (тот же license-гейт/
+    download/LLM-draft). _collect_one расширен опциональными
+    source_name/source_published_at, поведение collect_news не меняется.
+  - test_classify x1: НЕ связано с RSS. classifier_keywords.yaml
+    (раздел category) и сам тест используют старую таксономию категорий
+    (speech_development, direction=methodology), а config/categories.yaml
+    мигрировал на новую slug-таксономию ещё в PR #77 —
+    suggested_category/suggested_direction молча всегда None для
+    реальных документов с тех пор. Требует content-решения по маппингу
+    (какие ключевики к какому из текущих разделов) — вынесено в
+    issue #174, не чинилось в рамках #165.
+- Прогон: tests/test_collect_rss.py — 2/2 passed; полный набор —
+  230 passed, 1 failed (issue #174, ожидаемо).
+- PR #175 (squash, merged), issue #165 закрыт.
