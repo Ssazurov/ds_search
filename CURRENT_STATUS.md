@@ -1,3 +1,22 @@
+## 2026-09-17 -- ADR-011: Brave Search + RSS license-гейт (issue #164, эпик #167)
+
+- issue #164: forbes.kz проверен -> deny (PR #166, п.2.2 соглашения
+  запрещает использование вне личных целей без письм. согласия).
+  tass.ru/iz.ru не проверены (ToS-страницы не гуглятся); полный список
+  ~16 доменов из пилота #162 нигде не сохранён, Tavily keyless сейчас 403
+  -> пилот не перезапустить без TAVILY_API_KEY.
+- ADR-011 (docs/adr/ADR-011-brave-search-rss-licenses.md): т.к. Tavily
+  нестабилен второй день, а объём нужен скромный (10-50/день) --
+  добавить Brave Search (free tier) первым звеном в SearchProviderChain,
+  Tavily фолбэком. Приоритет: 5 из 8 доменов в config/rss_sources.yaml
+  (ADR-010) без записи в licenses.yaml -> RSS-канал их не скачивает вообще
+  -- это выше по приоритету, чем #164 (курируемый список vs поиск).
+- Заведены issues (эпик #167, все в project #4):
+  #168 ToS 5 RSS-доменов (asi.org.ru, philanthropy.ru, takiedela.ru,
+  nakedheart.online, rusfond.ru), #169 BraveProvider в SearchProviderChain.
+- Не сделано: сама реализация BraveProvider и ToS-разбор -- только ADR
+  и задачи, код не трогал.
+
 ## 2026-09-17 -- fix: collect_news.py keyless Tavily + Docker infra (#162, merged)
 
 - PR #163 (merged). Closes #162.
@@ -8,7 +27,7 @@
 - Открыто: расширить `licenses.yaml` ещё на ~16 доменов (tass.ru, iz.ru,
   forbes.kz и др.) -- нужна юр. проверка ToS каждого;
   на main падают `test_classify` + 2x `test_collect_rss` (не связано с
-  этим PR, доп. issue заведён).
+  этим PR, доп. issue заведён -- #165).
 
 ## 2026-09-15 -- release 0.1.21 closed; next 0.1.22
 
