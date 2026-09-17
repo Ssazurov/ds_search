@@ -321,3 +321,20 @@
   Closes #91.
 - Полный прогон `pytest`: 178 passed, 1 fail не связан с изменением
   (`test_rag_export.py` — `NameError: mm` в reportlab-коде, эпик #43).
+
+## 2026-09-17 — issue #168: ToS-check 5 RSS-доменов (эпик #167, ADR-011)
+
+- `config/licenses.yaml`: добавлены записи для 5 доменов из
+  `config/rss_sources.yaml`, ранее молча блокировавшихся license-гейтом
+  (issue #3, ADR-010) — asi.org.ru, philanthropy.ru, takiedela.ru,
+  nakedheart.online, rusfond.ru.
+- **takiedela.ru → `deny`** (единственный из пяти): футер сайта требует
+  явного согласования с правообладателями для размещения материалов на
+  сторонних ресурсах, а не только атрибуции.
+- Остальные 4 домена → `attribution_required`, явного запрета на
+  перепечатку/цитирование не найдено (asi.org.ru — с оговоркой ≤30%
+  текста без запроса в редакцию, фото отдельно; philanthropy.ru — проект
+  «Филантроп» закрыт).
+- Проверка: `yaml.safe_load(config/licenses.yaml)` — 15 записей, парсится
+  без ошибок.
+- PR #170 (squash, merged), issue #168 закрыт (Closes).
