@@ -28,7 +28,7 @@ from ..crawler.filters import canonicalize_url
 from ..discovery.download import DEFAULT_DATA_ROOT, DownloadError, download_single
 from ..search.base import QuotaExceeded, SearchHit
 from ..search.chain import SearchProviderChain
-from . import db
+from . import db, rss
 from .llm_draft import LlmConfig, generate_draft
 
 logger = logging.getLogger(__name__)
@@ -71,7 +71,12 @@ def load_queries_config(path: Path = QUERIES_CONFIG_PATH) -> tuple[list[dict], i
 
 
 async def _collect_one(
-    hit: SearchHit, llm_config: LlmConfig | None, data_root: Path, db_path: Path,
+    hit: SearchHit,
+    llm_config: LlmConfig | None,
+    data_root: Path,
+    db_path: Path,
+    source_name: str | None = None,
+    source_published_at: str | None = None,
 ) -> str:
     """Скачивает источник и создаёт LLM-черновик. Возвращает статус для
     статистики: 'drafted' | 'license_denied' | 'download_failed' |
@@ -101,8 +106,8 @@ async def _collect_one(
     text = content_path.read_text(encoding="utf-8")
     llm_source = {
         "source_url": meta["source_url"],
-        "source_name": domain,
-        "source_published_at": None,
+        "source_name": source_name or domain,
+        "source_published_at": source_published_at,
         "title": meta.get("title") or hit.title,
         "text": text,
     }
@@ -178,4 +183,60 @@ async def collect_news(
                 stats.skipped_duplicate += 1
 
     logger.info("news collect: %s", stats.as_dict())
+    return stats
+
+
+async def collect_rss(
+    sources: list[dict] | None = None,
+    max_age_days: int | None = 5,
+    llm_config: LlmConfig | None = None,
+    data_root: Path = DEFAULT_DATA_ROOT,
+    db_path: Path = db.DB_PATH,
+) -> CollectStats:
+    """RSS-прогон автосбора новостей (issue #157/#159, ADR-010): rss.fetch_all
+    -> dedup -> download -> LLM-draft -> news_items status=draft.
+    Переиспользует _collect_one из cron-пайплайна поисковых новостей
+    (issue #61) — тот же license-гейт и дедуп по news_items.source_url,
+    отдельной таблицы под RSS не заводится (см. src/news/rss.py)."""
+    db.init_db(db_path)
+    stats = CollectStats()
+
+    try:
+        hits = rss.fetch_all(sources, max_age_days=max_age_days)
+    except Exception as exc:  # noqa: BLE001 — сбой всего RSS-прогона не должен ронять cron
+        logger.warning("rss.fetch_all упал: %s", exc)
+        stats.queries_failed += 1
+        stats.errors.append(f"rss.fetch_all: {exc}")
+        return stats
+    stats.queries_run += 1
+
+    for hit in hits:
+        canon = canonicalize_url(hit.url)
+        stats.candidates_found += 1
+        if db.source_url_exists(canon, db_path):
+            stats.skipped_duplicate += 1
+            continue
+        search_hit = SearchHit(url=hit.url, title=hit.title, snippet="")
+        published_at = hit.published_at.isoformat() if hit.published_at else None
+        try:
+            result = await _collect_one(
+                search_hit, llm_config, data_root, db_path,
+                source_name=hit.source_name, source_published_at=published_at,
+            )
+        except Exception as exc:  # noqa: BLE001 — непредвиденная ошибка одного источника не должна ронять прогон
+            logger.exception("необработанная ошибка на источнике %s", hit.url)
+            stats.errors.append(f"url={hit.url}: {exc}")
+            continue
+        if result == "drafted":
+            stats.drafted += 1
+        elif result == "license_denied":
+            stats.skipped_license += 1
+        elif result == "download_failed":
+            stats.download_failed += 1
+        elif result == "llm_failed":
+            stats.llm_failed += 1
+        elif result == "skipped_duplicate":
+            stats.skipped_duplicate += 1
+
+    logger.info("rss collect: %s", stats.as_dict())
     return stats
