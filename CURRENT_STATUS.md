@@ -1,3 +1,21 @@
+## 2026-09-17 -- feat: FirecrawlProvider первым звеном SearchProviderChain (#178, PR #179, merged)
+
+- Проверка (issue #169, #168, #165 закрыты ранее): тесты чинятся
+  запуском через `.venv/bin/python -m pytest`, а не `.venv/bin/pytest`
+  (иначе `ModuleNotFoundError: src`); 20/20 зелёные, 5 RSS-доменов в
+  licenses.yaml подтверждены.
+- Brave free tier снят с продажи (нужна карта, проверено на реальном
+  дашборде), Tavily заблокирован на уровне сети (TLS проходит, HTTP-ответ
+  не приходит — проверено и с keyless, и с реальным TAVILY_API_KEY).
+- Проверена доступность из рабочей сети: api.firecrawl.dev отвечает
+  штатно (200), free tier 1000 кред/мес без карты.
+- `src/search/firecrawl.py` (FirecrawlProvider), chain теперь
+  Firecrawl -> Brave -> Tavily (`scripts/collect_news.py`,
+  `ui/search_tab.py`), 10 новых тестов, полный набор 241/241.
+- ADR-011 дополнен разделом "Дополнение от 2026-09-17".
+- Открыто: реальный прогон `collect_news.py` с боевым FIRECRAWL_API_KEY
+  ещё не делался (ключ проверен отдельным запросом к API, не через пайп).
+
 ## 2026-09-17 -- ADR-011: Brave Search + RSS license-гейт (issue #164, эпик #167)
 
 - issue #164: forbes.kz проверен -> deny (PR #166, п.2.2 соглашения
