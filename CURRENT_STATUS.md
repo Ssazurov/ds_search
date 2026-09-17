@@ -1,3 +1,7 @@
+## 2026-09-15 -- release 0.1.21 closed; next 0.1.22
+
+- All Project #1 items targeted to 0.1.21 are Done/closed. Release notes published; next release target is 0.1.22.
+
 ## 2026-09-14 -- ADR-0009: staged real-source re-crawl adapter реализован
 
 - Root ADR: `ds/docs/adr/0009-real-source-recrawl-reload.md`.

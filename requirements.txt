@@ -6,3 +6,4 @@ streamlit>=1.35
 pandas
 openpyxl
 reportlab>=4.0
+feedparser
