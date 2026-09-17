@@ -1,3 +1,15 @@
+## 2026-09-17 -- fix: collect_news.py keyless Tavily + Docker infra (#162, merged)
+
+- PR #163 (merged). Closes #162.
+- Keyless Tavily режим (`X-Tavily-Access-Mode: keyless`), `playwright install`
+  в Dockerfile, `host.docker.internal` для Ollama из контейнера,
+  2 записи в `licenses.yaml` (news.un.org, unicef.org).
+- Итог тестового прогона: `drafted=2`.
+- Открыто: расширить `licenses.yaml` ещё на ~16 доменов (tass.ru, iz.ru,
+  forbes.kz и др.) -- нужна юр. проверка ToS каждого;
+  на main падают `test_classify` + 2x `test_collect_rss` (не связано с
+  этим PR, доп. issue заведён).
+
 ## 2026-09-15 -- release 0.1.21 closed; next 0.1.22
 
 - All Project #1 items targeted to 0.1.21 are Done/closed. Release notes published; next release target is 0.1.22.
