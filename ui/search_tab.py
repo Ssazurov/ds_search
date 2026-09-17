@@ -8,6 +8,7 @@ from src.discovery.run_search import run_search
 from src.metadata.schema import load_dictionaries
 from src.metadata.profile import LIFECYCLE_STAGES
 from src.search.base import QuotaExceeded
+from src.search.brave import BraveProvider
 from src.search.chain import SearchProviderChain
 from src.search.tavily import TavilyProvider
 
@@ -15,7 +16,8 @@ _NONE = "— не выбрано —"
 
 
 def _build_chain() -> SearchProviderChain:
-    return SearchProviderChain([TavilyProvider()])
+    # Brave первым звеном (ADR-011): Tavily keyless нестабилен, Brave — фолбэком.
+    return SearchProviderChain([BraveProvider(), TavilyProvider()])
 
 
 def render() -> None:
