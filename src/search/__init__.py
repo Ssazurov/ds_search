@@ -1,5 +1,6 @@
 """Discovery: search_provider abstraction (issue #15, ADR-002)."""
 from .base import SearchHit, SearchProvider, QuotaExceeded
+from .brave import BraveProvider
 from .chain import SearchProviderChain
 from .tavily import TavilyProvider
 
@@ -8,5 +9,6 @@ __all__ = [
     "SearchProvider",
     "QuotaExceeded",
     "SearchProviderChain",
+    "BraveProvider",
     "TavilyProvider",
 ]
