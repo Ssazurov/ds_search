@@ -45,10 +45,10 @@ def test_tavily_sends_query_and_max_results(tmp_path, monkeypatch):
     assert requests[0][1]["json"] == {"api_key": "fake", "query": "query", "max_results": 7}
 
 
-def test_tavily_requires_api_key(monkeypatch):
+def test_tavily_keyless_mode_without_api_key(monkeypatch):
     monkeypatch.delenv("TAVILY_API_KEY", raising=False)
-    with pytest.raises(ValueError, match="TAVILY_API_KEY"):
-        TavilyProvider()
+    provider = TavilyProvider()
+    assert provider.api_key is None
 
 
 def test_tavily_does_not_consume_quota_on_api_error(tmp_path, monkeypatch):

@@ -15,3 +15,41 @@ vk.ru:
   checked_date: null
   notes: ''
   status: attribution_required
+miloserdie.ru:
+  attribution_template: 'Источник: {title} ({source_url}), Милосердие.ru (miloserdie.ru)'
+  checked_date: '2026-09-16'
+  notes: 'Перепечатка в интернете разрешена при условии открытой активной гиперссылки
+    на оригинал. Публичных правил цитирования не обнаружено.'
+  status: attribution_required
+www.miloserdie.ru:
+  attribution_template: 'Источник: {title} ({source_url}), Милосердие.ru (miloserdie.ru)'
+  checked_date: '2026-09-16'
+  notes: 'Перепечатка в интернете разрешена при условии открытой активной гиперссылки
+    на оригинал. Публичных правил цитирования не обнаружено.'
+  status: attribution_required
+pravmir.ru:
+  attribution_template: 'Источник: {title} ({source_url}), Православие и мир (pravmir.ru)'
+  checked_date: '2026-09-16'
+  notes: 'Перепечатка в электронных СМИ разрешена при условии установки прямой
+    активной ссылки. Публичных правил на сайте не обнаружено.'
+  status: attribution_required
+www.pravmir.ru:
+  attribution_template: 'Источник: {title} ({source_url}), Православие и мир (pravmir.ru)'
+  checked_date: '2026-09-16'
+  notes: 'Перепечатка в электронных СМИ разрешена при условии установки прямой
+    активной ссылки. Публичных правил на сайте не обнаружено.'
+  status: attribution_required
+news.un.org:
+  attribution_template: 'Источник: {title} ({source_url}), UN News (news.un.org)'
+  checked_date: '2026-09-17'
+  notes: 'Rights & Permissions (shop.un.org): для материалов UN News Centre
+    требуется обратная ссылка на news.un.org, письменного разрешения не
+    требуется (в отличие от остальных публикаций ООН).'
+  status: attribution_required
+www.unicef.org:
+  attribution_template: null
+  checked_date: '2026-09-17'
+  notes: 'ЗАПРЕЩЕНО без письменного разрешения: "Any other use, including
+    reproduction or translation of anything more than a de minimis portion...
+    requires the express prior written permission" (unicef.org/legal).'
+  status: deny
