@@ -27,8 +27,7 @@ class TavilyProvider(SearchProvider):
         monthly_limit: int = FREE_TIER_MONTHLY_CREDITS,
     ) -> None:
         self.api_key = api_key or os.environ.get("TAVILY_API_KEY")
-        if not self.api_key:
-            raise ValueError("TAVILY_API_KEY не задан")
+        self.keyless = not self.api_key
         self.quota = QuotaState(
             path=quota_path, provider=self.name, limit=monthly_limit, period="monthly"
         )
@@ -40,15 +39,13 @@ class TavilyProvider(SearchProvider):
             raise ValueError("max_results должен быть от 1 до 100")
         if not self.quota.has_quota(cost=1):
             raise QuotaExceeded(f"{self.name}: месячная квота исчерпана")
-        resp = httpx.post(
-            TAVILY_API_URL,
-            json={
-                "api_key": self.api_key,
-                "query": query,
-                "max_results": max_results,
-            },
-            timeout=15.0,
-        )
+        payload = {"query": query, "max_results": max_results}
+        headers = {}
+        if self.keyless:
+            headers["X-Tavily-Access-Mode"] = "keyless"
+        else:
+            payload["api_key"] = self.api_key
+        resp = httpx.post(TAVILY_API_URL, json=payload, headers=headers, timeout=15.0)
         if resp.status_code in (402, 429):
             raise QuotaExceeded(f"{self.name}: API сообщил об исчерпании квоты")
         resp.raise_for_status()

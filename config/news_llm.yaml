@@ -1,11 +1,12 @@
 # Конфиг LLM для черновиков новостей (issue #46, ADR-003).
 # provider: anthropic | openai_compatible
-provider: anthropic
-model: claude-sonnet-4-6
-endpoint: https://api.anthropic.com/v1/messages
+provider: openai_compatible
+model: qwen2.5-coder:14b
+endpoint: http://host.docker.internal:11434/v1/chat/completions
+api_key: ""
 temperature: 0.3
-max_tokens: 1500
-timeout_s: 60
+max_tokens: 800
+timeout_s: 240
 prompt_template: |
   Ты — редактор новостного блока проекта поддержки семей детей с синдромом
   Дауна и РАС. На основе источника ниже напиши короткую новость на русском.
