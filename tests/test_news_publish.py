@@ -60,6 +60,34 @@ def test_build_metadata_omits_empty_fields():
     assert "description" not in meta
 
 
+def test_build_metadata_merges_classify_result(monkeypatch):
+    """issue #181: age/target_audience/category из classify.classify(),
+    doc_type/direction/category явных item-полей не переопределяются."""
+    monkeypatch.setattr(
+        publish, "classify_item",
+        lambda item: {
+            "age": "3-7", "target_audience": "parents",
+            "category": "llm_category", "direction": "llm_direction",
+            "doc_type": "article",
+        },
+    )
+    item = _item()
+    meta = publish.build_metadata(item)
+    assert meta["age"] == "3-7"
+    assert meta["target_audience"] == "parents"
+    assert meta["doc_type"] == "news"  # ADR-003, не переопределяется LLM
+    assert meta["category"] == "llm_category"  # item.category не задан явно
+    assert meta["direction"] == "llm_direction"  # item.direction не задан явно
+
+
+def test_classify_item_returns_empty_on_schema_error(monkeypatch):
+    """Недоступность GAR-схемы не должна ронять build_metadata (issue #181)."""
+    def _boom(**kwargs):
+        raise RuntimeError("GAR API недоступен")
+    monkeypatch.setattr(publish.gar_schema, "load_gar_schema", _boom)
+    assert publish.classify_item(_item()) == {}
+
+
 class _FakeClient:
     def __init__(self):
         self.ingested = []

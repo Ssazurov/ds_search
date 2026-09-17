@@ -24,6 +24,8 @@ except ImportError:
 
 from . import db
 from ..metadata.profile import build_ingestion_metadata
+from ..metadata import classify as metadata_classify
+from ..metadata import gar_schema
 from ..gar_ingest.client import (
     GarIngestClient,
     GarPublishError,
@@ -42,17 +44,42 @@ def build_content_md(item: dict) -> str:
     return f"# {item['title']}\n\n{body}\n"
 
 
+def classify_item(item: dict) -> dict:
+    """Классифицирует news_item через metadata/classify.classify() (issue
+    #91/эпик #88): age/target_audience/direction/category/doc_type.
+    При недоступности GAR-схемы (сеть/кэш) — не падает, возвращает {}
+    (issue #181: багфикс-связка, а не хардзависимость)."""
+    domain = urlparse(item["source_url"]).netloc
+    try:
+        fields = gar_schema.load_gar_schema()
+    except Exception:
+        return {}
+    text = item.get("body_md") or item.get("summary") or ""
+    return metadata_classify.classify(item["title"], text, fields, domain=domain)
+
+
 def build_metadata(item: dict) -> dict:
     """Маппинг news_item -> доменный профиль метаданных GAR (issue #4/#5),
-    doc_type=news (issue #49), license=own_generated (ADR-003)."""
+    doc_type=news (issue #49), license=own_generated (ADR-003). Поля
+    age/target_audience/category довязаны через metadata/classify.classify()
+    (issue #181); doc_type всегда "news" (ADR-003), явные значения item
+    (item["category"]/item["direction"]) имеют приоритет над LLM."""
     source_url = item["source_url"]
+    classified = classify_item(item)
     metadata = build_ingestion_metadata(
         source_url=source_url, source_domain=urlparse(source_url).netloc,
-        title=item["title"], license="own_generated", category=item.get("category"),
-        lifecycle_stage=item.get("lifecycle_stage"), direction=item.get("direction", "news"),
-        doc_type="news", description=item.get("summary"),
+        title=item["title"], license="own_generated",
+        category=item.get("category") or classified.get("category"),
+        lifecycle_stage=item.get("lifecycle_stage"),
+        direction=item.get("direction") or classified.get("direction") or "news",
+        doc_type="news",
+        description=item.get("summary"),
         publish_date=item.get("published_at") or item.get("source_published_at"),
     )
+    if classified.get("age"):
+        metadata["age"] = classified["age"]
+    if classified.get("target_audience"):
+        metadata["target_audience"] = classified["target_audience"]
     if item.get("tags"):
         metadata["keywords"] = ", ".join(item["tags"])
     return {k: v for k, v in metadata.items() if v is not None}
