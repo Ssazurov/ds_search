@@ -34,8 +34,8 @@ def test_classify_matches_category_direction_doc_type_audience():
         "Логопедическое пособие для родителей",
         "Развитие речи у детей с синдромом Дауна: методичка для родителей",
     )
-    assert result["suggested_category"] == "speech_development"
-    assert result["suggested_direction"] == "methodology"
+    assert result["suggested_category"] == "logopediya-i-alternativnaya-kommunikaciya"
+    assert result["suggested_direction"] == "razvitie-i-navyki"
     assert result["suggested_doc_type"] == "guide"
     assert result["suggested_target_audience"] == "parents"
 
