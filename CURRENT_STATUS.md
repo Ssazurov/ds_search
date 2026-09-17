@@ -1,3 +1,26 @@
+## 2026-09-17 -- LLM-эндпоинты пофикшены, first news item сгенерирован, публикация блокируется (#180, #181 заведены)
+
+- Root cause: `classify_llm.yaml` указывал на `router.cheap` (не резолвится,
+  пустой api_key); `news_llm.yaml` -- на `host.docker.internal:11434`
+  (не резолвится из голого WSL). Реальный Ollama слушает на
+  `127.0.0.1:11434`. Оба конфига поправлены на 127.0.0.1, модель
+  `qwen2.5-coder:14b`.
+- Тестовый прогон разового сборщика (`/tmp/one_news2.py`, вне пайплайна):
+  fetch/scrape/LLM-драфт прошли, item id=7 "Тренировки особых детей:
+  успех и надежда" сгенерирован, статус в локальной БД `published`.
+- Публикация в GAR падает 422 `age must not be blank`: news/publish.py::
+  build_metadata() использует старый build_ingestion_metadata (issue #49/
+  ADR-003), не знает про age/target_audience/direction/doc_type. Готовый
+  classify.classify() (issue #91/эпик #88) не довязан к news-пайплайну.
+- Заведены и залинкованы в project #4:
+  - #180 -- RSS-фиды в rss_sources.yaml нерабочие (downsideup/miloserdie/
+    asi/nakedheart/takiedela) + нет relevance-фильтра после SearchChain
+    (пример нерелевантных драфтов id=2-5, pravmir). Обход: AMP-теги.
+  - #181 -- [Epic] связать news/publish.py::build_metadata() с
+    metadata/classify.classify() перед ingestion (багфикс, ADR не нужен).
+- TODO: удалить `/tmp/one_news2.py` и черновики id=2-5 после решения по
+  ним; реализовать #181, затем повторно опубликовать item id=7.
+
 ## 2026-09-17 -- feat: FirecrawlProvider первым звеном SearchProviderChain (#178, PR #179, merged)
 
 - Проверка (issue #169, #168, #165 закрыты ранее): тесты чинятся
@@ -389,3 +412,16 @@
 - Прогон: tests/test_collect_rss.py — 2/2 passed; полный набор —
   230 passed, 1 failed (issue #174, ожидаемо).
 - PR #175 (squash, merged), issue #165 закрыт.
+
+
+## 2026-09-17: Автосбор одной новости про СД (ручной прогон)
+
+**Задача:** найти и скачать одну новость про синдром Дауна, опубликовать в GAR → отображается на `ds_site` `/news`.
+
+**Найдено (баг, требует issue в ds_search):** штатный `python -m scripts.collect_news` (SearchChain: Firecrawl/Brave/Tavily по запросам из `config/news_search_queries.yaml`) реально работает, но без промежуточного вывода (print только в конце прогона) — тишина в консоли ≠ зависание. За ~6 мин создал 4 черновика (`news_items` id=2..5), но все — нерелевантные статьи с pravmir.ru (не про СД). Причина: после SearchChain нет тематической фильтрации результатов, только license-гейт + дедуп по URL — поисковый провайдер отдаёт мусорные хиты, пайплайн их проглатывает. **TODO: завести issue в ds_search** — добавить relevance-фильтр (по ключевым словам заголовка/сниппета или LLM-классификатор) после `chain.search()` в `src/news/collect.py::collect_news`, до скачивания.
+
+**Также:** RSS-ветка (`src/news/rss.py::fetch_all`) тоже не фильтрует по теме — берёт все записи фида без разбора. Для гарантированной релевантности первого прогона ограничился источником `downsideup.org` (профильный фонд, все статьи по теме).
+
+**Статус:** черновики id=2..5 остались в БД со статусом draft (не про СД, публиковать не надо, можно удалить/оставить на потом при доработке фильтра). Разовый скрипт `_one_news.py` в ds_search/ (не коммитить, временный) переиспользует `src.news.collect._collect_one` + `src.news.db` + `src.news.publish` для сбора/публикации ровно одного новостного айтема — ограничен на downsideup.org, в процессе выполнения.
+
+**Next steps:** 1) доисполнить `_one_news.py` (downsideup.org) → published → проверить `ds_site:3001/news`. 2) Завести issue в ds_search "collect_news: нет relevance-фильтра результатов поиска, публикует нерелевантные статьи (пример: pravmir.ru id=2..5)" + линк в projects/4. 3) Решить судьбу черновиков id=2..5 (удалить или разметить rejected).
