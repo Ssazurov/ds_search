@@ -338,3 +338,14 @@
 - Проверка: `yaml.safe_load(config/licenses.yaml)` — 15 записей, парсится
   без ошибок.
 - PR #170 (squash, merged), issue #168 закрыт (Closes).
+
+## 2026-09-17 — issue #171: BraveProvider первым в chain (эпик #167, ADR-011)
+
+- src/search/brave.py: BraveProvider — free tier 2000 запросов/мес,
+  X-Subscription-Token заголовок, 401/429 -> QuotaExceeded.
+- chain.py docstring обновлён: порядок Brave (первый) -> Tavily (фолбэк).
+- ui/search_tab.py: _build_chain() -> SearchProviderChain([BraveProvider(), TavilyProvider()]).
+- 	ests/test_brave_provider.py: 7 тестов (parse/headers/quota/errors).
+- Полный прогон: 228 passed, 3 fail не связаны (test_classify эпик,
+  test_collect_rss — существовали до issue).
+- PR #173, Closes #171.
