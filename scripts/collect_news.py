@@ -17,11 +17,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.news.collect import collect_news
 from src.search.brave import BraveProvider
 from src.search.chain import SearchProviderChain
+from src.search.firecrawl import FirecrawlProvider
 from src.search.tavily import TavilyProvider
 
 
 def main() -> None:
-    chain = SearchProviderChain([BraveProvider(), TavilyProvider()])
+    chain = SearchProviderChain([FirecrawlProvider(), BraveProvider(), TavilyProvider()])
     stats = asyncio.run(collect_news(chain))
     for k, v in stats.as_dict().items():
         print(f"{k}={v}")

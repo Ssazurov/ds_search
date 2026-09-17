@@ -2,6 +2,7 @@
 from .base import SearchHit, SearchProvider, QuotaExceeded
 from .brave import BraveProvider
 from .chain import SearchProviderChain
+from .firecrawl import FirecrawlProvider
 from .tavily import TavilyProvider
 
 __all__ = [
@@ -10,5 +11,6 @@ __all__ = [
     "QuotaExceeded",
     "SearchProviderChain",
     "BraveProvider",
+    "FirecrawlProvider",
     "TavilyProvider",
 ]

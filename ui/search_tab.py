@@ -10,14 +10,16 @@ from src.metadata.profile import LIFECYCLE_STAGES
 from src.search.base import QuotaExceeded
 from src.search.brave import BraveProvider
 from src.search.chain import SearchProviderChain
+from src.search.firecrawl import FirecrawlProvider
 from src.search.tavily import TavilyProvider
 
 _NONE = "— не выбрано —"
 
 
 def _build_chain() -> SearchProviderChain:
-    # Brave первым звеном (ADR-011): Tavily keyless нестабилен, Brave — фолбэком.
-    return SearchProviderChain([BraveProvider(), TavilyProvider()])
+    # Firecrawl первым звеном (ADR-011, доп. 2026-09-17): Tavily заблокирован
+    # сетью, Brave требует карту — оба остаются фолбэком.
+    return SearchProviderChain([FirecrawlProvider(), BraveProvider(), TavilyProvider()])
 
 
 def render() -> None:

@@ -14,6 +14,7 @@
 
 | 2026-09-12 | ADR-007 (issue #110) | Автозаполнение GAR-поля keywords — отдельный фоновый джоб `src/metadata/keywords_worker.py` ПОСЛЕ ingestion (не в pre-upload download.py/classify.py): читает indexed-документы через `GarIngestClient.list_documents`/`get_document_text`, извлекает keywords LLM'ом (`config/keywords_llm.yaml`), пишет `patch_document_metadata` (сервер мержит). Идемпотентно (skip если keywords уже есть), `--force`/`--dry-run`. |
 | 2026-09-17 | ADR-011 | Tavily keyless отдаёт 403 второй день — добавить Brave Search (free tier) первым звеном в `SearchProviderChain`, Tavily фолбэком. Приоритет: доразобрать ToS для 5 RSS-доменов без записи в `licenses.yaml` (иначе RSS-канал ADR-010 их не скачивает вообще) выше issue #164 (Tavily-пилот). |
+| 2026-09-17 | ADR-011 (доп.) | Brave free tier снят (нужна карта), Tavily заблокирован на уровне сети (не keyless-проблема) — заменить первое звено `SearchProviderChain` на `FirecrawlProvider` (free tier 1000 кред/мес, без карты); Brave/Tavily остаются фолбэком в коде. |
 
 ## 2026-09-08 — ADR-052 (gar-core-api): публичный шлюз для сайта
 Не автономное ADR ds_search (репозиторий gar-core-api ведёт свою нумерацию
