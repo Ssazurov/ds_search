@@ -118,14 +118,23 @@ def parse_llm_json(raw: str) -> dict:
     return json.loads(text.strip())
 
 
+class NotRelevantError(Exception):
+    """LLM оценил источник как не относящийся к теме СД/РАС (issue #180)."""
+
+
 def generate_draft(source: dict, config: LlmConfig | None = None) -> dict:
     """source: {source_url, source_name, source_published_at, title, text}.
     Возвращает dict для db.insert_news_item (status=draft,
-    requires_review=True, channels=[] — до ручного approve, issue #48)."""
+    requires_review=True, channels=[] — до ручного approve, issue #48).
+    Бросает NotRelevantError, если LLM пометил источник как нерелевантный
+    (issue #180: фильтр после SearchChain — например pravmir.ru отдаёт
+    RSS без тематического фильтра)."""
     cfg = config or load_llm_config()
     prompt = build_prompt(cfg, source)
     raw = call_llm(prompt, cfg)
     parsed = parse_llm_json(raw)
+    if parsed.get("relevant") is False:
+        raise NotRelevantError(parsed.get("relevance_reason", "нерелевантно"))
     return {
         "source_url": source["source_url"],
         "source_name": source.get("source_name"),
