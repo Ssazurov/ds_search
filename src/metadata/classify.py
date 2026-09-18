@@ -9,12 +9,15 @@ per-source дефолты (gar_mapping.py, issue #90); поле, не закры
 """
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import yaml
 
 from . import gar_mapping, gar_schema
 from ..news.llm_draft import LlmConfig, call_llm, parse_llm_json
+
+logger = logging.getLogger(__name__)
 
 CONFIG_PATH = Path(__file__).resolve().parents[2] / "config" / "classify_llm.yaml"
 
@@ -119,6 +122,11 @@ def classify(
         result = _validate_against_schema(result, fields)
         source = "llm"
     except Exception:
+        logger.exception(
+            "classify(): LLM-классификация упала (domain=%s, title=%r) — "
+            "needs_review, полагаемся на per-source fallback (issue #186)",
+            domain, title,
+        )
         result = {k: None for k in _ALL_FIELDS}
 
     if domain:

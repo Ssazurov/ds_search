@@ -29,7 +29,8 @@ from ..discovery.download import DEFAULT_DATA_ROOT, DownloadError, download_sing
 from ..search.base import QuotaExceeded, SearchHit
 from ..search.chain import SearchProviderChain
 from . import db, rss
-from .llm_draft import LlmConfig, generate_draft
+from .aggregator import extract_primary_source_url, primary_source_domain
+from .llm_draft import LlmConfig, NotRelevantError, generate_draft
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +44,7 @@ class CollectStats:
     candidates_found: int = 0
     skipped_duplicate: int = 0
     skipped_license: int = 0
+    skipped_not_relevant: int = 0
     download_failed: int = 0
     llm_failed: int = 0
     drafted: int = 0
@@ -55,6 +57,7 @@ class CollectStats:
             "candidates_found": self.candidates_found,
             "skipped_duplicate": self.skipped_duplicate,
             "skipped_license": self.skipped_license,
+            "skipped_not_relevant": self.skipped_not_relevant,
             "download_failed": self.download_failed,
             "llm_failed": self.llm_failed,
             "drafted": self.drafted,
@@ -104,15 +107,35 @@ async def _collect_one(
         return "download_failed"
 
     text = content_path.read_text(encoding="utf-8")
+    resolved_source_url = meta["source_url"]
+    resolved_source_name = source_name or domain
+    if meta.get("is_aggregator"):
+        # ADR-0012/issue #194: агрегатор (wildcar.ru и т.п.) — атрибуция
+        # на реального автора, найденного в уже скачанном тексте статьи
+        # (строка "Источник: [домен](url)"); сам первоисточник не
+        # краулится, summary остаётся по тексту агрегатора.
+        primary_url = extract_primary_source_url(text)
+        if primary_url:
+            resolved_source_url = primary_url
+            resolved_source_name = primary_source_domain(primary_url)
+        else:
+            logger.warning(
+                "агрегатор %s: ссылка на первоисточник не найдена в тексте %s,"
+                " атрибуция остаётся на агрегатор", domain, hit.url,
+            )
+
     llm_source = {
-        "source_url": meta["source_url"],
-        "source_name": source_name or domain,
+        "source_url": resolved_source_url,
+        "source_name": resolved_source_name,
         "source_published_at": source_published_at,
         "title": meta.get("title") or hit.title,
         "text": text,
     }
     try:
         draft = generate_draft(llm_source, config=llm_config)
+    except NotRelevantError as exc:
+        logger.info("источник %s пропущен (нерелевантно): %s", hit.url, exc)
+        return "not_relevant"
     except Exception as exc:  # noqa: BLE001 — любая ошибка LLM/парсинга JSON не должна ронять прогон
         logger.warning("generate_draft упал для %s: %s", hit.url, exc)
         return "llm_failed"
@@ -123,6 +146,27 @@ async def _collect_one(
         logger.info("news_item для %s не вставлен (дубликат?): %s", hit.url, exc)
         return "skipped_duplicate"
     return "drafted"
+
+
+async def add_single_url(
+    url: str,
+    title: str = "",
+    llm_config: LlmConfig | None = None,
+    data_root: Path = DEFAULT_DATA_ROOT,
+    db_path: Path = db.DB_PATH,
+) -> str:
+    """Штатная загрузка одной новости по ссылке пользователя (issue #183).
+
+    Переиспользует _collect_one — тот же license-гейт (config/licenses.yaml,
+    issue #3) и дедуп по news_items.source_url, что и автосбор (issue #61)
+    и RSS-прогон (issue #157/#159). Возвращает тот же набор статусов, что и
+    _collect_one, плюс 'skipped_duplicate' при попадании в дедуп до скачивания."""
+    db.init_db(db_path)
+    canon = canonicalize_url(url)
+    if db.source_url_exists(canon, db_path):
+        return "skipped_duplicate"
+    hit = SearchHit(url=url, title=title, snippet="")
+    return await _collect_one(hit, llm_config, data_root, db_path)
 
 
 async def collect_news(
@@ -175,6 +219,8 @@ async def collect_news(
                 stats.drafted += 1
             elif result == "license_denied":
                 stats.skipped_license += 1
+            elif result == "not_relevant":
+                stats.skipped_not_relevant += 1
             elif result == "download_failed":
                 stats.download_failed += 1
             elif result == "llm_failed":
@@ -231,6 +277,8 @@ async def collect_rss(
             stats.drafted += 1
         elif result == "license_denied":
             stats.skipped_license += 1
+        elif result == "not_relevant":
+            stats.skipped_not_relevant += 1
         elif result == "download_failed":
             stats.download_failed += 1
         elif result == "llm_failed":

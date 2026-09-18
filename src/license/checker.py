@@ -42,6 +42,7 @@ class LicenseCheckResult:
     status: LicenseStatus
     reason: str
     attribution_template: str | None = None
+    is_aggregator: bool = False
 
     @property
     def downloadable(self) -> bool:
@@ -59,6 +60,26 @@ def _load_registry(path: Path = _CONFIG_PATH) -> dict:
         return {}
     with path.open(encoding="utf-8") as f:
         return yaml.safe_load(f) or {}
+
+
+def _register_pending(domain: str, path: Path) -> None:
+    """Автосоздание записи pending_manual_review при первой встрече домена
+    (issue #184, ADR-013): без этого домен не появлялся в UI "Источники" и
+    требовал ручного повторного ввода вместо простого выбора статуса."""
+    registry = _load_registry(path)
+    if domain in registry:
+        return
+    registry[domain] = {
+        "status": LicenseStatus.PENDING_MANUAL_REVIEW.value,
+        "attribution_template": None,
+        "notes": "",
+        "checked_date": None,
+    }
+    path.write_text(
+        "# Реестр лицензий/ToS источников (issue #3, ADR-001 п.3).\n"
+        + yaml.safe_dump(registry, allow_unicode=True, sort_keys=True),
+        encoding="utf-8",
+    )
 
 
 def _check_robots(base_url: str, user_agent: str) -> bool | None:
@@ -92,6 +113,7 @@ def check_license(
     registry = _load_registry(registry_path)
     entry = registry.get(domain)
     if entry is None:
+        _register_pending(domain, registry_path)
         return LicenseCheckResult(
             status=LicenseStatus.PENDING_MANUAL_REVIEW,
             reason=(
@@ -106,4 +128,5 @@ def check_license(
         status=status,
         reason=reason,
         attribution_template=entry.get("attribution_template"),
+        is_aggregator=bool(entry.get("is_aggregator", False)),
     )

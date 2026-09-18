@@ -8,7 +8,9 @@ def test_build_ingestion_metadata_adds_adr_0002_defaults():
     )
 
     assert metadata["date_indexed"] == "2026-09-09"
-    assert metadata["category"] == "basic"
+    # issue #186: "basic" не входит в опции controlled-поля category в
+    # GAR-схеме — без явного category лучше None, чем невалидный дефолт.
+    assert metadata["category"] is None
     assert metadata["lifecycle_stage"] == "unspecified"
     assert metadata["comorbidity_tags"] == ""
     assert metadata["reviewed_by"] == ""

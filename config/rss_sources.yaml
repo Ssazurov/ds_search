@@ -2,25 +2,20 @@
 # Фильтр свежести и период для ручного запуска задаются в CLI
 # (scripts/collect_rss.py --days N), не здесь.
 #
-# ВАЖНО: URL фидов ниже — первичный best-effort список (стандартные
-# /feed/ пути), не верифицирован сетевым запросом при составлении конфига.
-# Первый прогон (python -m scripts.collect_rss --days 30) покажет в
-# errors/stderr, какие фиды не парсятся (bozo) — тогда поправить URL здесь
-# по факту, без нового ADR (см. ADR-010, "Уточнение").
+# Верифицировано вручную curl 2026-09-18 (issue #180): большинство
+# исходных /feed/ URL оказались нерабочими и удалены отсюда без нового
+# ADR (см. заметку про "по факту" ниже, действует и для удаления). Если
+# домен снова заработает — можно вернуть, проверив URL заново.
+#   - downsideup.org  — /feed/ отдаёт 404, RSS на сайте не найден
+#   - miloserdie.ru   — RSS отключён на сервере (wp_die: "RSS ленты недоступны")
+#   - asi.org.ru      — /feed/ редиректит на общую 404-страницу
+#   - philanthropy.ru — сайт не отвечает (connection timeout)
+#   - takiedela.ru    — домен не резолвится (DNS)
+#   - nakedheart.online / nakedheart.ru — /feed/ отдаёт 404
+#   - rusfond.ru      — /rss отдаёт HTML-заглушку, /rss/letters/* — 410 Gone
+#
+# ВАЖНО: если добавляешь новый источник — проверь URL curl'ом перед
+# коммитом, не полагайся на стандартный /feed/ path "на глаз".
 sources:
-  - name: downsideup.org
-    url: https://downsideup.org/feed/
-  - name: miloserdie.ru
-    url: https://www.miloserdie.ru/feed/
-  - name: asi.org.ru
-    url: https://www.asi.org.ru/feed/
-  - name: philanthropy.ru
-    url: https://philanthropy.ru/feed/
-  - name: takiedela.ru
-    url: https://takiedela.ru/feed/
   - name: pravmir.ru
     url: https://www.pravmir.ru/feed/
-  - name: nakedheart.online
-    url: https://nakedheart.online/feed/
-  - name: rusfond.ru
-    url: https://rusfond.ru/rss

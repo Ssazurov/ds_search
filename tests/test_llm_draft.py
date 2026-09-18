@@ -5,6 +5,7 @@ import pytest
 
 from src.news.llm_draft import (
     LlmConfig,
+    NotRelevantError,
     build_prompt,
     parse_llm_json,
     generate_draft,
@@ -72,3 +73,21 @@ def test_generate_draft_builds_item(monkeypatch):
     assert item["status"] == "draft"
     assert item["requires_review"] is True
     assert item["channels"] == []
+
+
+def test_generate_draft_raises_when_not_relevant(monkeypatch):
+    """issue #180: LLM пометил источник как нерелевантный (не про СД/РАС)."""
+    monkeypatch.setattr(
+        "src.news.llm_draft.call_llm",
+        lambda prompt, config: json.dumps(
+            {"relevant": False, "relevance_reason": "про другое"}
+        ),
+    )
+    source = {
+        "source_url": "https://example.com/news/1",
+        "source_name": "Example",
+        "title": "Src title",
+        "text": "Src text",
+    }
+    with pytest.raises(NotRelevantError):
+        generate_draft(source, _cfg())

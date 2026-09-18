@@ -8,6 +8,7 @@ import pytest
 
 from src.discovery.download import DownloadError
 from src.news import collect, db
+from src.news.llm_draft import NotRelevantError
 from src.search.base import QuotaExceeded, SearchHit
 
 
@@ -176,6 +177,28 @@ def test_collect_news_query_quota_exceeded_does_not_stop_other_queries(db_path, 
     assert stats.drafted == 1
 
 
+def test_collect_news_not_relevant_is_skipped(db_path, tmp_path, monkeypatch):
+    """issue #180: relevance-фильтр после SearchChain — LLM пометил источник
+    как нерелевантный, черновик не должен попасть в news_items."""
+    hit = SearchHit(url="https://f.org/1", title="Не по теме", snippet="s")
+    chain = _FakeChain({"q": [hit]})
+
+    async def fake_download(source, data_root=None):
+        return await _fake_download_ok(source, data_root, tmp_path)
+
+    def not_relevant_draft(source, config=None):
+        raise NotRelevantError("не про СД/РАС")
+
+    monkeypatch.setattr(collect, "download_single", fake_download)
+    monkeypatch.setattr(collect, "generate_draft", not_relevant_draft)
+
+    stats = asyncio.run(collect.collect_news(chain, queries=[{"query": "q"}], max_results=5, db_path=db_path))
+
+    assert stats.skipped_not_relevant == 1
+    assert stats.drafted == 0
+    assert db.list_news_items(db_path=db_path) == []
+
+
 def test_load_queries_config_reads_yaml(tmp_path):
     cfg = tmp_path / "queries.yaml"
     cfg.write_text(
@@ -184,3 +207,44 @@ def test_load_queries_config_reads_yaml(tmp_path):
     queries, max_results = collect.load_queries_config(cfg)
     assert max_results == 3
     assert queries == [{"query": "тест"}]
+
+
+def test_add_single_url_happy_path(db_path, tmp_path, monkeypatch):
+    async def fake_download(source, data_root=None):
+        return await _fake_download_ok(source, data_root, tmp_path)
+
+    monkeypatch.setattr(collect, "download_single", fake_download)
+    monkeypatch.setattr(collect, "generate_draft", lambda source, config=None: _draft_item(source))
+
+    result = asyncio.run(collect.add_single_url("https://d.org/news/1", db_path=db_path))
+
+    assert result == "drafted"
+    assert len(db.list_news_items(db_path=db_path)) == 1
+
+
+def test_add_single_url_dedup_skips_before_download(db_path, tmp_path, monkeypatch):
+    db.insert_news_item(_draft_item({"source_url": "https://d.org/news/1", "title": "x"}), db_path)
+    called = {"n": 0}
+
+    async def fake_download(source, data_root=None):
+        called["n"] += 1
+        return await _fake_download_ok(source, data_root, tmp_path)
+
+    monkeypatch.setattr(collect, "download_single", fake_download)
+
+    result = asyncio.run(collect.add_single_url("https://d.org/news/1", db_path=db_path))
+
+    assert result == "skipped_duplicate"
+    assert called["n"] == 0
+
+
+def test_add_single_url_license_denied(db_path, monkeypatch):
+    async def fake_download(source, data_root=None):
+        raise DownloadError("license status pending_manual_review: домен e.org отсутствует в реестре")
+
+    monkeypatch.setattr(collect, "download_single", fake_download)
+
+    result = asyncio.run(collect.add_single_url("https://e.org/news/1", db_path=db_path))
+
+    assert result == "license_denied"
+    assert db.list_news_items(db_path=db_path) == []
