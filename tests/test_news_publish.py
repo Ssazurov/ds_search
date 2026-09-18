@@ -171,3 +171,56 @@ def test_publish_news_item_records_error(db_path):
     item = db.get_news_item(item_id, db_path)
     assert item["publish_error"] == "boom"
     assert item["gar_document_id"] is None
+
+
+class _RevokeClient(_FakeClient):
+    def __init__(self):
+        super().__init__()
+        self.deleted = []
+
+    def delete_document(self, document_id):
+        self.deleted.append(document_id)
+        return {"deleted": True}
+
+
+class _FailingRevokeClient(_RevokeClient):
+    def delete_document(self, document_id):
+        raise publish.GarPublishError("delete boom")
+
+
+def test_revoke_news_item_skips_unpublished(db_path):
+    item_id = db.insert_news_item(_item(), db_path)  # gar_document_id не задан
+    result = publish.revoke_news_item(item_id, db_path=db_path, client=_RevokeClient())
+    assert result == {"skipped": True, "item_id": item_id}
+
+
+def test_revoke_news_item_deletes_and_clears_id(db_path):
+    item_id = db.insert_news_item(_item(), db_path)
+    db.update_status(item_id, "published", db_path)
+    publish.publish_news_item(item_id, db_path=db_path, client=_FakeClient())
+
+    client = _RevokeClient()
+    result = publish.revoke_news_item(item_id, db_path=db_path, client=client)
+
+    assert result == {"skipped": False, "item_id": item_id, "gar_document_id": "doc-42"}
+    assert client.deleted == ["doc-42"]
+    item = db.get_news_item(item_id, db_path)
+    assert item["gar_document_id"] is None
+
+
+def test_revoke_news_item_missing_raises(db_path):
+    with pytest.raises(ValueError):
+        publish.revoke_news_item(999, db_path=db_path, client=_RevokeClient())
+
+
+def test_revoke_news_item_propagates_gar_error(db_path):
+    item_id = db.insert_news_item(_item(), db_path)
+    db.update_status(item_id, "published", db_path)
+    publish.publish_news_item(item_id, db_path=db_path, client=_FakeClient())
+
+    with pytest.raises(publish.GarPublishError):
+        publish.revoke_news_item(item_id, db_path=db_path, client=_FailingRevokeClient())
+
+    # gar_document_id не сброшен — запись не осиротела при ошибке отзыва
+    item = db.get_news_item(item_id, db_path)
+    assert item["gar_document_id"] == "doc-42"

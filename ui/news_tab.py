@@ -93,6 +93,12 @@ def _render_item(item: dict) -> None:
             db.update_status(item["id"], "rejected")
             st.rerun()
         if cols[3].button("Удалить", key=f"del_{item['id']}"):
+            if item.get("gar_document_id"):
+                try:
+                    publish.revoke_news_item(item["id"])
+                except publish.GarPublishError as exc:
+                    st.error(f"Не удалось отозвать документ из GAR, запись не удалена: {exc}")
+                    st.stop()
             db.delete_news_item(item["id"])
             st.rerun()
 

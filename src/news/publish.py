@@ -138,6 +138,27 @@ def publish_news_item(
     except GarPublishError as exc:
         db.set_publish_result(item_id, gar_document_id=None, error=str(exc), db_path=db_path)
         raise
-    finally:
-        if owns_client:
-            client.close()
+
+
+def revoke_news_item(
+    item_id: int, settings: PublishSettings | None = None, db_path: Path = db.DB_PATH,
+    client: GarNewsClient | None = None,
+) -> dict:
+    """Отзывает документ news_item из GAR (hard delete) перед удалением записи.
+
+    No-op, если gar_document_id не проставлен (черновик не публиковался).
+    GarPublishError пробрасывается наверх — вызывающий (UI) решает, что
+    делать (не удалять локальную запись, чтобы не потерять gar_document_id).
+    """
+    item = db.get_news_item(item_id, db_path)
+    if item is None:
+        raise ValueError(f"news_item {item_id} not found")
+    document_id = item.get("gar_document_id")
+    if not document_id:
+        return {"skipped": True, "item_id": item_id}
+
+    settings = settings or load_settings()
+    client = client or GarNewsClient(settings)
+    client.delete_document(document_id)
+    db.clear_gar_document_id(item_id, db_path=db_path)
+    return {"skipped": False, "item_id": item_id, "gar_document_id": document_id}
