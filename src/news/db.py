@@ -205,3 +205,15 @@ def set_publish_result(
                 "UPDATE news_items SET publish_error = ? WHERE id = ?", (error, item_id),
             )
         conn.commit()
+
+
+def clear_gar_document_id(item_id: int, db_path: Path = DB_PATH) -> None:
+    """После revoke_news_item (issue #200): документ удалён из GAR — сбрасываем
+    gar_document_id, чтобы не осиротеть (set_publish_result не умеет чистить
+    document_id, только выставлять новый или писать error)."""
+    with get_connection(db_path) as conn:
+        conn.execute(
+            "UPDATE news_items SET gar_document_id = NULL, publish_error = NULL WHERE id = ?",
+            (item_id,),
+        )
+        conn.commit()
