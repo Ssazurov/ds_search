@@ -29,7 +29,7 @@ from ..discovery.download import DEFAULT_DATA_ROOT, DownloadError, download_sing
 from ..search.base import QuotaExceeded, SearchHit
 from ..search.chain import SearchProviderChain
 from . import db, rss
-from .llm_draft import LlmConfig, generate_draft
+from .llm_draft import LlmConfig, NotRelevantError, generate_draft
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +43,7 @@ class CollectStats:
     candidates_found: int = 0
     skipped_duplicate: int = 0
     skipped_license: int = 0
+    skipped_not_relevant: int = 0
     download_failed: int = 0
     llm_failed: int = 0
     drafted: int = 0
@@ -55,6 +56,7 @@ class CollectStats:
             "candidates_found": self.candidates_found,
             "skipped_duplicate": self.skipped_duplicate,
             "skipped_license": self.skipped_license,
+            "skipped_not_relevant": self.skipped_not_relevant,
             "download_failed": self.download_failed,
             "llm_failed": self.llm_failed,
             "drafted": self.drafted,
@@ -113,6 +115,9 @@ async def _collect_one(
     }
     try:
         draft = generate_draft(llm_source, config=llm_config)
+    except NotRelevantError as exc:
+        logger.info("источник %s пропущен (нерелевантно): %s", hit.url, exc)
+        return "not_relevant"
     except Exception as exc:  # noqa: BLE001 — любая ошибка LLM/парсинга JSON не должна ронять прогон
         logger.warning("generate_draft упал для %s: %s", hit.url, exc)
         return "llm_failed"
@@ -196,6 +201,8 @@ async def collect_news(
                 stats.drafted += 1
             elif result == "license_denied":
                 stats.skipped_license += 1
+            elif result == "not_relevant":
+                stats.skipped_not_relevant += 1
             elif result == "download_failed":
                 stats.download_failed += 1
             elif result == "llm_failed":
@@ -252,6 +259,8 @@ async def collect_rss(
             stats.drafted += 1
         elif result == "license_denied":
             stats.skipped_license += 1
+        elif result == "not_relevant":
+            stats.skipped_not_relevant += 1
         elif result == "download_failed":
             stats.download_failed += 1
         elif result == "llm_failed":
