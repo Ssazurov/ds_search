@@ -58,3 +58,21 @@ PDF-файлы. Если явное разрешение на перепубли
 Не переводите неизвестные домены автоматически в `allow`: это отключает
 обязательную ручную проверку ToS. Для одноразового использования можно
 сохранить ссылку без скачивания, если нужен только зафиксированный источник.
+
+## GAR-пользователи (X-User-ID)
+
+ds_search обращается к gar-core-api под разными identity, у каждой — свой ACL
+на датасете (`acl_rules` в gar-core-api):
+
+- `ds-search-news-publish` — публикация новостей (`gar_ingest/client.py`),
+  нужен `write`. ACL закреплён в `gar-core-api/scripts/seed_dataset_acl.py`.
+- `admin-ds-ingestion` — ingestion-пайплайн (используется ds_ingestion), `write`/`manage`.
+- `admin-ui` — чтение метаданных для ds_site/admin.
+- `public-site-readonly` — публичное read-only чтение (`seed_public_acl.py`).
+
+В `deploy/docker-compose.yml` сервис `ds-search` использует общий
+`env_file: ./ds-ingestion.env`, поэтому для него обязателен явный override
+`environment: GAR_USER_ID=ds-search-news-publish` — иначе наследуется
+`ds-ingestion-adapter` из общего env-файла (см. ds_search#185). Другие
+сервисы стека (`gar-core-api`, `gar-admin-ui`, `ds-site`) используют
+отдельные `.env`-файлы и такому риску не подвержены.
