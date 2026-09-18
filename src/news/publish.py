@@ -37,6 +37,12 @@ from ..gar_ingest.client import (
 # gar_ingest/client.py, GarNewsClient — алиас на общий GarIngestClient.
 GarNewsClient = GarIngestClient
 
+# issue #186: age — required-поле в GAR-схеме; если LLM-классификация и
+# per-source fallback (gar_mapping) не закрыли его, паблиш падает 422
+# "age must not be blank". "Все возрасты" — безопасный дефолт для новостей
+# (нет узкой возрастной привязки), как и для downsideup (ds_ingestion #3).
+FALLBACK_AGE = "Все возрасты"
+
 
 def build_content_md(item: dict) -> str:
     """Markdown-документ для ingestion (Docling принимает .pdf/.md/.docx)."""
@@ -76,8 +82,10 @@ def build_metadata(item: dict) -> dict:
         description=item.get("summary"),
         publish_date=item.get("published_at") or item.get("source_published_at"),
     )
-    if classified.get("age"):
-        metadata["age"] = classified["age"]
+    # age — required в GAR-схеме: если ни LLM, ни per-source fallback не
+    # закрыли поле, подставляем FALLBACK_AGE, иначе publish падает 422
+    # (issue #186). needs_review из classify() уже отмечает такие записи.
+    metadata["age"] = classified.get("age") or FALLBACK_AGE
     if classified.get("target_audience"):
         metadata["target_audience"] = classified["target_audience"]
     if item.get("tags"):

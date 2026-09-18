@@ -4,7 +4,11 @@ from __future__ import annotations
 from datetime import date
 
 
-DEFAULT_CATEGORY = "basic"
+# issue #186: раньше был захардкожен DEFAULT_CATEGORY = "basic" — значение,
+# не входящее в опции controlled-поля category в текущей GAR-схеме (у
+# category нет собственного варианта для direction=news, например). Без
+# явного category лучше не проставлять поле вовсе, чем подставлять
+# невалидное значение и ловить 422 "unknown value for controlled field".
 LIFECYCLE_STAGES = [
     "unspecified", "prenatal", "early_development", "preschool_school",
     "medical", "legal_benefits", "adult_life",
@@ -37,7 +41,7 @@ def build_ingestion_metadata(
         "title": title,
         "license": license,
         "date_indexed": date_indexed or date.today().isoformat(),
-        "category": category or DEFAULT_CATEGORY,
+        "category": category,
         "lifecycle_stage": lifecycle_stage or UNSPECIFIED_LIFECYCLE_STAGE,
         "comorbidity_tags": comorbidity_tags or "",
         "reviewed_by": reviewed_by or "",
