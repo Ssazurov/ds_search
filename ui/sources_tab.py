@@ -53,6 +53,8 @@ def render() -> None:
         label = f"{domain} — находок: {counts.get(domain, 0)}"
         if pending:
             label += " · ⏳ не проверен"
+        if entry.get("is_aggregator"):
+            label += " · 🔁 агрегатор"
         with st.expander(label, expanded=pending):
             if pending:
                 st.warning("Статус ещё не выбран — по умолчанию домен не скачивается (pending_manual_review).")
@@ -67,12 +69,17 @@ def render() -> None:
                 value=entry.get("attribution_template", ""), key=f"attr_{domain}",
             )
             notes = st.text_area("Заметки", value=entry.get("notes", ""), key=f"notes_{domain}")
+            is_aggregator = st.checkbox(
+                "Агрегатор (ссылка на первоисточник в конце текста статьи, ADR-0012)",
+                value=bool(entry.get("is_aggregator", False)), key=f"agg_{domain}",
+            )
             if st.button("Сохранить", key=f"save_{domain}", disabled=status is None):
                 registry[domain] = {
                     "status": status,
                     "attribution_template": attribution or None,
                     "notes": notes,
                     "checked_date": entry.get("checked_date"),
+                    "is_aggregator": is_aggregator,
                 }
                 _save_registry(registry)
                 st.success("licenses.yaml обновлён")

@@ -42,6 +42,7 @@ class LicenseCheckResult:
     status: LicenseStatus
     reason: str
     attribution_template: str | None = None
+    is_aggregator: bool = False
 
     @property
     def downloadable(self) -> bool:
@@ -127,4 +128,5 @@ def check_license(
         status=status,
         reason=reason,
         attribution_template=entry.get("attribution_template"),
+        is_aggregator=bool(entry.get("is_aggregator", False)),
     )

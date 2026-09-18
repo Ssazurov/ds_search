@@ -1,98 +1,122 @@
 # Реестр лицензий/ToS источников (issue #3, ADR-001 п.3).
+asi.org.ru:
+  attribution_template: 'Источник: {title} ({source_url}), Агентство социальной информации
+    (asi.org.ru)'
+  checked_date: '2026-09-17'
+  notes: 'Собственная статья АСИ "Как не нарушить авторские права": при цитировании
+    материалов АСИ не более 30% – указать ссылку на asi.org.ru; при цитировании более
+    30% – направить уведомительное письмо в редакцию. Фотоматериалы – только по согласованию
+    с АСИ/автором, отдельно от текста.'
+  status: attribution_required
+www.correiodamanha.com.br:
+  attribution_template: 'Источник: {title} ({source_url}), Correio da Manhã (correiodamanha.com.br)'
+  checked_date: '2026-09-18'
+  notes: Публичных правил перепечатки на сайте не обнаружено (только copyright-плашка
+    в футере "Todos os direitos reservados"), явного запрета на цитирование нет.
+  status: attribution_required
+diariodorio.com:
+  attribution_template: null
+  checked_date: '2026-09-18'
+  notes: 'В Termos de Uso п.5: "A reprodução integral ou substancial de matérias ...
+    depende de autorização prévia". Разрешено только цитирование малых фрагментов
+    с указанием источника.'
+  status: deny
 downsideup.org:
   attribution_template: 'Источник: {title} ({source_url}), Даунсайд Ап (downsideup.org)'
   checked_date: '2026-08-24'
   notes: 'В подвале сайта: "Использование любых материалов, размещённых на сайте,
     разрешается при условии активной ссылки на downsideup.org".'
   status: attribution_required
-sindromlubvi.ru:
-  attribution_template: 'Источник: {title} ({source_url}), Синдром любви (sindromlubvi.ru)'
-  checked_date: null
-  notes: На сайте не найден запрет на скачивание и использование материалов
-  status: attribution_required
-vk.ru:
-  attribution_template: 'Источник: {title} ({source_url}), Синдром любви (vk.ru)'
-  checked_date: null
-  notes: ''
-  status: attribution_required
+forbes.kz:
+  attribution_template: null
+  checked_date: '2026-09-17'
+  notes: 'ЗАПРЕЩЕНО: "Использование материалов сайта допускается исключительно в личных
+    целях. Использование ... в иных целях возможно только с письменного согласия Администратора"
+    (forbes.kz/pages/agreement, п.2.2).'
+  status: deny
 miloserdie.ru:
   attribution_template: 'Источник: {title} ({source_url}), Милосердие.ru (miloserdie.ru)'
   checked_date: '2026-09-16'
-  notes: 'Перепечатка в интернете разрешена при условии открытой активной гиперссылки
-    на оригинал. Публичных правил цитирования не обнаружено.'
+  notes: Перепечатка в интернете разрешена при условии открытой активной гиперссылки
+    на оригинал. Публичных правил цитирования не обнаружено.
   status: attribution_required
-www.miloserdie.ru:
-  attribution_template: 'Источник: {title} ({source_url}), Милосердие.ru (miloserdie.ru)'
-  checked_date: '2026-09-16'
-  notes: 'Перепечатка в интернете разрешена при условии открытой активной гиперссылки
-    на оригинал. Публичных правил цитирования не обнаружено.'
-  status: attribution_required
-pravmir.ru:
-  attribution_template: 'Источник: {title} ({source_url}), Православие и мир (pravmir.ru)'
-  checked_date: '2026-09-16'
-  notes: 'Перепечатка в электронных СМИ разрешена при условии установки прямой
-    активной ссылки. Публичных правил на сайте не обнаружено.'
-  status: attribution_required
-www.pravmir.ru:
-  attribution_template: 'Источник: {title} ({source_url}), Православие и мир (pravmir.ru)'
-  checked_date: '2026-09-16'
-  notes: 'Перепечатка в электронных СМИ разрешена при условии установки прямой
-    активной ссылки. Публичных правил на сайте не обнаружено.'
+nakedheart.online:
+  attribution_template: 'Источник: {title} ({source_url}), Фонд «Обнажённые сердца»
+    (nakedheart.online)'
+  checked_date: '2026-09-17'
+  notes: Публичных правил перепечатки на сайте не обнаружено (доступна только политика
+    конфиденциальности /terms), явного запрета на цитирование нет.
   status: attribution_required
 news.un.org:
   attribution_template: 'Источник: {title} ({source_url}), UN News (news.un.org)'
   checked_date: '2026-09-17'
-  notes: 'Rights & Permissions (shop.un.org): для материалов UN News Centre
-    требуется обратная ссылка на news.un.org, письменного разрешения не
-    требуется (в отличие от остальных публикаций ООН).'
-  status: attribution_required
-www.unicef.org:
-  attribution_template: null
-  checked_date: '2026-09-17'
-  notes: 'ЗАПРЕЩЕНО без письменного разрешения: "Any other use, including
-    reproduction or translation of anything more than a de minimis portion...
-    requires the express prior written permission" (unicef.org/legal).'
-  status: deny
-forbes.kz:
-  attribution_template: null
-  checked_date: '2026-09-17'
-  notes: 'ЗАПРЕЩЕНО: "Использование материалов сайта допускается исключительно
-    в личных целях. Использование ... в иных целях возможно только с
-    письменного согласия Администратора" (forbes.kz/pages/agreement, п.2.2).'
-  status: deny
-asi.org.ru:
-  attribution_template: 'Источник: {title} ({source_url}), Агентство социальной информации (asi.org.ru)'
-  checked_date: '2026-09-17'
-  notes: 'Собственная статья АСИ "Как не нарушить авторские права": при цитировании
-    материалов АСИ не более 30% – указать ссылку на asi.org.ru; при цитировании
-    более 30% – направить уведомительное письмо в редакцию. Фотоматериалы – только
-    по согласованию с АСИ/автором, отдельно от текста.'
+  notes: 'Rights & Permissions (shop.un.org): для материалов UN News Centre требуется
+    обратная ссылка на news.un.org, письменного разрешения не требуется (в отличие
+    от остальных публикаций ООН).'
   status: attribution_required
 philanthropy.ru:
   attribution_template: 'Источник: {title} ({source_url}), Филантроп (philanthropy.ru)'
   checked_date: '2026-09-17'
-  notes: 'Проект «Филантроп» закрыт (уведомление на главной странице сайта),
-    публичных правил перепечатки не обнаружено. Издание маркировано как продукт
-    БФ развития филантропии (иностранный агент).'
+  notes: Проект «Филантроп» закрыт (уведомление на главной странице сайта), публичных
+    правил перепечатки не обнаружено. Издание маркировано как продукт БФ развития
+    филантропии (иностранный агент).
+  status: attribution_required
+pravmir.ru:
+  attribution_template: 'Источник: {title} ({source_url}), Православие и мир (pravmir.ru)'
+  checked_date: '2026-09-16'
+  notes: Перепечатка в электронных СМИ разрешена при условии установки прямой активной
+    ссылки. Публичных правил на сайте не обнаружено.
+  status: attribution_required
+rusfond.ru:
+  attribution_template: 'Источник: {title} ({source_url}), Русфонд (rusfond.ru)'
+  checked_date: '2026-09-17'
+  notes: Сайт – сетевое издание «Русфонд.Медиа»; отдельных публичных правил перепечатки
+    материалов сайта не обнаружено (пользовательское соглашение касается только мобильного
+    приложения).
+  status: attribution_required
+sindromlubvi.ru:
+  attribution_template: 'Источник: {title} ({source_url}), Синдром любви (sindromlubvi.ru)'
+  checked_date: null
+  notes: На сайте не найден запрет на скачивание и использование материалов
   status: attribution_required
 takiedela.ru:
   attribution_template: null
   checked_date: '2026-09-17'
   notes: 'В футере сайта: "Исключительные права на фото- и иные материалы принадлежат
     авторам. Любое размещение материалов на сторонних ресурсах необходимо согласовывать
-    с правообладателями." Требуется явное согласование, публичной оферты на
-    перепечатку нет.'
+    с правообладателями." Требуется явное согласование, публичной оферты на перепечатку
+    нет.'
   status: deny
-nakedheart.online:
-  attribution_template: 'Источник: {title} ({source_url}), Фонд «Обнажённые сердца» (nakedheart.online)'
-  checked_date: '2026-09-17'
-  notes: 'Публичных правил перепечатки на сайте не обнаружено (доступна только
-    политика конфиденциальности /terms), явного запрета на цитирование нет.'
+vk.ru:
+  attribution_template: 'Источник: {title} ({source_url}), Синдром любви (vk.ru)'
+  checked_date: null
+  notes: ''
   status: attribution_required
-rusfond.ru:
-  attribution_template: 'Источник: {title} ({source_url}), Русфонд (rusfond.ru)'
-  checked_date: '2026-09-17'
-  notes: 'Сайт – сетевое издание «Русфонд.Медиа»; отдельных публичных правил
-    перепечатки материалов сайта не обнаружено (пользовательское соглашение
-    касается только мобильного приложения).'
+wildcar.ru:
+  attribution_template: null
+  checked_date: '2026-09-18'
+  is_aggregator: true
+  notes: 'Агрегатор: перепечатывает новости с внешних сайтов, в конце каждой
+    статьи есть строка "Источник: [домен](url)" со ссылкой на реального
+    автора (ADR-0012, issue #194) — своих правил перепечатки на сайте не
+    обнаружено.'
   status: attribution_required
+www.miloserdie.ru:
+  attribution_template: 'Источник: {title} ({source_url}), Милосердие.ru (miloserdie.ru)'
+  checked_date: '2026-09-16'
+  notes: Перепечатка в интернете разрешена при условии открытой активной гиперссылки
+    на оригинал. Публичных правил цитирования не обнаружено.
+  status: attribution_required
+www.pravmir.ru:
+  attribution_template: 'Источник: {title} ({source_url}), Православие и мир (pravmir.ru)'
+  checked_date: '2026-09-16'
+  notes: Перепечатка в электронных СМИ разрешена при условии установки прямой активной
+    ссылки. Публичных правил на сайте не обнаружено.
+  status: attribution_required
+www.unicef.org:
+  attribution_template: null
+  checked_date: '2026-09-17'
+  notes: 'ЗАПРЕЩЕНО без письменного разрешения: "Any other use, including reproduction
+    or translation of anything more than a de minimis portion... requires the express
+    prior written permission" (unicef.org/legal).'
+  status: deny
