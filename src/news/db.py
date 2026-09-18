@@ -143,7 +143,12 @@ def list_news_items(status: str | None = None, db_path: Path = DB_PATH) -> list[
 def update_status(item_id: int, status: str, db_path: Path = DB_PATH) -> None:
     if status not in STATUSES:
         raise ValueError(f"invalid status: {status}")
-    published_at_clause = ", published_at = datetime('now')" if status == "published" else ""
+    # COALESCE: не затирать published_at, если пользователь уже выбрал
+    # дату публикации вручную в черновике (issue #198) — автозаполнение
+    # только если поле ещё пустое.
+    published_at_clause = (
+        ", published_at = COALESCE(published_at, datetime('now'))" if status == "published" else ""
+    )
     with get_connection(db_path) as conn:
         conn.execute(
             f"UPDATE news_items SET status = ?{published_at_clause} WHERE id = ?",
@@ -152,7 +157,7 @@ def update_status(item_id: int, status: str, db_path: Path = DB_PATH) -> None:
         conn.commit()
 
 
-EDITABLE_FIELDS = ("title", "summary", "body_md", "tags", "channels")
+EDITABLE_FIELDS = ("title", "summary", "body_md", "tags", "channels", "published_at")
 
 
 def update_news_item(item_id: int, fields: dict, db_path: Path = DB_PATH) -> None:

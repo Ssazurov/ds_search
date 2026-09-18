@@ -7,6 +7,8 @@
 """
 from __future__ import annotations
 
+from datetime import datetime
+
 import streamlit as st
 
 from src.news import db, publish
@@ -30,6 +32,28 @@ def _render_item(item: dict) -> None:
             key=f"ch_{item['id']}",
         )
 
+        # issue #198: редактируемая дата публикации — источник даты
+        # выбирается тумблером, "Вручную" открывает date/time-инпуты.
+        source_dt_raw = item.get("source_published_at")
+        pub_options = ["Сейчас"] + (["Дата источника"] if source_dt_raw else []) + ["Вручную"]
+        pub_mode = st.radio(
+            "Дата публикации", pub_options, horizontal=True, key=f"pubmode_{item['id']}",
+        )
+        if pub_mode == "Сейчас":
+            new_published_at = datetime.now().isoformat(sep=" ", timespec="seconds")
+        elif pub_mode == "Дата источника":
+            new_published_at = source_dt_raw
+        else:
+            raw_pub = item.get("published_at") or source_dt_raw
+            try:
+                default_dt = datetime.fromisoformat(raw_pub) if raw_pub else datetime.now()
+            except ValueError:
+                default_dt = datetime.now()
+            d = st.date_input("Дата", default_dt.date(), key=f"pubdate_{item['id']}")
+            t = st.time_input("Время", default_dt.time(), key=f"pubtime_{item['id']}")
+            new_published_at = datetime.combine(d, t).isoformat(sep=" ", timespec="seconds")
+        st.caption(f"Будет сохранено как дата публикации: {new_published_at}")
+
         cols = st.columns(4)
         if cols[0].button("Сохранить", key=f"save_{item['id']}"):
             db.update_news_item(item["id"], {
@@ -38,6 +62,7 @@ def _render_item(item: dict) -> None:
                 "body_md": new_body,
                 "tags": [t.strip() for t in new_tags.split(",") if t.strip()],
                 "channels": new_channels,
+                "published_at": new_published_at,
             })
             st.success("Сохранено")
             st.rerun()
