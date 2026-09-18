@@ -42,12 +42,18 @@ def _render_item(item: dict) -> None:
             st.success("Сохранено")
             st.rerun()
         if item["status"] != "published" and cols[1].button("Опубликовать", key=f"pub_{item['id']}"):
+            # issue: status не должен фиксироваться как published, если
+            # ingestion в GAR провалился (publish_news_item требует
+            # status="published" до вызова — поэтому ставим временно и
+            # откатываем в draft при ошибке, чтобы не терять item молча
+            # в "опубликовано", хотя в GAR его нет).
             db.update_status(item["id"], "published")
             try:
                 publish.publish_news_item(item["id"])
                 st.success("Опубликовано и загружено в GAR")
             except publish.GarPublishError as exc:
-                st.warning(f"Статус изменён, но ingestion в GAR не удался: {exc}")
+                db.update_status(item["id"], "draft")
+                st.warning(f"Публикация не удалась, статус возвращён в черновик: {exc}")
             st.rerun()
         if item.get("gar_document_id") and cols[1].button("Переотправить в GAR", key=f"repub_{item['id']}"):
             try:
