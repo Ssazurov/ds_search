@@ -1,3 +1,29 @@
+## 2026-09-18 -- issue #194 (ADR-0012): агрегаторы — атрибуция на первоисточник из текста статьи
+
+- Проблема: wildcar.ru — агрегатор, перепечатывает новости; атрибуция
+  указывала на wildcar, а не на реального автора (пример: статья про
+  DJ JP на Rock in Rio, первоисточник sonoticiaboa.com.br указан в
+  тексте строкой "Источник: [домен](url)").
+- Решение: `config/licenses.yaml` -- новое поле `is_aggregator: bool`
+  (wildcar.ru = true); `src/license/checker.py::LicenseCheckResult`
+  прокидывает его дальше; `src/discovery/download.py` пишет
+  `is_aggregator` в meta; новый `src/news/aggregator.py::
+  extract_primary_source_url()` парсит ссылку из уже скачанного
+  markdown-текста статьи (паттерн "Источник:/Source:/Fonte: [x](url)");
+  `src/news/collect.py::_collect_one` при `is_aggregator=True`
+  подменяет `source_url`/`source_name` в LLM-source на найденный
+  первоисточник перед `generate_draft`. Первоисточник НЕ краулится —
+  его домен не обязан быть в `licenses.yaml`, summary делается по
+  тексту агрегатора.
+- UI: `ui/sources_tab.py` -- чекбокс "Агрегатор" в форме домена, бейдж
+  "🔁 агрегатор" в заголовке.
+- Проверено сквозным прогоном: `add_news_by_url.py` на статье wildcar
+  про DJ JP -> news_items.source_url = sonoticiaboa.com.br (не wildcar).
+- Тесты: новый tests/test_aggregator.py (3 теста); полный прогон
+  license/collect/download/aggregator -- 28/28 passed.
+- ADR-0012 (`docs/adr/0012-aggregator-source-detection.md`), PR TBD
+  (Closes #194), в project #4.
+
 ## 2026-09-18 -- issue #186: classify() тихий фейл + невалидные дефолты age/category ломали publish (422)
 
 - Root cause: `classify()` глотал исключение LLM без логирования;

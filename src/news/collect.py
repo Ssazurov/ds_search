@@ -29,6 +29,7 @@ from ..discovery.download import DEFAULT_DATA_ROOT, DownloadError, download_sing
 from ..search.base import QuotaExceeded, SearchHit
 from ..search.chain import SearchProviderChain
 from . import db, rss
+from .aggregator import extract_primary_source_url, primary_source_domain
 from .llm_draft import LlmConfig, NotRelevantError, generate_draft
 
 logger = logging.getLogger(__name__)
@@ -106,9 +107,26 @@ async def _collect_one(
         return "download_failed"
 
     text = content_path.read_text(encoding="utf-8")
+    resolved_source_url = meta["source_url"]
+    resolved_source_name = source_name or domain
+    if meta.get("is_aggregator"):
+        # ADR-0012/issue #194: агрегатор (wildcar.ru и т.п.) — атрибуция
+        # на реального автора, найденного в уже скачанном тексте статьи
+        # (строка "Источник: [домен](url)"); сам первоисточник не
+        # краулится, summary остаётся по тексту агрегатора.
+        primary_url = extract_primary_source_url(text)
+        if primary_url:
+            resolved_source_url = primary_url
+            resolved_source_name = primary_source_domain(primary_url)
+        else:
+            logger.warning(
+                "агрегатор %s: ссылка на первоисточник не найдена в тексте %s,"
+                " атрибуция остаётся на агрегатор", domain, hit.url,
+            )
+
     llm_source = {
-        "source_url": meta["source_url"],
-        "source_name": source_name or domain,
+        "source_url": resolved_source_url,
+        "source_name": resolved_source_name,
         "source_published_at": source_published_at,
         "title": meta.get("title") or hit.title,
         "text": text,
