@@ -147,8 +147,11 @@ def revoke_news_item(
     """Отзывает документ news_item из GAR (hard delete) перед удалением записи.
 
     No-op, если gar_document_id не проставлен (черновик не публиковался).
-    GarPublishError пробрасывается наверх — вызывающий (UI) решает, что
-    делать (не удалять локальную запись, чтобы не потерять gar_document_id).
+    Issue #202: если у сервисного аккаунта нет прав delete на датасете
+    (403 Permission denied) — fallback на archive_document (скрывает из
+    /public и retrieval, issue #133). Любая другая GarPublishError
+    пробрасывается наверх — вызывающий (UI) решает, что делать (не удалять
+    локальную запись, чтобы не потерять gar_document_id).
     """
     item = db.get_news_item(item_id, db_path)
     if item is None:
@@ -159,6 +162,16 @@ def revoke_news_item(
 
     settings = settings or load_settings()
     client = client or GarNewsClient(settings)
-    client.delete_document(document_id)
+    try:
+        client.delete_document(document_id)
+    except GarPublishError as exc:
+        if "403" not in str(exc):
+            raise
+        client.archive_document(document_id)
+        db.clear_gar_document_id(item_id, db_path=db_path)
+        return {
+            "skipped": False, "item_id": item_id, "gar_document_id": document_id,
+            "archived_fallback": True,
+        }
     db.clear_gar_document_id(item_id, db_path=db_path)
     return {"skipped": False, "item_id": item_id, "gar_document_id": document_id}
