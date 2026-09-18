@@ -1,3 +1,17 @@
+## 2026-09-18 -- issue #202: fallback на archive при 403 delete в GAR
+
+- Проблема: `revoke_news_item` делал hard delete через GAR API; если у
+  сервисного аккаунта нет прав delete на датасете — 403 Permission
+  denied, документ оставался опубликованным.
+- Решение: `src/news/publish.py::revoke_news_item` — при
+  `GarPublishError` с "403" в тексте делает fallback на
+  `client.archive_document()` (issue #133, скрывает из /public и
+  retrieval), `gar_document_id` чистится как обычно; результат содержит
+  `archived_fallback: True`. Любая другая ошибка по-прежнему
+  пробрасывается наверх.
+- Тесты: `tests/test_news_publish.py` (16 passed).
+- PR #203 (ds_search), смержен в main. Issue #202 закрыт.
+
 ## 2026-09-18 -- issue #194 (ADR-0012): агрегаторы — атрибуция на первоисточник из текста статьи
 
 - Проблема: wildcar.ru — агрегатор, перепечатывает новости; атрибуция
