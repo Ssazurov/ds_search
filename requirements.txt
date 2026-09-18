@@ -7,3 +7,5 @@ pandas
 openpyxl
 reportlab>=4.0
 feedparser
+pytest
+pytest-xdist
