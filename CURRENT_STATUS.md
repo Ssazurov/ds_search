@@ -111,3 +111,15 @@
 
 Полная история 2026-09-10 -- 2026-09-17 перенесена в
 `docs/archive/current-status/CURRENT_STATUS-2026-09-10_2026-09-17.md`.
+
+## 2026-09-18 -- issue #184: licenses.yaml автосоздание pending_manual_review
+
+- ADR-0013 (`ds/docs/adr/0013-license-registry-auto-pending.md`).
+- `src/license/checker.py::check_license` теперь пишет заготовку
+  `pending_manual_review` в `config/licenses.yaml` при первой встрече
+  неизвестного домена (idempotent, `_register_pending`).
+- `ui/sources_tab.py`: явный warning + `expanded=True` + селектбокс без
+  предвыбранного статуса для непроверенных доменов; кнопка "Сохранить"
+  заблокирована пока статус не выбран (раньше молча дефолтился на `allow`).
+- Тесты: `tests/test_license_checker.py` (2 passed).
+- PR #193 (branch `fix/184-license-registry-auto-pending`), Closes #184.
