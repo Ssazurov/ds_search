@@ -1,3 +1,30 @@
+## 2026-09-18 -- fix: publish 403 + volume-mount ds-search (gar-deploy#21, #185, #186)
+
+- gar-deploy#21 закрыт: `deploy/docker-compose.yml` для ds-search теперь
+  монтирует `../ds/ds_search/data:/app/data` и `../ds/ds_search/config:/app/config`
+  (раньше запекались в образ, терялись при пересборке). Данные не потеряны:
+  перед переключением смёржена хостовая копия news.db (id 1-6) с актуальной
+  копией из работавшего контейнера (id 7-11) -- итог 11 записей.
+- Публикация новости в GAR падала `403 Permission denied` -- причина в двух
+  местах, оба исправлены руками (нужно закрепить в коде/миграциях, см. issues):
+  - `acl_rules` (gar-core-api): у `ds-search-news-publish` было только `read`,
+    добавлена запись `write` на датасет `81f35f18-8d32-458e-bf33-ddb68349e015`.
+    Issue ds_search#185 -- перенести фикс в seed/миграцию, разобраться с
+    остальными сервисами.
+  - `ds-ingestion.env` (общий для ds-ingestion/ds-search) задавал
+    `GAR_USER_ID=ds-ingestion-adapter`, перебивая дефолт кода
+    `ds-search-news-publish`; в compose добавлен явный
+    `environment: GAR_USER_ID=ds-search-news-publish` для сервиса ds-search.
+- После фикса 403 всплыл `422`: LLM-классификатор (`metadata/classify.py`)
+  тихо падает (`source: "none"`) для новых доменов вне `gar_mapping.yaml`
+  (пример: wildcar.ru) -- `age` остаётся пустым, обязательное поле GAR.
+  Дефолт `category: "basic"` дополнительно оказался невалидным
+  controlled-значением. Issue ds_search#186 -- логирование причины падения
+  classify(), дефолт для age, валидный/отсутствующий category при needs_review.
+- Новость "Учёные отключили лишнюю хромосому 21..." опубликована вручную
+  (`age="все возрасты"`, без `category`) -- `document_id: 93269faa-...`,
+  status `indexed`, отображается на ds_site `/news`. Пользователь подтвердил.
+
 ## 2026-09-17 -- LLM-эндпоинты пофикшены, first news item сгенерирован, публикация блокируется (#180, #181 заведены)
 
 - Root cause: `classify_llm.yaml` указывал на `router.cheap` (не резолвится,
@@ -150,218 +177,8 @@
   ссылки на `/articles/[id]`. PR ds_site#21 (смёржен, Closes #138).
 - Issue #138 закрыт.
 
-## 2026-09-13 -- issue #134: Streamlit таб «Статус агентов»
 
-- gar-core-api: эндпоинт `GET /search-runs` (limit, tenant-scoped, сортировка
-  по `started_at desc`) в `routers/discovery.py`. Тесты зелёные (559 passed,
-  1 pre-existing error в test_routing_observability, не связан). PR
-  gar-core-api `feat/list-search-runs-endpoint`.
-- ds_search: `GarDiscoveryClient.list_search_runs()`; новый
-  `ui/agents_status_tab.py` — таблица последних search-runs, bar_chart
-  discovered_sources по статусу, метрики новостей (всего/за сегодня) +
-  последний news_item из `src/news/db.list_news_items()`. Таб подключён в
-  `ui/app.py`. Тесты: 208 passed, 1 pre-existing fail (test_classify, не
-  связан с изменениями). PR ds_search #136 (Closes #134).
-- Не сделано: PR gar-core-api не смёржен на момент записи — таб не будет
-  работать до мёржа/деплоя эндпоинта `/search-runs`.
-
-## 2026-09-13 -- issue #133: archive/unarchive документов (admin UI)
-
-- gar-core-api: эндпоинты `POST /documents/{id}/archive` и
-  `/unarchive` (по образцу PATCH /documents/{document_id}), status
-  меняется через существующий merge-PATCH сервис. `/chat-retrieval`
-  уже фильтрует по `status == "indexed"` — archived исключаются
-  автоматически, отдельный фикс по ADR-0005 не требуется (закрыт по
-  факту). Тесты зелёные (99 passed). PR gar-core-api #314.
-- ds_search: методы `archive_document`/`unarchive_document` в
-  `GarIngestClient`; карточка материала в Streamlit admin UI (кнопки
-  archive/unarchive), таб зарегистрирован в `app.py`. Синтаксис
-  проверен. PR ds_search #135 (Closes #133).
-- Не сделано: миграция старых архивных документов задним числом —
-  не требовалась (новая функциональность применяется вперёд).
-
-## 2026-09-13 -- issue #131: поэлементная загрузка glossary/links в GAR
-
-- `doc_type`: добавлены опции `link`, `glossary_term`, `glossary_abb` в GAR
-  (dataset `sindrom-dauna`), кэш схемы обновлён (ds_ingestion#43d1a9d).
-- `glossary_links_mapping.py`: `_is_abbreviation()` (`term.isupper()`) →
-  23 сокращения размечены `glossary_abb`, остальные `glossary_term`. Тест
-  добавлен, 6/6 зелёные.
-- Новый `scripts/export_glossary_links_items.py`: генерирует поэлементные
-  `data/raw/glossary_items/*.json+*.md` (64) и `data/raw/links_items/*.json+*.md`
-  (126). 0 `needs_review` (все direction/category замаплены).
-- Загружено в GAR через `ds_ingestion` CLI: glossary_items 64/64,
-  links_items 126/126 (подтверждено по `data/*.ingested.json`).
-- Коммиты: ds_search `ff58dae` (Closes #131), ds_ingestion `43d1a9d`.
-- Не сделано в рамках этой задачи: судьба старых агрегированных
-  документов `glossary`/`links` в GAR (issue #128) не решена; facets в
-  `/public/documents` (ds_site) на новые doc_type не проверялись.
-
-## 2026-09-12 -- issue #128: индексация glossary/links в GAR через ingestion-пайплайн
-
-- `python -m src.adapter.cli glossary` / `links` успешно загрузили оба
-  агрегированных документа (ADR-005) в датасет `sindrom-dauna`
-  (`81f35f18-8d32-458e-bf33-ddb68349e015`), `status: indexed`, видны в
-  `/public/documents` (ds_site).
-- Сопутствующий фикс в ds_ingestion (Ssazurov/ds_ingestion#4): `_load_domain_schema`
-  падал `ImportError` на relative-импорт в `ds_search/src/metadata/schema.py` —
-  модуль грузился через `importlib` без пакета-родителя. Больше не наш баг,
-  но если снова меняется способ загрузки схемы отсюда для ds_ingestion —
-  учитывать, что `schema.py` делает `from .profile import ...`.
-- `data/raw/{glossary,links}/*.json` (не в git, `data/` в `.gitignore`)
-  скорректированы под контролируемые select-поля GAR: `target_audience`
-  — одно значение, не CSV; `age` — добавлена опция `"Все возрасты"` в
-  поле `age` датасета (её не было); `category`/`doc_type` — убраны
-  (значений `inclusion`/`glossary`/`resource_directory` нет в словаре
-  GAR, оба поля необязательные).
-- Датасет `sindrom-dauna` больше НЕ пустой (была известной проблемой
-  ds_ingestion#3) — сейчас 4 документа: alisa-i-chudesa,
-  bez-oglyadki-na-diagnoz, glossary, links.
-
-Полная история до 2026-08-24 перенесена в
-`docs/archive/current-status/CURRENT_STATUS-2026-08-24_2026-09-10.md`.
-
-## 2026-09-12 -- issue #127: маппинг glossary/links в схему фильтров сайта (эпик #126)
-
-- Новый `src/metadata/glossary_links_mapping.py`: `map_glossary_item()` /
-  `map_link_item()` — по-элементный маппинг category/age из
-  `data/exports/glossary.json`/`links.json` в direction/category/doc_type/
-  target_audience/age (активные опции GAR, `gar_schema.py`).
-- `GLOSSARY_CATEGORY_MAP` (6/6 категорий) и `LINK_CATEGORY_MAP` (25/25,
-  включая соцсети) покрывают все текущие значения — проверено скриптом
-  сверки с `data/exports/*.json` и `category_options_for_direction()`
-  (0 непокрытых категорий, 0 невалидных пар direction/category).
-- `doc_type` = `glossary_term`/`link` по требованию issue, но этих значений
-  ещё нет среди активных опций поля `doc_type` в GAR
-  (`config/gar_schema_cache.json`) — **блокер для #128**, нужно
-  завести/активировать на стороне GAR перед индексацией.
-- `age`: однозначно мапится только `"18+" -> "18+ лет"`; "Все"/"Дети"/
-  "Взрослые" оставлены `None` (needs_review) — не угадываем жизненный этап.
-- `region`/`relevance` из links.json сознательно не переносятся — не входят
-  в целевую схему фильтров (direction/category/doc_type/age/target_audience).
-- `target_audience` = `"parents"` везде (было некорректной comma-строкой
-  "parents,specialists" в старом профиле — поле single-select).
-- `gar_mapping.py`/`classify.py` менять не потребовалось: doc_type там
-  тянется динамически из схемы GAR (`_SELECT_FIELDS`), правки не нужны,
-  пока новые опции не заведены на стороне GAR.
-- `tests/test_glossary_links_mapping.py` — 5 passed.
-- Готово к использованию в #128 (per-item ingestion glossary/links в GAR).
-
-## 2026-09-12 -- UI: кнопки "Загрузить в GAR" в documents_tab (issue #116, ADR-006 п.5)
-
-- `ui/documents_tab.py`: кнопка на строку документа (одиночная ingestion через
-  `src.gar_ingest.documents.ingest_document`) + кнопка "Загрузить все не
-  загруженные" по текущему фильтру направление/источник, с прогресс-баром.
-- Фильтры направление/источник добавлены (`_apply_filters`).
-- Колонка `ingested` в таблице теперь по факту `gar_document_id` в sidecar
-  `.json` (done/error/not_started), а не хардкод `not_started`.
-- Ошибки ingestion — `st.error` с текстом исключения (`ingest_error` пишется
-  в sidecar `.json` самой `ingest_document`), батч не падает целиком.
-- Метрика "В GAR" на dashboard_tab.py — отдельная задача, issue #117.
-- PR #124 (squash-merge в main), depends on #115 (closed).
-- Проверено: `py_compile`, импорт модуля, `pytest -k document` (9 passed).
-
-## 2026-09-12 -- интеграция классификатора в download_single
-
-- `src/discovery/download.py`: после успешного сохранения `.md` и `.json`
-  вызывается `scripts.classify_article.classify_article(md_path)`, который
-  возвращает `direction` и `category` из `gar-core-api/docs/Направления_Категории_СД.md`.
-- При успехе поля `direction/category` в JSON обновляются на классифицированные.
-- При ошибке классификации (LLM недоступен, таймаут, невалидный ответ) —
-  ошибка логируется, скачивание не откатывается, `direction/category` остаются
-  исходными значениями из `source`.
-- Импорт `classify_article` опционален: если `scripts/classify_article.py` или
-  его зависимости недоступны, `classify_article = None` и классификация
-  пропускается.
-- Проверка: `download_single` на `https://downsideup.org/elektronnaya-biblioteka/alisa-i-chudesa`
-  с `suggested_direction/category = "family_support"` -> JSON получил
-  `direction: "ПОДДЕРЖКА СЕМЬИ"`, `category: "Первая реакция на диагноз (шок, принятие — пре- и постнатально)"`
-  вместо заглушки `family_support`.
-- Обработка ошибок: при недоступном LLM исходные `direction/category`
-  сохраняются в JSON, скачивание завершается успешно.
-- Тесты `tests/test_download.py` обновлены: `classify_article` замокан
-  в `test_download_single_substantive_saves_md` и
-  `test_download_single_preserves_curated_information_architecture`.
-- Прогон: `pytest tests/test_download.py` — 12 passed.
-
-## 2026-09-10 -- issue #94: тестовая загрузка test1.md новым пайплайном (эпик #88 закрыт)
-
-- SourceCrawler (не download_single) на одиночном URL (max_pages=1,
-  SourceConfig direction=podderzhka-semi, category=issledovaniya-i-opyt-semey
-  по gar_mapping family_support) -> data/raw/family_support/test1.md+json.
-- needs_review=true: age/target_audience/doc_type=null. LLM недоступна
-  в окружении, fallback ушёл на доменный gar_mapping (только direction) --
-  dest_dir-специфичный fallback (target_audience/doc_type) не подхватился,
-  т.к. _apply_classification зовёт classify() без dest_dir.
-- Найдено: нужен доп. фикс -- пробрасывать dest_dir в classify() из
-  crawler._save, иначе fallback по dest_dir из gar_mapping мёртвый код
-  для основного pipeline. Отдельный issue не заведён.
-- Issue #94 закрыт, эпик #88 (6/6) закрыт.
-
-## 2026-09-11 -- issue #103: автоподсветка терминов глоссария
-
-- `src/rag/glossary_highlight.py`: детерминированная подсветка вхождений термина
-  Markdown-ссылкой `/glossary/{id}`; longest-first, case-insensitive,
-  границы слов; существующие ссылки, inline/fenced code не изменяются.
-- `render_answer_markdown()` принимает `glossary_terms` и `glossary_path`.
-- Тесты добавлены в `tests/test_rag_export.py`.
-
-## 2026-09-11 -- issue #30: импорт сокращений в GAR
-
-- `scripts/import_glossary_expansions.py` выбирает из `data/ds_glossary.xlsx`
-  только сокращения, строит payload `term/expansion/aliases/status/active` для
-  `POST /datasets/{id}/glossary-terms`, пропускает уже существующие термины.
-- Есть `--dry-run`; dataset берётся из `GAR_DATASET_ID` или ищется по
-  `GAR_DATASET_NAME` (по умолчанию `sindrom-dauna`).
-- Добавлены тесты выбора сокращений. Реальный POST требует доступный GAR API.
-
-## 2026-09-11 -- классификация статьи по категориям СД
-
-- `scripts/classify_article.py` принимает путь к Markdown-статье, читает категории
-  из `gar-core-api/docs/Направления_Категории_СД.md`, вызывает настроенный LLM и
-  проверяет, что выбрана ровно одна категория из списка.
-- `_local_path()` принимает как полный, так и shell-съеденный вариант WSL UNC-пути
-  (`\\wsl.localhost\\Ubuntu\\...` и `\wsl.localhost\Ubuntu\...`).
-- В корневом `.kilo/command/classify-article.md` добавлена команда
-  `/classify-article <путь-к-статье>`.
-
-# Progress ds_search
-
-## 2026-09-10 — issue #92: meta_extract.py (эпик #88)
-
-- `src/metadata/meta_extract.py`: `extract_page_meta(metadata)` — author/
-  publish_date/description из `result.metadata` (crawl4ai уже парсит
-  og:*/article:*/name=description|author из HTML head). Приоритет:
-  og:*/article:* > обычный meta-тег > twitter:*. Без LLM.
-- Интеграция: `crawler.py:_save()` передаёт `page_meta` в
-  `build_ingestion_metadata(**page_meta)`.
-- Тесты: `tests/test_meta_extract.py` (3). Полный прогон: 181 passed,
-  1 fail не связан (test_rag_export pdf/reportlab, `mm` NameError в
-  src/rag/export.py — существовал до этого issue).
-- PR #98 (squash, merged), issue #92 закрыт (Closes).
-
-## 2026-09-10 — issue #91: LLM-классификатор select-полей (эпик #88)
-
-- `src/metadata/classify.py`: `classify(title, text, fields, domain=, dest_dir=)`
-  строит промпт из активной схемы GAR (`gar_schema.field_options`/
-  `category_options_for_direction`) с списком допустимых опций по
-  age/target_audience/direction/category(dependent)/doc_type, зовёт LLM
-  (переиспользует `src/news/llm_draft.call_llm`/`parse_llm_json`,
-  провайдер/модель — `config/classify_llm.yaml`), валидирует ответ против
-  схемы (невалидное значение -> None).
-- Fallback-цепочка: ошибка/таймаут LLM или незакрытые LLM полем ->
-  `gar_mapping.resolve_defaults` (issue #90) по домену/dest_dir; поле, не
-  закрытое ни LLM, ни дефолтом, остаётся `None`. Результат содержит
-  `needs_review` (True, если есть None) и `source`
-  (`llm`/`llm+fallback`/`fallback`/`none`) — интеграция needs_review-статуса
-  в краулер — issue #93 (не в этом issue).
-- `tests/test_classify_llm.py`: 7 тестов (mock `call_llm`) — успех все
-  поля, невалидное значение -> None+needs_review, fallback при ошибке LLM,
-  дозаполнение частичного LLM-ответа дефолтами, без domain -> needs_review
-  без fallback, парсинг реального yaml-конфига. PR #97 (squash в main),
-  Closes #91.
-- Полный прогон `pytest`: 178 passed, 1 fail не связан с изменением
-  (`test_rag_export.py` — `NameError: mm` в reportlab-коде, эпик #43).
+Архив 2026-09-10 .. 2026-09-13 перенесён в `docs/archive/current-status/CURRENT_STATUS-2026-09-10_2026-09-13.md`.
 
 ## 2026-09-17 — issue #168: ToS-check 5 RSS-доменов (эпик #167, ADR-011)
 
