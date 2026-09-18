@@ -125,6 +125,27 @@ async def _collect_one(
     return "drafted"
 
 
+async def add_single_url(
+    url: str,
+    title: str = "",
+    llm_config: LlmConfig | None = None,
+    data_root: Path = DEFAULT_DATA_ROOT,
+    db_path: Path = db.DB_PATH,
+) -> str:
+    """Штатная загрузка одной новости по ссылке пользователя (issue #183).
+
+    Переиспользует _collect_one — тот же license-гейт (config/licenses.yaml,
+    issue #3) и дедуп по news_items.source_url, что и автосбор (issue #61)
+    и RSS-прогон (issue #157/#159). Возвращает тот же набор статусов, что и
+    _collect_one, плюс 'skipped_duplicate' при попадании в дедуп до скачивания."""
+    db.init_db(db_path)
+    canon = canonicalize_url(url)
+    if db.source_url_exists(canon, db_path):
+        return "skipped_duplicate"
+    hit = SearchHit(url=url, title=title, snippet="")
+    return await _collect_one(hit, llm_config, data_root, db_path)
+
+
 async def collect_news(
     chain: SearchProviderChain,
     queries: list[dict] | None = None,

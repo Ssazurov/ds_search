@@ -184,3 +184,44 @@ def test_load_queries_config_reads_yaml(tmp_path):
     queries, max_results = collect.load_queries_config(cfg)
     assert max_results == 3
     assert queries == [{"query": "тест"}]
+
+
+def test_add_single_url_happy_path(db_path, tmp_path, monkeypatch):
+    async def fake_download(source, data_root=None):
+        return await _fake_download_ok(source, data_root, tmp_path)
+
+    monkeypatch.setattr(collect, "download_single", fake_download)
+    monkeypatch.setattr(collect, "generate_draft", lambda source, config=None: _draft_item(source))
+
+    result = asyncio.run(collect.add_single_url("https://d.org/news/1", db_path=db_path))
+
+    assert result == "drafted"
+    assert len(db.list_news_items(db_path=db_path)) == 1
+
+
+def test_add_single_url_dedup_skips_before_download(db_path, tmp_path, monkeypatch):
+    db.insert_news_item(_draft_item({"source_url": "https://d.org/news/1", "title": "x"}), db_path)
+    called = {"n": 0}
+
+    async def fake_download(source, data_root=None):
+        called["n"] += 1
+        return await _fake_download_ok(source, data_root, tmp_path)
+
+    monkeypatch.setattr(collect, "download_single", fake_download)
+
+    result = asyncio.run(collect.add_single_url("https://d.org/news/1", db_path=db_path))
+
+    assert result == "skipped_duplicate"
+    assert called["n"] == 0
+
+
+def test_add_single_url_license_denied(db_path, monkeypatch):
+    async def fake_download(source, data_root=None):
+        raise DownloadError("license status pending_manual_review: домен e.org отсутствует в реестре")
+
+    monkeypatch.setattr(collect, "download_single", fake_download)
+
+    result = asyncio.run(collect.add_single_url("https://e.org/news/1", db_path=db_path))
+
+    assert result == "license_denied"
+    assert db.list_news_items(db_path=db_path) == []
