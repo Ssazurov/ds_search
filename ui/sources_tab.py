@@ -49,10 +49,17 @@ def render() -> None:
 
     for domain in sorted(set(registry) | set(counts)):
         entry = registry.get(domain, {})
-        with st.expander(f"{domain} — находок: {counts.get(domain, 0)}"):
+        pending = entry.get("status") not in _STATUSES
+        label = f"{domain} — находок: {counts.get(domain, 0)}"
+        if pending:
+            label += " · ⏳ не проверен"
+        with st.expander(label, expanded=pending):
+            if pending:
+                st.warning("Статус ещё не выбран — по умолчанию домен не скачивается (pending_manual_review).")
             status = st.selectbox(
                 "Статус", _STATUSES,
-                index=_STATUSES.index(entry.get("status")) if entry.get("status") in _STATUSES else 0,
+                index=_STATUSES.index(entry.get("status")) if not pending else None,
+                placeholder="— выбрать —",
                 key=f"status_{domain}",
             )
             attribution = st.text_input(
@@ -60,7 +67,7 @@ def render() -> None:
                 value=entry.get("attribution_template", ""), key=f"attr_{domain}",
             )
             notes = st.text_area("Заметки", value=entry.get("notes", ""), key=f"notes_{domain}")
-            if st.button("Сохранить", key=f"save_{domain}"):
+            if st.button("Сохранить", key=f"save_{domain}", disabled=status is None):
                 registry[domain] = {
                     "status": status,
                     "attribution_template": attribution or None,
