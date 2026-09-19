@@ -20,6 +20,12 @@ downsideup.org:
   notes: 'В подвале сайта: "Использование любых материалов, размещённых на сайте,
     разрешается при условии активной ссылки на downsideup.org".'
   status: attribution_required
+inva.news:
+  attribution_template: 'Источник: {title} ({source_url}), inva.news'
+  checked_date: null
+  is_aggregator: false
+  notes: ''
+  status: attribution_required
 iz.ru:
   attribution_template: null
   checked_date: null
@@ -45,6 +51,11 @@ news.un.org:
     обратная ссылка на news.un.org, письменного разрешения не требуется (в отличие
     от остальных публикаций ООН).'
   status: attribution_required
+peterburgmedia.ru:
+  attribution_template: null
+  checked_date: null
+  notes: ''
+  status: pending_manual_review
 philanthropy.ru:
   attribution_template: 'Источник: {title} ({source_url}), Филантроп (philanthropy.ru)'
   checked_date: '2026-09-17'
