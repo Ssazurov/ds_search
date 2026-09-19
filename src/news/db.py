@@ -157,7 +157,7 @@ def update_status(item_id: int, status: str, db_path: Path = DB_PATH) -> None:
         conn.commit()
 
 
-EDITABLE_FIELDS = ("title", "summary", "body_md", "tags", "channels", "published_at")
+EDITABLE_FIELDS = ("title", "source_name", "summary", "body_md", "tags", "channels", "published_at")
 
 
 def update_news_item(item_id: int, fields: dict, db_path: Path = DB_PATH) -> None:

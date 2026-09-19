@@ -23,6 +23,7 @@ def _render_item(item: dict) -> None:
     with st.expander(f"[{STATUS_LABELS.get(item['status'], item['status'])}] {title}"):
         st.caption(f"{item['source_url']} · создано {item['created_at']}")
         new_title = st.text_input("Заголовок", item["title"], key=f"title_{item['id']}")
+        new_source = st.text_input("Источник", item.get("source_name") or "", key=f"src_{item['id']}")
         new_summary = st.text_area("Краткое содержание", item.get("summary") or "", key=f"sum_{item['id']}")
         new_body = st.text_area("Текст (markdown)", item.get("body_md") or "", height=200, key=f"body_{item['id']}")
         new_tags = st.text_input(
@@ -59,6 +60,7 @@ def _render_item(item: dict) -> None:
         if cols[0].button("Сохранить", key=f"save_{item['id']}"):
             db.update_news_item(item["id"], {
                 "title": new_title,
+                "source_name": new_source.strip() or None,
                 "summary": new_summary,
                 "body_md": new_body,
                 "tags": [t.strip() for t in new_tags.split(",") if t.strip()],

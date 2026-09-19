@@ -50,6 +50,10 @@ def build_content_md(item: dict) -> str:
     return f"# {item['title']}\n\n{body}\n"
 
 
+# issue #219: у ручных черновиков (manual:<uuid>) нет домена, а GAR требует непустой source_domain
+MANUAL_SOURCE_DOMAIN = "manual"
+
+
 def classify_item(item: dict) -> dict:
     """Классифицирует news_item через metadata/classify.classify() (issue
     #91/эпик #88): age/target_audience/direction/category/doc_type.
@@ -73,7 +77,7 @@ def build_metadata(item: dict) -> dict:
     source_url = item["source_url"]
     classified = classify_item(item)
     metadata = build_ingestion_metadata(
-        source_url=source_url, source_domain=urlparse(source_url).netloc,
+        source_url=source_url, source_domain=urlparse(source_url).netloc or MANUAL_SOURCE_DOMAIN,
         title=item["title"], license="own_generated",
         category=item.get("category") or classified.get("category"),
         lifecycle_stage=item.get("lifecycle_stage"),
