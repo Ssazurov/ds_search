@@ -18,7 +18,7 @@ import logging
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlsplit
 from urllib.robotparser import RobotFileParser
 
 import httpx
@@ -52,6 +52,17 @@ class LicenseCheckResult:
         if not self.attribution_template:
             return None
         return self.attribution_template.format(title=title, source_url=source_url)
+
+
+def normalize_domain(domain: str) -> str:
+    """Канонический ключ реестра: lower, без порта и ведущего 'www.'
+    (issue #206). Без этого www.example.org и example.org считались разными
+    доменами, и ссылка на www-адрес блокировалась как pending_manual_review."""
+    d = domain.strip().lower()
+    if "://" in d:
+        d = urlsplit(d).netloc
+    d = d.rsplit("@", 1)[-1].split(":", 1)[0]
+    return d[4:] if d.startswith("www.") else d
 
 
 def _load_registry(path: Path = _CONFIG_PATH) -> dict:
@@ -110,8 +121,10 @@ def check_license(
             reason="robots.txt запрещает обход для нашего user-agent",
         )
 
+    domain = normalize_domain(domain)
     registry = _load_registry(registry_path)
-    entry = registry.get(domain)
+    # запасной поиск по старому ключу "www.<домен>" — реестры, не приведённые к канону
+    entry = registry.get(domain) or registry.get(f"www.{domain}")
     if entry is None:
         _register_pending(domain, registry_path)
         return LicenseCheckResult(
