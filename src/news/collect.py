@@ -137,7 +137,7 @@ async def _collect_one(
     except NotRelevantError as exc:
         logger.info("источник %s пропущен (нерелевантно): %s", hit.url, exc)
         return "not_relevant"
-    except httpx.TransportError as exc:  # LLM-эндпоинт недоступен/таймаут (issue #208)
+    except httpx.HTTPError as exc:  # LLM-эндпоинт недоступен/таймаут (issue #208)
         logger.warning("LLM недоступен для %s: %r", hit.url, exc)
         return "llm_unavailable"
     except Exception as exc:  # noqa: BLE001 — любая ошибка LLM/парсинга JSON не должна ронять прогон

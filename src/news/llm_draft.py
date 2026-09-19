@@ -29,7 +29,7 @@ class LlmConfig:
     prompt_template: str
     timeout_s: float = 60.0
     api_key: str = ""
-    num_ctx: int = 0  # только provider=ollama; 0 → 8192
+    num_ctx: int = 8192  # только provider=ollama
 
 
 def load_llm_config(path: Path = CONFIG_PATH) -> LlmConfig:
@@ -43,7 +43,7 @@ def load_llm_config(path: Path = CONFIG_PATH) -> LlmConfig:
         prompt_template=data.get("prompt_template", ""),
         timeout_s=float(data.get("timeout_s", 60.0)),
         api_key=str(data.get("api_key", "")),
-        num_ctx=int(data.get("num_ctx", 0)),
+        num_ctx=int(data.get("num_ctx", 8192)),
     )
 
 
@@ -114,7 +114,7 @@ def _call_ollama(prompt: str, config: LlmConfig) -> str:
             "options": {
                 "temperature": config.temperature,
                 "num_predict": config.max_tokens,
-                "num_ctx": config.num_ctx or 8192,
+                "num_ctx": config.num_ctx,
             },
         },
         timeout=config.timeout_s,
