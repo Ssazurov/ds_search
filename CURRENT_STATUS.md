@@ -181,3 +181,16 @@
 - Тесты: `tests/test_manual_add.py` (3 passed: success, unknown domain
   blocked, duplicate blocked). Полный набор: 260 passed.
 - PR: branch `feat/204-manual-url-add`, Closes #204.
+
+## 2026-09-19 -- issue #206: нормализация домена в license-гейте
+- Причина: `check_license` искал домен по точному `netloc` (с `www.`/портом);
+  запись `pravmir.ru` не находилась для `www.pravmir.ru`, создавался дубль
+  `pending_manual_review` (#184) и «Добавить новость по ссылке» (#183) блокировался.
+- `src/license/checker.py`: `normalize_domain()` (lower, без порта и `www.`),
+  применяется в `check_license`/`_register_pending`; запасной поиск по старому
+  ключу `www.<домен>`. UI «Источники»: счётчики по нормализованному домену.
+- `config/licenses.yaml`: ключи без `www.`, удалён дубль `www.pravmir.ru` и
+  `deny`-домены (diariodorio.com, takiedela.ru, www.unicef.org) — они снова
+  появятся как pending при первой встрече, скачивание не идёт.
+- Тесты: `tests/test_license_checker.py` (+4). Полный набор: 264 passed.
+- PR: branch `fix/206-license-domain-normalize`, Closes #206.

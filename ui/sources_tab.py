@@ -11,7 +11,7 @@ import yaml
 
 from src.discovery.config import load_settings
 from src.discovery.gar_client import GarDiscoveryClient
-from src.license.checker import LicenseStatus, _CONFIG_PATH
+from src.license.checker import LicenseStatus, _CONFIG_PATH, normalize_domain
 
 _STATUSES = [s.value for s in LicenseStatus if s != LicenseStatus.PENDING_MANUAL_REVIEW]
 
@@ -37,7 +37,7 @@ def _domain_counts() -> Counter:
             rows = client.list_discovered_sources()
     except Exception:  # noqa: BLE001
         return Counter()
-    return Counter(r.get("domain") for r in rows if r.get("domain"))
+    return Counter(normalize_domain(r["domain"]) for r in rows if r.get("domain"))
 
 
 def render() -> None:
