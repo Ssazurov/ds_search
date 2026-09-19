@@ -33,3 +33,16 @@ def test_manual_validation(dbp):
         create_manual_draft(" ", "Т", db_path=dbp)
     with pytest.raises(ValueError):
         create_manual_draft("З", "", db_path=dbp)
+
+
+def test_source_name_editable(dbp):
+    i = create_manual_draft("З", "Т", db_path=dbp)
+    db.update_news_item(i, {"source_name": "Другой"}, db_path=dbp)
+    assert db.get_news_item(i, db_path=dbp)["source_name"] == "Другой"
+
+
+def test_manual_source_domain_not_blank(monkeypatch):
+    from src.news import publish
+    monkeypatch.setattr(publish, "classify_item", lambda item: {})
+    md = publish.build_metadata({"source_url": "manual:abc", "title": "т", "body_md": "б"})
+    assert md["source_domain"] == "manual"

@@ -1,4 +1,12 @@
 
+## 2026-09-19 -- issue #219: 422 при публикации ручного черновика + редактируемый «Источник»
+
+- Причина: у `manual:<uuid>` пустой netloc -> `source_domain` пуст -> GAR 422.
+  Fix: `publish.MANUAL_SOURCE_DOMAIN="manual"` как fallback в build_metadata.
+- UI «Новости»: поле «Источник» (source_name) редактируется в карточке любой
+  новости (EDITABLE_FIELDS += source_name).
+- Проверка: tests/test_news_manual.py (+2), test_news_db/test_news_publish.
+
 ## 2026-09-19 -- issue #217: ручное создание черновика новости
 
 - Вкладка «Новости»: expander «Создать черновик вручную» (ui/news_tab.py) ->
