@@ -163,3 +163,21 @@
   заблокирована пока статус не выбран (раньше молча дефолтился на `allow`).
 - Тесты: `tests/test_license_checker.py` (2 passed).
 - PR #193 (branch `fix/184-license-registry-auto-pending`), Closes #184.
+
+
+## 2026-09-19 -- issue #204: добавление документа по URL через админку (ADR-0014)
+
+- ADR-0014 (`ds/docs/adr/0014-single-url-manual-ingest.md`), parent ds_ingestion#30.
+- `src/crawler/manual_add.py::add_manual_document` — переиспользует
+  `SourceCrawler.recrawl_url()` (ADR-0009). Домен резолвится в существующий
+  source (пишет в его data/raw/<name>/) либо в псевдо-source `manual`
+  (data/raw/manual/). Дубликат по canonical_url (doc_id уже существует)
+  блокируется до вызова crawl; license gate (ADR-0013) — неизвестный домен
+  авто-pending_manual_review, сохранение блокируется до ручного статуса.
+- `ui/documents_tab.py`: поле URL + кнопка "Добавить документ" сверху вкладки
+  "Документы"; статусы added/duplicate/license_pending/license_denied/failed.
+- ds_ingestion/ds_site без изменений (подхватывается обычным CLI
+  `python -m src.adapter.cli manual`).
+- Тесты: `tests/test_manual_add.py` (3 passed: success, unknown domain
+  blocked, duplicate blocked). Полный набор: 260 passed.
+- PR: branch `feat/204-manual-url-add`, Closes #204.
