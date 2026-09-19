@@ -46,3 +46,11 @@ def test_manual_source_domain_not_blank(monkeypatch):
     monkeypatch.setattr(publish, "classify_item", lambda item: {})
     md = publish.build_metadata({"source_url": "manual:abc", "title": "т", "body_md": "б"})
     assert md["source_domain"] == "manual"
+
+
+def test_manual_url_from_source_name(monkeypatch):
+    from src.news import publish
+    monkeypatch.setattr(publish, "classify_item", lambda item: {})
+    md = publish.build_metadata({"source_url": "manual:abc", "source_name": "https://www.garant.ru/x/",
+                                 "title": "т", "body_md": "б"})
+    assert md["source_url"] == "https://www.garant.ru/x/" and md["source_domain"] == "www.garant.ru"

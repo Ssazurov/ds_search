@@ -54,12 +54,22 @@ def build_content_md(item: dict) -> str:
 MANUAL_SOURCE_DOMAIN = "manual"
 
 
+def effective_source_url(item: dict) -> str:
+    """Ссылка источника для GAR/сайта. У ручных черновиков source_url =
+    manual:<uuid>; если в поле «Источник» введён http(s)-URL, берём его."""
+    url = item["source_url"]
+    name = (item.get("source_name") or "").strip()
+    if url.startswith("manual:") and name.lower().startswith(("http://", "https://")):
+        return name
+    return url
+
+
 def classify_item(item: dict) -> dict:
     """Классифицирует news_item через metadata/classify.classify() (issue
     #91/эпик #88): age/target_audience/direction/category/doc_type.
     При недоступности GAR-схемы (сеть/кэш) — не падает, возвращает {}
     (issue #181: багфикс-связка, а не хардзависимость)."""
-    domain = urlparse(item["source_url"]).netloc
+    domain = urlparse(effective_source_url(item)).netloc
     try:
         fields = gar_schema.load_gar_schema()
     except Exception:
@@ -74,7 +84,7 @@ def build_metadata(item: dict) -> dict:
     age/target_audience/category довязаны через metadata/classify.classify()
     (issue #181); doc_type всегда "news" (ADR-003), явные значения item
     (item["category"]/item["direction"]) имеют приоритет над LLM."""
-    source_url = item["source_url"]
+    source_url = effective_source_url(item)
     classified = classify_item(item)
     metadata = build_ingestion_metadata(
         source_url=source_url, source_domain=urlparse(source_url).netloc or MANUAL_SOURCE_DOMAIN,
