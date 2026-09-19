@@ -1,4 +1,9 @@
 
+## 2026-09-19 -- issue #221: ссылка из «Источник» для ручных черновиков
+
+- `publish.effective_source_url`: для `manual:` и http(s) в source_name в GAR уходит этот URL (и домен). Нужна повторная публикация уже опубликованных.
+- Проверка: tests/test_news_manual.py, test_news_publish.
+
 ## 2026-09-19 -- issue #219: 422 при публикации ручного черновика + редактируемый «Источник»
 
 - Причина: у `manual:<uuid>` пустой netloc -> `source_domain` пуст -> GAR 422.
