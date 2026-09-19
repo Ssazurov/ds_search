@@ -1,8 +1,10 @@
 # Конфиг LLM для черновиков новостей (issue #46, ADR-003).
-# provider: anthropic | openai_compatible
-provider: openai_compatible
+# provider: ollama | anthropic | openai_compatible
+# ollama = нативный /api/chat с num_ctx (issue #208); в docker endpoint задаётся env NEWS_LLM_ENDPOINT
+provider: ollama
 model: qwen2.5-coder:14b
-endpoint: http://127.0.0.1:11434/v1/chat/completions
+endpoint: http://127.0.0.1:11434/api/chat
+num_ctx: 8192
 api_key: ""
 temperature: 0.3
 max_tokens: 800

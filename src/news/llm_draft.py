@@ -1,6 +1,8 @@
 """LLM-модуль черновика новости из источника (issue #46, ADR-003).
 
 Провайдер/модель/эндпоинт/промпт вынесены в config/news_llm.yaml, не в код.
+Эндпоинт/модель можно переопределить env NEWS_LLM_ENDPOINT / NEWS_LLM_MODEL
+(в docker Ollama на хосте: http://host.docker.internal:11434/api/chat, issue #208).
 """
 from __future__ import annotations
 
@@ -11,6 +13,8 @@ from pathlib import Path
 
 import httpx
 import yaml
+
+from .text_clean import clean_article_text
 
 CONFIG_PATH = Path(__file__).resolve().parents[2] / "config" / "news_llm.yaml"
 
@@ -25,19 +29,21 @@ class LlmConfig:
     prompt_template: str
     timeout_s: float = 60.0
     api_key: str = ""
+    num_ctx: int = 0  # только provider=ollama; 0 → 8192
 
 
 def load_llm_config(path: Path = CONFIG_PATH) -> LlmConfig:
     data = yaml.safe_load(path.read_text(encoding="utf-8"))
     return LlmConfig(
         provider=data["provider"],
-        model=data["model"],
-        endpoint=data["endpoint"],
+        model=os.environ.get("NEWS_LLM_MODEL") or data["model"],
+        endpoint=os.environ.get("NEWS_LLM_ENDPOINT") or data["endpoint"],
         temperature=float(data.get("temperature", 0.3)),
         max_tokens=int(data.get("max_tokens", 1500)),
         prompt_template=data.get("prompt_template", ""),
         timeout_s=float(data.get("timeout_s", 60.0)),
         api_key=str(data.get("api_key", "")),
+        num_ctx=int(data.get("num_ctx", 0)),
     )
 
 
@@ -95,7 +101,30 @@ def _call_openai_compatible(prompt: str, config: LlmConfig) -> str:
     return data["choices"][0]["message"]["content"]
 
 
+def _call_ollama(prompt: str, config: LlmConfig) -> str:
+    """Нативный /api/chat: в отличие от /v1/chat/completions принимает
+    options.num_ctx (по умолчанию Ollama режет вход до 4096 токенов, issue #208)."""
+    resp = httpx.post(
+        config.endpoint,
+        json={
+            "model": config.model,
+            "stream": False,
+            "format": "json",
+            "messages": [{"role": "user", "content": prompt}],
+            "options": {
+                "temperature": config.temperature,
+                "num_predict": config.max_tokens,
+                "num_ctx": config.num_ctx or 8192,
+            },
+        },
+        timeout=config.timeout_s,
+    )
+    resp.raise_for_status()
+    return resp.json()["message"]["content"]
+
+
 _CALLERS = {
+    "ollama": _call_ollama,
     "anthropic": _call_anthropic,
     "openai_compatible": _call_openai_compatible,
 }
@@ -130,6 +159,8 @@ def generate_draft(source: dict, config: LlmConfig | None = None) -> dict:
     (issue #180: фильтр после SearchChain — например pravmir.ru отдаёт
     RSS без тематического фильтра)."""
     cfg = config or load_llm_config()
+    # шапка/подвал страницы не нужны модели и съедают контекст (issue #208)
+    source = {**source, "text": clean_article_text(source.get("text", ""))}
     prompt = build_prompt(cfg, source)
     raw = call_llm(prompt, cfg)
     parsed = parse_llm_json(raw)
