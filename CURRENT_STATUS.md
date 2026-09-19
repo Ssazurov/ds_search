@@ -213,3 +213,7 @@
   появятся как pending при первой встрече, скачивание не идёт.
 - Тесты: `tests/test_license_checker.py` (+4). Полный набор: 264 passed.
 - PR: branch `fix/206-license-domain-normalize`, Closes #206.
+
+## 2026-09-19 — ревью загрузки новости по URL (#211)
+- num_ctx: единый дефолт 8192 в LlmConfig; collect.py: httpx.HTTPError → llm_unavailable.
+- Открыто: data/raw/<домен>/ создаётся контейнером от root (CLI с хоста → PermissionError; запускать через docker exec).
