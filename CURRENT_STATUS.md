@@ -1,4 +1,13 @@
 
+## 2026-09-19 -- issue #217: ручное создание черновика новости
+
+- Вкладка «Новости»: expander «Создать черновик вручную» (ui/news_tab.py) ->
+  `src/news/manual.py::create_manual_draft` (без LLM/лицензии, status=draft).
+  source_name по умолчанию «Редакция» (редактируется), ссылка необязательна:
+  пусто -> `manual:<uuid>` (source_url UNIQUE NOT NULL), дубль URL -> ValueError.
+- Вкладка «Источники»: блок «Добавить новость по ссылке» перенесён в начало.
+- Проверка: tests/test_news_manual.py (3) + test_news_db/test_news_publish — 30 passed.
+
 ## 2026-09-19 -- issue #208: добавление новости по ссылке — чистка текста, LLM в docker, num_ctx 8192
 
 - Проблема: UI «Добавить новость по ссылке» (#183) для t-l.ru давал «LLM не

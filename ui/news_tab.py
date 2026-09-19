@@ -12,6 +12,7 @@ from datetime import datetime
 import streamlit as st
 
 from src.news import db, publish
+from src.news.manual import DEFAULT_SOURCE_NAME, create_manual_draft
 
 CHANNEL_OPTIONS = ["telegram"]
 STATUS_LABELS = {"draft": "Черновик", "published": "Опубликовано", "rejected": "Отклонено"}
@@ -103,9 +104,35 @@ def _render_item(item: dict) -> None:
             st.rerun()
 
 
+def _render_manual_form() -> None:
+    """Ручное создание черновика (issue #217): без LLM и проверки лицензии."""
+    with st.expander("Создать черновик вручную"):
+        with st.form("manual_draft", clear_on_submit=True):
+            title = st.text_input("Заголовок *")
+            body = st.text_area("Текст (markdown) *", height=200)
+            summary = st.text_area("Краткое содержание (пусто — первые 300 симв. текста)")
+            tags = st.text_input("Теги (через запятую)")
+            name = st.text_input("Источник", DEFAULT_SOURCE_NAME)
+            url = st.text_input("Ссылка (необязательно)")
+            pub = st.text_input("Дата публикации источника (необязательно)")
+            reviewed = st.checkbox("Проверено, не требует ревью")
+            submitted = st.form_submit_button("Создать черновик")
+        if submitted:
+            try:
+                new_id = create_manual_draft(
+                    title, body, summary, name, url, pub,
+                    tags=tags.split(","), requires_review=not reviewed,
+                )
+            except ValueError as exc:
+                st.error(str(exc))
+            else:
+                st.success(f"Черновик создан (id={new_id}) — виден в списке ниже")
+
+
 def render() -> None:
     st.header("Новости")
     db.init_db()
+    _render_manual_form()
 
     status_filter = st.selectbox(
         "Статус", ["все"] + list(STATUS_LABELS.keys()),
