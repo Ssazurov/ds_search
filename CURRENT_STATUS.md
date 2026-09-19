@@ -217,3 +217,5 @@
 ## 2026-09-19 — ревью загрузки новости по URL (#211)
 - num_ctx: единый дефолт 8192 в LlmConfig; collect.py: httpx.HTTPError → llm_unavailable.
 - Решено: ds-search запускается от uid 1000 (gar-deploy#25), data/raw создаётся от vector, CLI с хоста работает.
+
+- 2026-09-19: fix #214 — Dockerfile: PLAYWRIGHT_BROWSERS_PATH=/ms-playwright, chromium запечён в образ (контейнер под 1000:1000, HOME=/tmp). Нужен docker compose build ds-search.
