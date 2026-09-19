@@ -22,6 +22,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urlsplit
 
+import httpx
 import yaml
 
 from ..crawler.filters import canonicalize_url
@@ -83,7 +84,7 @@ async def _collect_one(
 ) -> str:
     """Скачивает источник и создаёт LLM-черновик. Возвращает статус для
     статистики: 'drafted' | 'license_denied' | 'download_failed' |
-    'llm_failed'. Бросает исключение только при непредвиденных ошибках —
+    'llm_failed' | 'llm_unavailable'. Бросает исключение только при непредвиденных ошибках —
     вызывающий код всё равно перехватывает per-item (issue #61: "ошибка
     одного источника не должна ронять весь прогон")."""
     domain = urlsplit(hit.url).netloc.lower()
@@ -136,6 +137,9 @@ async def _collect_one(
     except NotRelevantError as exc:
         logger.info("источник %s пропущен (нерелевантно): %s", hit.url, exc)
         return "not_relevant"
+    except httpx.TransportError as exc:  # LLM-эндпоинт недоступен/таймаут (issue #208)
+        logger.warning("LLM недоступен для %s: %r", hit.url, exc)
+        return "llm_unavailable"
     except Exception as exc:  # noqa: BLE001 — любая ошибка LLM/парсинга JSON не должна ронять прогон
         logger.warning("generate_draft упал для %s: %s", hit.url, exc)
         return "llm_failed"
@@ -223,7 +227,7 @@ async def collect_news(
                 stats.skipped_not_relevant += 1
             elif result == "download_failed":
                 stats.download_failed += 1
-            elif result == "llm_failed":
+            elif result in ("llm_failed", "llm_unavailable"):
                 stats.llm_failed += 1
             elif result == "skipped_duplicate":
                 stats.skipped_duplicate += 1
@@ -281,7 +285,7 @@ async def collect_rss(
             stats.skipped_not_relevant += 1
         elif result == "download_failed":
             stats.download_failed += 1
-        elif result == "llm_failed":
+        elif result in ("llm_failed", "llm_unavailable"):
             stats.llm_failed += 1
         elif result == "skipped_duplicate":
             stats.skipped_duplicate += 1

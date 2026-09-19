@@ -111,6 +111,8 @@ def render() -> None:
             "skipped_duplicate": ("info", "Такая ссылка уже есть в news_items"),
             "license_denied": ("warning", "Домен не прошёл проверку лицензии (issue #3) — проставьте статус выше"),
             "download_failed": ("error", "Не удалось скачать/распарсить страницу"),
-            "llm_failed": ("error", "LLM не смог собрать черновик по этому тексту"),
+            "llm_failed": ("error", "LLM не смог собрать черновик по этому тексту (детали — в логе ds-search)"),
+            "llm_unavailable": ("error", "LLM недоступен (endpoint/таймаут) — проверьте Ollama и NEWS_LLM_ENDPOINT"),
+            "not_relevant": ("info", "LLM счёл новость нерелевантной теме — не добавлено"),
         }.get(result, ("error", result))
         getattr(st, level)(msg)

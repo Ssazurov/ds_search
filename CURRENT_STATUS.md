@@ -1,3 +1,22 @@
+
+## 2026-09-19 -- issue #208: добавление новости по ссылке — чистка текста, LLM в docker, num_ctx 8192
+
+- Проблема: UI «Добавить новость по ссылке» (#183) для t-l.ru давал «LLM не
+  смог собрать черновик». Причины: (1) в контейнере endpoint `127.0.0.1:11434`
+  → Connection refused; (2) Ollama `context_length=4096` резал вход, модель
+  галлюцинировала; (3) в LLM шёл весь fit_markdown с шапкой/подвалом.
+- Решение: `src/news/text_clean.py::clean_article_text` (вызывается в
+  `generate_draft`): режет подвал по маркерам/блоку ссылок, шапку, подписи к
+  фото, ссылки -> текст, лимит 6000 симв.; провайдер `ollama` (`/api/chat`,
+  `options.num_ctx`, `format=json`) в `llm_draft.py`; `config/news_llm.yaml`:
+  provider=ollama, num_ctx=8192; env `NEWS_LLM_ENDPOINT`/`NEWS_LLM_MODEL`
+  переопределяют yaml (gar-deploy: ds-search -> `host.docker.internal:11434/api/chat`);
+  статус `llm_unavailable` (httpx.TransportError) + `not_relevant` в UI и CLI.
+- Проверка: `tests/test_text_clean.py` (8), test_llm_draft/test_news_collect/
+  test_collect_rss — 28 passed; реальная статья 9137 -> 4267 симв.; в контейнере
+  `scripts.add_news_by_url https://t-l.ru/395993.html` -> draft (news_items id=13), факты верны.
+- Заметка: `data/raw/<домен>/` создаётся контейнером от root — запуск CLI с хоста
+  падает PermissionError; запускать через `docker exec deploy-ds-search-1 python -m scripts.add_news_by_url <url>`.
 ## 2026-09-18 -- issue #202: fallback на archive при 403 delete в GAR
 
 - Проблема: `revoke_news_item` делал hard delete через GAR API; если у
