@@ -11,9 +11,13 @@ import yaml
 
 from src.discovery.config import load_settings
 from src.discovery.gar_client import GarDiscoveryClient
-from src.license.checker import LicenseStatus, _CONFIG_PATH, normalize_domain
+from src.license.checker import (
+    PUBLISH_PERMISSION_LABELS, LicenseStatus, PublishPermission, _CONFIG_PATH,
+    normalize_domain, parse_publish_permission,
+)
 
 _STATUSES = [s.value for s in LicenseStatus if s != LicenseStatus.PENDING_MANUAL_REVIEW]
+_PERMISSIONS = [p.value for p in PublishPermission]
 
 
 def _load_registry() -> dict:
@@ -87,6 +91,12 @@ def render() -> None:
                 placeholder="— выбрать —",
                 key=f"status_{domain}",
             )
+            permission = st.selectbox(
+                "Разрешение на публикацию (внешний сайт, ADR-0018)", _PERMISSIONS,
+                index=_PERMISSIONS.index(parse_publish_permission(entry.get("publish_permission")).value),
+                format_func=lambda v: PUBLISH_PERMISSION_LABELS[PublishPermission(v)],
+                key=f"perm_{domain}",
+            )
             attribution = st.text_input(
                 "Шаблон атрибуции ({title}, {source_url})",
                 value=entry.get("attribution_template", ""), key=f"attr_{domain}",
@@ -103,6 +113,7 @@ def render() -> None:
                     "notes": notes,
                     "checked_date": entry.get("checked_date"),
                     "is_aggregator": is_aggregator,
+                    "publish_permission": permission,
                 }
                 _save_registry(registry)
                 st.success("licenses.yaml обновлён")
@@ -116,6 +127,7 @@ def render() -> None:
     st.subheader("Добавить домен")
     new_domain = st.text_input("Домен (например, example.org)")
     if st.button("Добавить", disabled=not new_domain.strip()):
-        registry[new_domain.strip()] = {"status": "pending_manual_review", "notes": "", "attribution_template": None}
+        registry[new_domain.strip()] = {"status": "pending_manual_review", "notes": "", "attribution_template": None,
+                                     "publish_permission": PublishPermission.NOT_SET.value}
         _save_registry(registry)
         st.rerun()
