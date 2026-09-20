@@ -69,6 +69,46 @@ def _ingest_one(row: dict) -> None:
     st.rerun()
 
 
+def _delete_one(row: dict) -> None:
+    """Удаляет локальные файлы документа: raw meta + content + clean sidecar.
+    GAR не трогаем (вариант "а"): если ingested, запись в GAR остаётся."""
+    try:
+        meta = json.loads(row["doc_json_path"].read_text(encoding="utf-8"))
+        content_path = meta.get("content_path")
+        if content_path and Path(content_path).exists():
+            Path(content_path).unlink()
+        clean_dir_name = row["doc_json_path"].parent.name
+        clean_path = CLEAN_ROOT / clean_dir_name / f"{row['doc_id']}.json"
+        if clean_path.exists():
+            clean_path.unlink()
+        row["doc_json_path"].unlink(missing_ok=True)
+        st.toast(f"Удалено: {row['doc_id']}")
+    except OSError as exc:
+        st.error(f"{row['doc_id']}: не удалось удалить — {exc}")
+    st.rerun()
+
+
+def _delete_batch(rows: list[dict]) -> None:
+    errors: list[str] = []
+    for row in rows:
+        try:
+            meta = json.loads(row["doc_json_path"].read_text(encoding="utf-8"))
+            content_path = meta.get("content_path")
+            if content_path and Path(content_path).exists():
+                Path(content_path).unlink()
+            clean_dir_name = row["doc_json_path"].parent.name
+            clean_path = CLEAN_ROOT / clean_dir_name / f"{row['doc_id']}.json"
+            if clean_path.exists():
+                clean_path.unlink()
+            row["doc_json_path"].unlink(missing_ok=True)
+        except OSError as exc:
+            errors.append(f"{row['doc_id']}: {exc}")
+    for err in errors:
+        st.error(err)
+    st.success(f"Удалено: {len(rows) - len(errors)}/{len(rows)}")
+    st.rerun()
+
+
 def _ingest_batch(rows: list[dict]) -> None:
     pending = [r for r in rows if not r["gar_document_id"]]
     if not pending:
@@ -151,15 +191,27 @@ def render() -> None:
             "direction": r["direction"], "raw": r["raw"], "clean": r["clean"],
             "metadata": r["metadata"],
             "ingested": "done" if r["gar_document_id"] else ("error" if r["ingest_error"] else "not_started"),
+            "error": r["ingest_error"] or "",
         }
         for r in filtered
     ])
-    st.dataframe(df, width="stretch", hide_index=True)
-    st.caption(f"Всего: {len(df)}, clean: {int(df['clean'].sum())}, в GAR: {int((df['ingested'] == 'done').sum())}")
+    df.insert(0, "select", False)
+    edited = st.data_editor(
+        df, hide_index=True, width="stretch",
+        disabled=[c for c in df.columns if c != "select"], key="doc_table_editor",
+    )
+    selected_idx = edited.index[edited["select"]].tolist()
+    selected_rows = [filtered[i] for i in selected_idx]
+    st.caption(
+        f"Всего: {len(df)}, clean: {int(df['clean'].sum())}, "
+        f"в GAR: {int((df['ingested'] == 'done').sum())}, выбрано: {len(selected_rows)}"
+    )
+    if st.button("Удалить выбранные", disabled=not selected_rows, key="delete_selected_btn"):
+        _delete_batch(selected_rows)
 
     st.subheader("Загрузка по одному документу")
     for i, row in enumerate(filtered):
-        c1, c2, c3 = st.columns([5, 2, 2])
+        c1, c2, c3, c4 = st.columns([4, 2, 2, 2])
         c1.write(f"**{row['title'] or row['doc_id']}** — {row['direction']}/{row['domain']}")
         if row["gar_document_id"]:
             c2.write("✅ в GAR")
@@ -172,3 +224,5 @@ def render() -> None:
         c3.button("Загрузить в GAR", key=f"ingest_{i}_{row['domain']}_{row['doc_id']}",
                    disabled=bool(row["gar_document_id"]),
                    on_click=_ingest_one, args=(row,))
+        c4.button("Удалить", key=f"delete_{i}_{row['domain']}_{row['doc_id']}",
+                   on_click=_delete_one, args=(row,))
