@@ -38,6 +38,13 @@ iz.ru:
   checked_date: null
   notes: ''
   status: pending_manual_review
+medanta.org:
+  attribution_template: 'Источник: {title} ({source_url}), medanta.org'
+  checked_date: null
+  is_aggregator: false
+  notes: ''
+  publish_permission: not_set
+  status: attribution_required
 miloserdie.ru:
   attribution_template: 'Источник: {title} ({source_url}), Милосердие.ru (miloserdie.ru)'
   checked_date: '2026-09-16'
