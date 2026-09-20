@@ -248,3 +248,7 @@
 - Решено: ds-search запускается от uid 1000 (gar-deploy#25), data/raw создаётся от vector, CLI с хоста работает.
 
 - 2026-09-19: fix #214 — Dockerfile: PLAYWRIGHT_BROWSERS_PATH=/ms-playwright, chromium запечён в образ (контейнер под 1000:1000, HOME=/tmp). Нужен docker compose build ds-search.
+
+### ds_search#225 — вкладка «Внешний сайт» (2026-09-20)
+- ui/site_publish_tab.py + src/site_publish/runner.py: кнопка «Пересобрать внешний сайт» запускает node scripts/publish-pages.mjs из ds_site (DS_SITE_DIR, по умолчанию ../ds_site; node — из PATH или ~/.nvm, предпочтительно v22) отдельным процессом; лог/статус в data/site_publish/. Подтверждение обязательно, есть пробный прогон (--dry-run). Показ статуса, лога и счётчиков (опубликовано / отфильтровано not_set и denied — разбор вывода export-content). Из docker-контейнера недоступно (нужен ds_site, node, gh) — запускать ds_search локально в WSL.
+- Проверка: tests/test_site_publish.py, AppTest вкладки, реальный dry-run: exit 0, 0 опубликовано (articles 98, news 11, glossary 62, links 126 — not_set). Решено: место — Streamlit ds_search (ADR-0018 п.7).
