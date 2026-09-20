@@ -100,7 +100,7 @@ def render() -> None:
             )
             attribution = st.text_input(
                 "Шаблон атрибуции ({title}, {source_url})",
-                value=entry.get("attribution_template", ""), key=f"attr_{domain}",
+                value=entry.get("attribution_template") or default_attribution_template(domain), key=f"attr_{domain}",
             )
             notes = st.text_area("Заметки", value=entry.get("notes", ""), key=f"notes_{domain}")
             is_aggregator = st.checkbox(
@@ -110,7 +110,7 @@ def render() -> None:
             if st.button("Сохранить", key=f"save_{domain}", disabled=status is None):
                 registry[domain] = {
                     "status": status,
-                    "attribution_template": attribution or None,
+                    "attribution_template": attribution or default_attribution_template(domain),
                     "notes": notes,
                     "checked_date": entry.get("checked_date"),
                     "is_aggregator": is_aggregator,
