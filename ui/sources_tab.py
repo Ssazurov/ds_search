@@ -54,7 +54,18 @@ def _domain_counts() -> Counter:
             rows = client.list_discovered_sources()
     except Exception:  # noqa: BLE001
         return Counter()
-    return Counter(normalize_domain(r["domain"]) for r in rows if r.get("domain"))
+    return Counter(normalize_domain(r["domain"]) for r in rows
+                   if r.get("domain") and r.get("status") != "rejected")
+
+
+def _dismiss_domain(domain: str) -> None:
+    """Удаление домена: находки в GAR переводим в rejected (DELETE-эндпоинта нет),
+    _domain_counts их не считает — домен исчезает из списка."""
+    with GarDiscoveryClient(load_settings()) as client:
+        for r in client.list_discovered_sources():
+            if (r.get("domain") and normalize_domain(r["domain"]) == domain
+                    and r.get("status") != "rejected"):
+                client.update_discovered_source(r["id"], status="rejected")
 
 
 def build_rows(registry: dict, counts: Counter) -> list[dict]:
@@ -160,7 +171,12 @@ def _render_detail(domain: str, registry: dict, row: dict) -> None:
         for p in ("status", "perm", "attr", "notes", "agg"):
             st.session_state.pop(f"{p}_{domain}", None)
         st.rerun()
-    if c3.button("Удалить", key=f"del_{domain}", width="stretch", disabled=domain not in registry):
+    if c3.button("Удалить", key=f"del_{domain}", width="stretch"):
+        try:
+            _dismiss_domain(domain)
+        except Exception as exc:  # noqa: BLE001
+            st.error(f"Не удалось убрать находки домена в GAR: {exc}")
+            return
         registry.pop(domain, None)
         _save_registry(registry)
         st.session_state.pop("dom_sel", None)
