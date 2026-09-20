@@ -80,3 +80,44 @@ def test_pending_registered_under_normalized_key(tmp_path):
         check_license("www.new.example", "https://www.new.example/", registry_path=registry_path)
 
     assert list(yaml.safe_load(registry_path.read_text(encoding="utf-8"))) == ["new.example"]
+
+
+def test_publish_permission_defaults_to_not_set_for_legacy_entry(tmp_path, monkeypatch):
+    """issue #224: старая запись реестра без поля мигрирует в not_set."""
+    from src.license import checker
+
+    reg = tmp_path / "licenses.yaml"
+    reg.write_text("legacy.org:\n  status: allow\n  notes: ''\n", encoding="utf-8")
+    monkeypatch.setattr(checker, "_check_robots", lambda *a, **k: None)
+    res = checker.check_license("legacy.org", "https://legacy.org", registry_path=reg)
+    assert res.status == checker.LicenseStatus.ALLOW
+    assert res.publish_permission == checker.PublishPermission.NOT_SET
+
+
+def test_publish_permission_read_and_independent_of_status(tmp_path, monkeypatch):
+    from src.license import checker
+
+    reg = tmp_path / "licenses.yaml"
+    reg.write_text("a.org:\n  status: deny\n  publish_permission: granted\n", encoding="utf-8")
+    monkeypatch.setattr(checker, "_check_robots", lambda *a, **k: None)
+    res = checker.check_license("a.org", "https://a.org", registry_path=reg)
+    assert res.status == checker.LicenseStatus.DENY
+    assert res.publish_permission == checker.PublishPermission.GRANTED
+
+
+def test_new_domain_registered_with_not_set_permission(tmp_path, monkeypatch):
+    import yaml
+    from src.license import checker
+
+    reg = tmp_path / "licenses.yaml"
+    monkeypatch.setattr(checker, "_check_robots", lambda *a, **k: None)
+    checker.check_license("new.org", "https://new.org", registry_path=reg)
+    assert yaml.safe_load(reg.read_text(encoding="utf-8"))["new.org"]["publish_permission"] == "not_set"
+
+
+def test_parse_publish_permission_unknown_value():
+    from src.license.checker import PublishPermission, parse_publish_permission
+
+    assert parse_publish_permission("bogus") == PublishPermission.NOT_SET
+    assert parse_publish_permission(None) == PublishPermission.NOT_SET
+    assert parse_publish_permission("denied") == PublishPermission.DENIED

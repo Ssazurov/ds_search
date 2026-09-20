@@ -1,4 +1,11 @@
 
+## 2026-09-20 -- issue #224: publish_permission в реестре источников
+
+- `config/licenses.yaml`: поле `publish_permission` по домену (not_set/not_required/granted/denied), отдельно от `status` (ADR-0013, ADR-0018 п.3).
+- `src/license/checker.py`: `PublishPermission`, `PUBLISH_PERMISSION_LABELS`, `parse_publish_permission`; `LicenseCheckResult.publish_permission`; новые домены пишутся с not_set. Записи без поля читаются как not_set (миграция ленивая, yaml массово не переписывался; поле проставляется при сохранении в UI).
+- UI «Источники»: selectbox «Разрешение на публикацию» (Не выбрано / Разрешение не требуется / Разрешение получено / Разрешение запрещено).
+- Проверка: tests/test_license_checker.py (+4).
+
 ## 2026-09-19 -- issue #221: ссылка из «Источник» для ручных черновиков
 
 - `publish.effective_source_url`: для `manual:` и http(s) в source_name в GAR уходит этот URL (и домен). Нужна повторная публикация уже опубликованных.

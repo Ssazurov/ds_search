@@ -37,12 +37,41 @@ class LicenseStatus(str, Enum):
     PENDING_MANUAL_REVIEW = "pending_manual_review"
 
 
+class PublishPermission(str, Enum):
+    """Разрешение на публикацию материалов источника на внешнем сайте
+    (issue #224, ADR-0018 п.3). Хранится по домену в реестре, ОТДЕЛЬНО от
+    `status` лицензии (ADR-0013): статус — можно ли скачать, разрешение —
+    можно ли выложить публично."""
+
+    NOT_SET = "not_set"
+    NOT_REQUIRED = "not_required"
+    GRANTED = "granted"
+    DENIED = "denied"
+
+
+PUBLISH_PERMISSION_LABELS = {
+    PublishPermission.NOT_SET: "Не выбрано",
+    PublishPermission.NOT_REQUIRED: "Разрешение не требуется",
+    PublishPermission.GRANTED: "Разрешение получено",
+    PublishPermission.DENIED: "Разрешение запрещено",
+}
+
+
+def parse_publish_permission(value: object) -> PublishPermission:
+    """Отсутствующее/неизвестное значение (старые записи реестра) → not_set."""
+    try:
+        return PublishPermission(value)
+    except ValueError:
+        return PublishPermission.NOT_SET
+
+
 @dataclass
 class LicenseCheckResult:
     status: LicenseStatus
     reason: str
     attribution_template: str | None = None
     is_aggregator: bool = False
+    publish_permission: PublishPermission = PublishPermission.NOT_SET
 
     @property
     def downloadable(self) -> bool:
@@ -85,6 +114,7 @@ def _register_pending(domain: str, path: Path) -> None:
         "attribution_template": None,
         "notes": "",
         "checked_date": None,
+        "publish_permission": PublishPermission.NOT_SET.value,
     }
     path.write_text(
         "# Реестр лицензий/ToS источников (issue #3, ADR-001 п.3).\n"
@@ -142,4 +172,5 @@ def check_license(
         reason=reason,
         attribution_template=entry.get("attribution_template"),
         is_aggregator=bool(entry.get("is_aggregator", False)),
+        publish_permission=parse_publish_permission(entry.get("publish_permission")),
     )
