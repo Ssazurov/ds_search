@@ -257,3 +257,7 @@
 - Dockerfile: node 22.23.1, git, gh; runner.py: `DS_SITE_GAR_URL` → GAR_URL для сборки в docker.
 - gar-deploy compose: том ds_site, конфиг gh, DS_SITE_DIR, git credential helper через gh.
 - Проверка: контейнер пересобран, node/git/gh/gh auth есть, dry-run из контейнера: exit 0 (сборка + проверка секретов). Реальная публикация в gh-pages не гонялась.
+
+## 2026-09-20 — #234 Источники/домены: master-detail
+- ui/sources_tab.py: список доменов слева (фильтры, поиск, пагинация 10/20/50), форма справа (Сохранить/Отменить/Удалить); русские подписи статусов (значения в licenses.yaml не менялись); баннер pending убран.
+- tests/test_sources_tab_rows.py; проверка: pytest 12 passed.
