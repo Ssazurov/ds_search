@@ -70,3 +70,8 @@ class GarDiscoveryClient:
         if resp.status_code != 200:
             raise GarDiscoveryClientError(f"update discovered source {source_id} failed: {resp.status_code} {resp.text}")
         return resp.json()
+
+    def delete_discovered_source(self, source_id: str) -> None:
+        resp = self._client.delete(f"/discovered-sources/{source_id}")
+        if resp.status_code not in (200, 204):
+            raise GarDiscoveryClientError(f"delete discovered source {source_id} failed: {resp.status_code} {resp.text}")

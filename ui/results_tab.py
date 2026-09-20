@@ -70,7 +70,7 @@ def render() -> None:
     selected_ids = df.loc[edited["select"], "id"].tolist() if "id" in df.columns else []
     st.caption(f"Выбрано: {len(selected_ids)}")
 
-    b1, b2, b3 = st.columns(3)
+    b1, b2, b3, b4 = st.columns(4)
     settings = load_settings()
     if b1.button("Одобрить выбранные", disabled=not selected_ids):
         with GarDiscoveryClient(settings) as client:
@@ -90,4 +90,11 @@ def render() -> None:
             for row_id in selected_ids:
                 client.update_discovered_source(row_id, status="queued")
         st.success(f"В очереди: {len(selected_ids)}")
+        st.rerun()
+    confirm_delete = b4.checkbox("Подтвердить удаление", disabled=not selected_ids, key="confirm_delete")
+    if b4.button("Удалить выбранные", disabled=not selected_ids or not confirm_delete):
+        with GarDiscoveryClient(settings) as client:
+            for row_id in selected_ids:
+                client.delete_discovered_source(row_id)
+        st.success(f"Удалено: {len(selected_ids)}")
         st.rerun()
