@@ -15,7 +15,8 @@ import streamlit as st
 
 from ui import (
     agents_status_tab, dashboard_tab, dictionaries_tab, documents_tab,
-    materials_tab, news_tab, results_tab, search_tab, sources_tab, upload_tab,
+    materials_tab, news_tab, results_tab, search_tab, site_publish_tab, sources_tab,
+    upload_tab,
 )
 
 st.set_page_config(page_title="ds_search — discovery", layout="wide")
@@ -23,7 +24,7 @@ st.title("ds_search — discovery & курация")
 
 tabs = st.tabs([
     "Справочники", "Поиск", "Результаты", "Загрузка", "Документы", "Источники",
-    "Дашборд", "Новости", "Материалы", "Статус агентов",
+    "Дашборд", "Новости", "Материалы", "Статус агентов", "Внешний сайт",
 ])
 with tabs[0]:
     dictionaries_tab.render()
@@ -45,3 +46,5 @@ with tabs[8]:
     materials_tab.render()
 with tabs[9]:
     agents_status_tab.render()
+with tabs[10]:
+    site_publish_tab.render()
