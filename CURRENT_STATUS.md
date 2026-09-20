@@ -252,3 +252,8 @@
 ### ds_search#225 — вкладка «Внешний сайт» (2026-09-20)
 - ui/site_publish_tab.py + src/site_publish/runner.py: кнопка «Пересобрать внешний сайт» запускает node scripts/publish-pages.mjs из ds_site (DS_SITE_DIR, по умолчанию ../ds_site; node — из PATH или ~/.nvm, предпочтительно v22) отдельным процессом; лог/статус в data/site_publish/. Подтверждение обязательно, есть пробный прогон (--dry-run). Показ статуса, лога и счётчиков (опубликовано / отфильтровано not_set и denied — разбор вывода export-content). Из docker-контейнера недоступно (нужен ds_site, node, gh) — запускать ds_search локально в WSL.
 - Проверка: tests/test_site_publish.py, AppTest вкладки, реальный dry-run: exit 0, 0 опубликовано (articles 98, news 11, glossary 62, links 126 — not_set). Решено: место — Streamlit ds_search (ADR-0018 п.7).
+
+## 2026-09-20 — #228 публикация внешнего сайта из контейнера ds-search
+- Dockerfile: node 22.23.1, git, gh; runner.py: `DS_SITE_GAR_URL` → GAR_URL для сборки в docker.
+- gar-deploy compose: том ds_site, конфиг gh, DS_SITE_DIR, git credential helper через gh.
+- Проверка: контейнер пересобран, node/git/gh/gh auth есть, dry-run из контейнера: exit 0 (сборка + проверка секретов). Реальная публикация в gh-pages не гонялась.

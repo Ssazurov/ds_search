@@ -54,8 +54,8 @@ def check_env(dry_run: bool = False) -> str | None:
     """Текст проблемы или None, если запуск возможен."""
     site = ds_site_dir()
     if not (site / "scripts" / "publish-pages.mjs").is_file():
-        return (f"Не найден ds_site ({site}). Задайте DS_SITE_DIR. Из docker-контейнера "
-                "публикация недоступна — запустите ds_search локально (WSL).")
+        return (f"Не найден ds_site ({site}). Задайте DS_SITE_DIR; в docker "
+                "ds_site монтируется томом (gar-deploy, ADR-0019).")
     if not (site / ".env.local").is_file():
         return f"Нет {site}/.env.local (GAR_URL, GAR_PUBLIC_API_KEY)."
     if not find_node():
@@ -143,6 +143,8 @@ def start(dry_run: bool = False) -> None:
     sh = f"{cmd} > {shlex.quote(str(_log()))} 2>&1; echo $? > {shlex.quote(str(_exit()))}"
     env = os.environ.copy()
     env["PATH"] = str(Path(node).parent) + os.pathsep + env.get("PATH", "")
+    if os.environ.get("DS_SITE_GAR_URL"):  # в docker GAR — по имени сервиса, а не localhost из .env.local
+        env["GAR_URL"] = os.environ["DS_SITE_GAR_URL"]
     proc = subprocess.Popen(  # noqa: S603
         ["sh", "-c", sh], cwd=site, env=env, start_new_session=True,
         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,

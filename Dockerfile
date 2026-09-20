@@ -9,6 +9,14 @@ RUN pip install --no-cache-dir -r requirements.txt
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 RUN playwright install --with-deps chromium && chmod -R a+rX /ms-playwright
 
+# Публикация внешнего сайта из админки (ADR-0019): ds_site монтируется томом, тут — git, gh, node.
+ARG NODE_VERSION=22.23.1
+RUN apt-get update && apt-get install -y --no-install-recommends git gh xz-utils \
+    && rm -rf /var/lib/apt/lists/* \
+    && curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz" \
+       | tar -xJ -C /usr/local --strip-components=1 --exclude='*.md' --exclude=LICENSE \
+    && node --version && git --version && gh --version | head -1
+
 COPY . .
 
 EXPOSE 8501
