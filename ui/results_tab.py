@@ -91,8 +91,7 @@ def render() -> None:
                 client.update_discovered_source(row_id, status="queued")
         st.success(f"В очереди: {len(selected_ids)}")
         st.rerun()
-    confirm_delete = b4.checkbox("Подтвердить удаление", disabled=not selected_ids, key="confirm_delete")
-    if b4.button("Удалить выбранные", disabled=not selected_ids or not confirm_delete):
+    if b4.button("Удалить выбранные", disabled=not selected_ids):
         with GarDiscoveryClient(settings) as client:
             for row_id in selected_ids:
                 client.delete_discovered_source(row_id)

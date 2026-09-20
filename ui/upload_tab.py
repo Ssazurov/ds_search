@@ -38,7 +38,7 @@ def _render_queue() -> None:
         return
 
     for source in rows:
-        cols = st.columns([5, 2, 2, 2])
+        cols = st.columns([5, 2, 2, 2, 2])
         cols[0].write(f"**{source.get('title') or source['url']}**\n\n{source['url']}")
         cols[1].write(source.get("domain", ""))
         cols[2].write(source.get("status", ""))
@@ -52,6 +52,11 @@ def _render_queue() -> None:
                 except DownloadError as exc:
                     client.update_discovered_source(source["id"], status="error")
                     st.error(f"Ошибка: {exc}")
+            st.rerun()
+        if cols[4].button("Удалить", key=f"del_{source['id']}"):
+            with GarDiscoveryClient(settings) as client:
+                client.delete_discovered_source(source["id"])
+            st.success("Удалено")
             st.rerun()
 
 
