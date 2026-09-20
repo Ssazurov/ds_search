@@ -12,6 +12,7 @@ import yaml
 from src.discovery.config import load_settings
 from src.discovery.gar_client import GarDiscoveryClient
 from src.license.checker import (
+    default_attribution_template,
     PUBLISH_PERMISSION_LABELS, LicenseStatus, PublishPermission, _CONFIG_PATH,
     normalize_domain, parse_publish_permission,
 )
@@ -127,7 +128,7 @@ def render() -> None:
     st.subheader("Добавить домен")
     new_domain = st.text_input("Домен (например, example.org)")
     if st.button("Добавить", disabled=not new_domain.strip()):
-        registry[new_domain.strip()] = {"status": "pending_manual_review", "notes": "", "attribution_template": None,
+        registry[new_domain.strip()] = {"status": "pending_manual_review", "notes": "", "attribution_template": default_attribution_template(new_domain.strip()),
                                      "publish_permission": PublishPermission.NOT_SET.value}
         _save_registry(registry)
         st.rerun()

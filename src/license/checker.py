@@ -102,6 +102,11 @@ def _load_registry(path: Path = _CONFIG_PATH) -> dict:
         return yaml.safe_load(f) or {}
 
 
+def default_attribution_template(domain: str) -> str:
+    """Шаблон атрибуции по умолчанию для нового источника."""
+    return f"Источник: {{title}} ({{source_url}}), {domain}"
+
+
 def _register_pending(domain: str, path: Path) -> None:
     """Автосоздание записи pending_manual_review при первой встрече домена
     (issue #184, ADR-013): без этого домен не появлялся в UI "Источники" и
@@ -111,7 +116,7 @@ def _register_pending(domain: str, path: Path) -> None:
         return
     registry[domain] = {
         "status": LicenseStatus.PENDING_MANUAL_REVIEW.value,
-        "attribution_template": None,
+        "attribution_template": default_attribution_template(domain),
         "notes": "",
         "checked_date": None,
         "publish_permission": PublishPermission.NOT_SET.value,

@@ -20,6 +20,13 @@ downsideup.org:
   notes: 'В подвале сайта: "Использование любых материалов, размещённых на сайте,
     разрешается при условии активной ссылки на downsideup.org".'
   status: attribution_required
+globaldownsyndrome.org:
+  attribution_template: 'Источник: {title} ({source_url}), globaldownsyndrome.org'
+  checked_date: null
+  is_aggregator: false
+  notes: ''
+  publish_permission: not_required
+  status: attribution_required
 inva.news:
   attribution_template: 'Источник: {title} ({source_url}), inva.news'
   checked_date: null
@@ -27,7 +34,7 @@ inva.news:
   notes: ''
   status: attribution_required
 iz.ru:
-  attribution_template: null
+  attribution_template: 'Источник: {title} ({source_url}), iz.ru'
   checked_date: null
   notes: ''
   status: pending_manual_review
@@ -52,7 +59,7 @@ news.un.org:
     от остальных публикаций ООН).'
   status: attribution_required
 peterburgmedia.ru:
-  attribution_template: null
+  attribution_template: 'Источник: {title} ({source_url}), peterburgmedia.ru'
   checked_date: null
   notes: ''
   status: pending_manual_review
@@ -69,6 +76,11 @@ pravmir.ru:
   notes: Перепечатка в электронных СМИ разрешена при условии установки прямой активной
     ссылки. Публичных правил на сайте не обнаружено.
   status: attribution_required
+prognozmed.ru:
+  attribution_template: 'Источник: {title} ({source_url}), prognozmed.ru'
+  checked_date: null
+  notes: ''
+  status: pending_manual_review
 rusfond.ru:
   attribution_template: 'Источник: {title} ({source_url}), Русфонд (rusfond.ru)'
   checked_date: '2026-09-17'
@@ -93,7 +105,7 @@ vk.ru:
   notes: ''
   status: attribution_required
 wildcar.ru:
-  attribution_template: null
+  attribution_template: 'Источник: {title} ({source_url}), wildcar.ru'
   checked_date: '2026-09-18'
   is_aggregator: true
   notes: 'Агрегатор: перепечатывает новости с внешних сайтов, в конце каждой статьи
