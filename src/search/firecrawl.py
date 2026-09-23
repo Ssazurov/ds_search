@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import os
+from datetime import datetime
 from pathlib import Path
 
 import httpx
@@ -36,7 +37,10 @@ class FirecrawlProvider(SearchProvider):
             path=quota_path, provider=self.name, limit=monthly_limit, period="monthly"
         )
 
-    def search(self, query: str, max_results: int = 10) -> list[SearchHit]:
+    def search(
+        self, query: str, max_results: int = 10,
+        date_from: datetime | None = None, date_to: datetime | None = None,
+    ) -> list[SearchHit]:
         if not query.strip():
             raise ValueError("Поисковый запрос не должен быть пустым")
         if not 1 <= max_results <= 100:
@@ -45,9 +49,13 @@ class FirecrawlProvider(SearchProvider):
             raise QuotaExceeded(f"{self.name}: нет FIRECRAWL_API_KEY")
         if not self.quota.has_quota(cost=CREDITS_PER_SEARCH):
             raise QuotaExceeded(f"{self.name}: месячная квота исчерпана")
+        payload = {"query": query, "limit": max_results}
+        if date_from or date_to:
+            fmt = lambda d: d.strftime("%m/%d/%Y") if d else ""  # noqa: E731
+            payload["tbs"] = f"cdr:1,cd_min:{fmt(date_from)},cd_max:{fmt(date_to)}"
         resp = httpx.post(
             FIRECRAWL_API_URL,
-            json={"query": query, "limit": max_results},
+            json=payload,
             headers={"Authorization": f"Bearer {self.api_key}"},
             timeout=20.0,
         )

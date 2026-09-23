@@ -5,6 +5,7 @@ API-ключ — BRAVE_API_KEY. Доки: https://api.search.brave.com/app/docum
 from __future__ import annotations
 
 import os
+from datetime import datetime
 from pathlib import Path
 
 import httpx
@@ -31,7 +32,10 @@ class BraveProvider(SearchProvider):
             path=quota_path, provider=self.name, limit=monthly_limit, period="monthly"
         )
 
-    def search(self, query: str, max_results: int = 10) -> list[SearchHit]:
+    def search(
+        self, query: str, max_results: int = 10,
+        date_from: datetime | None = None, date_to: datetime | None = None,
+    ) -> list[SearchHit]:
         if not query.strip():
             raise ValueError("Поисковый запрос не должен быть пустым")
         if not 1 <= max_results <= 100:
@@ -45,6 +49,10 @@ class BraveProvider(SearchProvider):
             "X-Subscription-Token": self.api_key,
         }
         params = {"q": query, "count": min(max_results, 20)}
+        if date_from or date_to:
+            start = (date_from or datetime(1970, 1, 1)).strftime("%Y-%m-%d")
+            end = (date_to or datetime.now()).strftime("%Y-%m-%d")
+            params["freshness"] = f"{start}to{end}"
         resp = httpx.get(BRAVE_API_URL, params=params, headers=headers, timeout=15.0)
         if resp.status_code in (401, 429):
             raise QuotaExceeded(f"{self.name}: API сообщил об исчерпании квоты")

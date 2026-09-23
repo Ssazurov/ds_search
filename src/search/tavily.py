@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import os
+from datetime import datetime
 from pathlib import Path
 
 import httpx
@@ -32,7 +33,10 @@ class TavilyProvider(SearchProvider):
             path=quota_path, provider=self.name, limit=monthly_limit, period="monthly"
         )
 
-    def search(self, query: str, max_results: int = 10) -> list[SearchHit]:
+    def search(
+        self, query: str, max_results: int = 10,
+        date_from: datetime | None = None, date_to: datetime | None = None,
+    ) -> list[SearchHit]:
         if not query.strip():
             raise ValueError("Поисковый запрос не должен быть пустым")
         if not 1 <= max_results <= 100:
@@ -40,6 +44,10 @@ class TavilyProvider(SearchProvider):
         if not self.quota.has_quota(cost=1):
             raise QuotaExceeded(f"{self.name}: месячная квота исчерпана")
         payload = {"query": query, "max_results": max_results}
+        if date_from:
+            payload["start_date"] = date_from.strftime("%Y-%m-%d")
+        if date_to:
+            payload["end_date"] = date_to.strftime("%Y-%m-%d")
         headers = {}
         if self.keyless:
             headers["X-Tavily-Access-Mode"] = "keyless"

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from datetime import datetime
 
 
 class QuotaExceeded(Exception):
@@ -24,6 +25,10 @@ class SearchProvider(ABC):
     name: str
 
     @abstractmethod
-    def search(self, query: str, max_results: int = 10) -> list[SearchHit]:
-        """Выполнить запрос. Бросает QuotaExceeded при исчерпании лимита."""
+    def search(
+        self, query: str, max_results: int = 10,
+        date_from: datetime | None = None, date_to: datetime | None = None,
+    ) -> list[SearchHit]:
+        """Выполнить запрос. date_from/date_to — необязательный период публикации
+        (провайдеры фильтруют с точностью до дня). Бросает QuotaExceeded при исчерпании лимита."""
         raise NotImplementedError
