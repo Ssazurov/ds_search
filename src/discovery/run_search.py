@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from urllib.parse import urlsplit
 
 from ..crawler.filters import canonicalize_url
@@ -41,12 +42,60 @@ def _hit_to_candidate(hit: SearchHit, metadata: dict | None = None) -> dict:
     return candidate
 
 
+def normalize_domains(raw: str | list[str] | None) -> list[str]:
+    """Разбирает список доменов (строка через запятую/пробел/перенос или
+    список) -> ['example.org', ...]: без схемы, пути, www, в нижнем регистре,
+    без дублей. Никаких проверок разрешений публикации."""
+    if not raw:
+        return []
+    items = re.split(r"[\s,;]+", raw) if isinstance(raw, str) else list(raw)
+    result: list[str] = []
+    for item in items:
+        item = item.strip().lower()
+        if not item:
+            continue
+        host = urlsplit(item if "//" in item else f"//{item}").netloc
+        host = host.split("@")[-1].split(":")[0].removeprefix("www.")
+        if "." in host and host not in result:  # "и", "or" и т.п. — не домены
+            result.append(host)
+    return result
+
+
+def _in_domains(url: str, domains: list[str]) -> bool:
+    host = urlsplit(url).netloc.lower().split(":")[0].removeprefix("www.")
+    return any(host == d or host.endswith("." + d) for d in domains)
+
+
+def _search(chain: SearchProviderChain, query: str, doms: list[str], max_results: int) -> list[SearchHit]:
+    """Без доменов — обычный поиск. С доменами — отдельный запрос
+    `query site:домен` на каждый (один OR-запрос провайдеры выполняют
+    ненадёжно), результаты фильтруются по хосту, объединяются без дублей
+    и делятся между доменами поровну (не больше max_results в сумме)."""
+    if not doms:
+        return chain.search(query, max_results=max_results)
+    per_domain = -(-max_results // len(doms))
+    hits: list[SearchHit] = []
+    seen: set[str] = set()
+    for d in doms:
+        found = chain.search(f"{query} site:{d}", max_results=min(100, per_domain * 2))
+        taken = 0
+        for h in found:
+            if taken >= per_domain:
+                break
+            if _in_domains(h.url, [d]) and h.url not in seen:
+                seen.add(h.url)
+                hits.append(h)
+                taken += 1
+    return hits[:max_results]
+
+
 def run_search(
     query: str,
     chain: SearchProviderChain,
     max_results: int = 10,
     settings: Settings | None = None,
     metadata: dict | None = None,
+    domains: str | list[str] | None = None,
 ) -> dict:
     """Выполняет поиск, дедуплицирует находки и upsert-ит их в
     discovered_sources под новым search_run. `metadata` — необязательные
@@ -55,11 +104,12 @@ def run_search(
     проставляются на все находки этого запуска. Возвращает
     {"run_id", "status", "result_count"}."""
     settings = settings or load_settings()
+    doms = normalize_domains(domains)
     with GarDiscoveryClient(settings) as client:
         run = client.create_search_run(query=query, provider=chain.providers[0].name)
         run_id = run["id"]
         try:
-            hits = chain.search(query, max_results=max_results)
+            hits = _search(chain, query, doms, max_results)
         except QuotaExceeded as exc:
             logger.warning("search run %s failed: %s", run_id, exc)
             client.update_search_run(run_id, status="failed", error=str(exc))

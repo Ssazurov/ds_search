@@ -1,8 +1,14 @@
 """Параметры поиска — запуск search_run + пресеты (issue #19 п.2)."""
 from __future__ import annotations
 
-import streamlit as st
+from collections import Counter
 
+import streamlit as st
+import yaml
+
+from src.license.checker import _CONFIG_PATH, LicenseStatus, normalize_domain
+from src.discovery.config import load_settings
+from src.discovery.gar_client import GarDiscoveryClient
 from src.discovery.presets import delete_preset, load_presets, save_preset
 from src.discovery.run_search import run_search
 from src.metadata.schema import load_dictionaries
@@ -14,6 +20,28 @@ from src.search.firecrawl import FirecrawlProvider
 from src.search.tavily import TavilyProvider
 
 _NONE = "— не выбрано —"
+
+
+@st.cache_data(ttl=60)
+def _found_counts() -> Counter:
+    try:
+        with GarDiscoveryClient(load_settings()) as client:
+            items = client.list_discovered_sources()
+    except Exception:  # noqa: BLE001 — счётчики необязательны
+        return Counter()
+    return Counter(normalize_domain(i["domain"]) for i in items
+                   if i.get("domain") and i.get("status") != "rejected")
+
+
+def _known_domains() -> dict[str, int]:
+    """Домены вкладки «Источники» (licenses.yaml ∪ discovered_sources без rejected),
+    кроме status=deny -> число находок."""
+    registry = yaml.safe_load(_CONFIG_PATH.read_text(encoding="utf-8")) if _CONFIG_PATH.exists() else {}
+    registry = registry or {}
+    counts = _found_counts()
+    domains = {d: counts.get(d, 0) for d in set(registry) | set(counts)
+               if (registry.get(d) or {}).get("status") != LicenseStatus.DENY.value}
+    return dict(sorted(domains.items(), key=lambda kv: (-kv[1], kv[0])))
 
 
 def _build_chain() -> SearchProviderChain:
@@ -45,6 +73,20 @@ def render() -> None:
                if preset.get("target_audience") in dictionaries["target_audiences"] else 0),
     )
     lifecycle_stage = st.selectbox("Этап жизненного пути", ["— не выбрано —"] + dictionaries.get("lifecycle_stages", LIFECYCLE_STAGES))
+    known = _known_domains()
+    domains_selected = st.multiselect(
+        "Домены из источников", list(known),
+        default=[d for d in preset.get("domains_selected", []) if d in known],
+        format_func=lambda d: f"{d} ({known[d]})",
+        placeholder="Выберите или начните вводить домен",
+        help="Домены со вкладки «Источники», кроме запрещённых (в скобках — число находок).",
+    )
+    domains_new = st.text_area(
+        "Новые домены (необязательно)", value=preset.get("domains", ""), height=80,
+        placeholder="downsyndrome.ru, example.org — через запятую или с новой строки",
+        help="Домены, которых ещё нет в списке. Если домены не заданы — поиск по всему интернету.",
+    )
+    domains = ", ".join(domains_selected) + ", " + domains_new
     max_results = st.slider("Кол-во результатов", 1, 50, preset.get("max_results", 10))
 
     metadata = {
@@ -57,7 +99,7 @@ def render() -> None:
     col1, col2 = st.columns(2)
     if col1.button("Запустить поиск", type="primary", disabled=not query.strip()):
         try:
-            result = run_search(query, _build_chain(), max_results=max_results, metadata=metadata)
+            result = run_search(query, _build_chain(), max_results=max_results, metadata=metadata, domains=domains)
             st.success(f"Готово: run_id={result['run_id']}, находок={result['result_count']}")
         except QuotaExceeded as exc:
             st.error(str(exc))
@@ -75,6 +117,8 @@ def render() -> None:
             "direction": direction if direction != _NONE else None,
             "target_audience": target_audience if target_audience != _NONE else None,
             "max_results": max_results,
+            "domains": domains_new,
+            "domains_selected": domains_selected,
         })
         st.success("Пресет сохранён")
         st.rerun()
