@@ -41,7 +41,7 @@ GarNewsClient = GarIngestClient
 # per-source fallback (gar_mapping) не закрыли его, паблиш падает 422
 # "age must not be blank". "Все возрасты" — безопасный дефолт для новостей
 # (нет узкой возрастной привязки), как и для downsideup (ds_ingestion #3).
-FALLBACK_AGE = "Все возрасты"
+FALLBACK_AGE = gar_schema.FALLBACK_AGE
 
 
 def build_content_md(item: dict) -> str:

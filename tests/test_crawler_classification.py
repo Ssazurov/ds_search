@@ -60,7 +60,7 @@ def test_apply_classification_needs_review_when_field_missing(tmp_path, monkeypa
     meta = {"direction": "methodology", "category": "basic"}
     result = crawler._apply_classification(meta, "title", "text")
     assert result["needs_review"] is True
-    assert "age" not in result or not result["age"]
+    assert result["age"] == gar_schema.FALLBACK_AGE  # required в GAR, не пустой
 
 
 def test_apply_classification_gar_unavailable_sets_needs_review(tmp_path, monkeypatch):
@@ -72,4 +72,17 @@ def test_apply_classification_gar_unavailable_sets_needs_review(tmp_path, monkey
     monkeypatch.setattr(gar_schema, "load_gar_schema", _raise)
     meta = {"direction": "methodology", "category": "basic"}
     result = crawler._apply_classification(meta, "title", "text")
+    assert result["needs_review"] is True
+
+
+def test_apply_classification_age_fallback_when_unclassified(tmp_path, monkeypatch):
+    """ingest 422 'required field age must not be blank': age не пустой, needs_review=True."""
+    crawler = _make_crawler(tmp_path)
+    monkeypatch.setattr(gar_schema, "load_gar_schema", lambda: FIELDS)
+    monkeypatch.setattr(
+        "src.crawler.crawler.classify_mod.classify",
+        lambda title, text, fields, domain=None: {"age": None, "doc_type": "article"},
+    )
+    result = crawler._apply_classification({"direction": "d", "category": "c"}, "t", "x")
+    assert result["age"] == gar_schema.FALLBACK_AGE
     assert result["needs_review"] is True

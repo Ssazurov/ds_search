@@ -176,6 +176,7 @@ class SourceCrawler:
         except gar_schema.GarSchemaError as exc:
             logger.warning("схема GAR недоступна (%s) — needs_review без автозаполнения", exc)
             meta["needs_review"] = True
+            meta.setdefault("age", gar_schema.FALLBACK_AGE)
             return meta
 
         result = classify_mod.classify(title, text, fields, domain=self.cfg.domain)
@@ -185,6 +186,12 @@ class SourceCrawler:
 
         required = gar_schema.required_field_keys(fields)
         meta["needs_review"] = any(not meta.get(key) for key in required)
+        # age — required в GAR: пустое значение -> ingest 422 "required field
+        # age must not be blank". Как в news/publish.py (issue #186):
+        # подставляем fallback, но оставляем needs_review для ручной проверки.
+        if not meta.get("age"):
+            meta["age"] = gar_schema.FALLBACK_AGE
+            meta["needs_review"] = True
         return meta
 
     async def recrawl_url(self, url: str) -> dict | None:
