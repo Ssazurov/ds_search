@@ -1,6 +1,7 @@
 """Результаты поиска — таблица discovered_sources, фильтры, bulk (issue #19 п.3)."""
 from __future__ import annotations
 
+from collections import Counter
 from urllib.parse import urlsplit
 
 import pandas as pd
@@ -29,7 +30,6 @@ def render() -> None:
 
     col1, col2, col3 = st.columns(3)
     status_filter = col1.selectbox("Статус", [_NONE] + _STATUS_OPTIONS)
-    domain_filter = col2.text_input("Домен (подстрока)")
     text_filter = col3.text_input("Полнотекстовый фильтр (title/snippet)")
     show_duplicates = st.checkbox("Показывать дубли", value=False)
 
@@ -42,8 +42,18 @@ def render() -> None:
         st.error(f"gar-core-api недоступен: {exc}")
         return
 
-    if domain_filter:
-        rows = [r for r in rows if domain_filter.lower() in (r.get("domain") or "").lower()]
+    # Перечень доменов из текущих результатов (по статусу), с числом статей
+    for r in rows:
+        r["domain"] = r.get("domain") or urlsplit(r.get("url") or "").netloc
+    domain_counts = Counter(r["domain"] for r in rows if r["domain"])
+    domain_options = [_NONE] + sorted(domain_counts)
+    domain_filter = col2.selectbox(
+        "Домен", domain_options,
+        format_func=lambda d: f"Все ({len(rows)})" if d == _NONE else f"{d} ({domain_counts[d]})",
+    )
+
+    if domain_filter != _NONE:
+        rows = [r for r in rows if r["domain"] == domain_filter]
     if text_filter:
         needle = text_filter.lower()
         rows = [
@@ -59,13 +69,18 @@ def render() -> None:
 
     df = pd.DataFrame(rows)
     df.insert(0, "select", False)
+    df.insert(1, "open", df["url"])
     display_cols = [c for c in [
-        "select", "url", "title", "snippet", "domain", "direction", "category",
+        "select", "open", "url", "title", "snippet", "domain", "direction", "category",
         "doc_type", "relevance_score", "license_status", "is_duplicate", "status", "found_at",
     ] if c in df.columns]
     edited = st.data_editor(
         df[display_cols], hide_index=True, width="stretch",
         disabled=[c for c in display_cols if c != "select"], key="results_editor",
+        column_config={
+            "open": st.column_config.LinkColumn("Источник", display_text="🔗", width="small"),
+            "url": st.column_config.LinkColumn("url"),
+        },
     )
     selected_ids = df.loc[edited["select"], "id"].tolist() if "id" in df.columns else []
     st.caption(f"Выбрано: {len(selected_ids)}")
