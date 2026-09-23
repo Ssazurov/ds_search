@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from datetime import datetime, time
 
 import streamlit as st
 import yaml
@@ -50,6 +51,24 @@ def _build_chain() -> SearchProviderChain:
     return SearchProviderChain([FirecrawlProvider(), BraveProvider(), TavilyProvider()])
 
 
+def _date_range() -> tuple[datetime | None, datetime | None]:
+    """Необязательный период дат. «До» по умолчанию — сейчас; любую границу можно очистить."""
+    now = datetime.now()
+    st.session_state.setdefault("sr_to_date", now.date())
+    st.session_state.setdefault("sr_to_time", now.time().replace(second=0, microsecond=0))
+    st.caption("Период дат (необязательно). Достаточно одной границы; очистите поле даты, чтобы убрать её.")
+    c1, c2, c3, c4 = st.columns(4)
+    d_from = c1.date_input("От (дата)", value=None, key="sr_from_date")
+    t_from = c2.time_input("От (время)", value=time(0, 0), key="sr_from_time")
+    d_to = c3.date_input("До (дата)", key="sr_to_date")
+    t_to = c4.time_input("До (время)", key="sr_to_time")
+    dt_from = datetime.combine(d_from, t_from) if d_from else None
+    dt_to = datetime.combine(d_to, t_to) if d_to else None
+    if dt_from and dt_to and dt_from > dt_to:
+        st.warning("Дата «От» позже даты «До» — результатов не будет.")
+    return dt_from, dt_to
+
+
 def render() -> None:
     st.header("Параметры поиска")
     dictionaries = load_dictionaries()
@@ -87,6 +106,7 @@ def render() -> None:
         help="Домены, которых ещё нет в списке. Если домены не заданы — поиск по всему интернету.",
     )
     domains = ", ".join(domains_selected) + ", " + domains_new
+    date_from, date_to = _date_range()
     max_results = st.slider("Кол-во результатов", 1, 50, preset.get("max_results", 10))
 
     metadata = {
@@ -99,7 +119,8 @@ def render() -> None:
     col1, col2 = st.columns(2)
     if col1.button("Запустить поиск", type="primary", disabled=not query.strip()):
         try:
-            result = run_search(query, _build_chain(), max_results=max_results, metadata=metadata, domains=domains)
+            result = run_search(query, _build_chain(), max_results=max_results, metadata=metadata, domains=domains,
+                                date_from=date_from, date_to=date_to)
             st.success(f"Готово: run_id={result['run_id']}, находок={result['result_count']}")
         except QuotaExceeded as exc:
             st.error(str(exc))

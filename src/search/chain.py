@@ -8,6 +8,8 @@
 """
 from __future__ import annotations
 
+from datetime import datetime
+
 from .base import QuotaExceeded, SearchHit, SearchProvider
 
 
@@ -17,11 +19,19 @@ class SearchProviderChain:
             raise ValueError("Нужен хотя бы один провайдер")
         self.providers = providers
 
-    def search(self, query: str, max_results: int = 10) -> list[SearchHit]:
+    def search(
+        self, query: str, max_results: int = 10,
+        date_from: datetime | None = None, date_to: datetime | None = None,
+    ) -> list[SearchHit]:
+        extra = {}
+        if date_from:
+            extra["date_from"] = date_from
+        if date_to:
+            extra["date_to"] = date_to
         errors: list[str] = []
         for provider in self.providers:
             try:
-                return provider.search(query, max_results=max_results)
+                return provider.search(query, max_results=max_results, **extra)
             except QuotaExceeded as exc:
                 errors.append(str(exc))
                 continue

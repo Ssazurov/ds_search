@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import re
+from datetime import datetime
 from urllib.parse import urlsplit
 
 from ..crawler.filters import canonicalize_url
@@ -66,18 +67,20 @@ def _in_domains(url: str, domains: list[str]) -> bool:
     return any(host == d or host.endswith("." + d) for d in domains)
 
 
-def _search(chain: SearchProviderChain, query: str, doms: list[str], max_results: int) -> list[SearchHit]:
+def _search(chain: SearchProviderChain, query: str, doms: list[str], max_results: int,
+            date_from: datetime | None = None, date_to: datetime | None = None) -> list[SearchHit]:
     """Без доменов — обычный поиск. С доменами — отдельный запрос
     `query site:домен` на каждый (один OR-запрос провайдеры выполняют
     ненадёжно), результаты фильтруются по хосту, объединяются без дублей
     и делятся между доменами поровну (не больше max_results в сумме)."""
+    dates = {k: v for k, v in (("date_from", date_from), ("date_to", date_to)) if v}
     if not doms:
-        return chain.search(query, max_results=max_results)
+        return chain.search(query, max_results=max_results, **dates)
     per_domain = -(-max_results // len(doms))
     hits: list[SearchHit] = []
     seen: set[str] = set()
     for d in doms:
-        found = chain.search(f"{query} site:{d}", max_results=min(100, per_domain * 2))
+        found = chain.search(f"{query} site:{d}", max_results=min(100, per_domain * 2), **dates)
         taken = 0
         for h in found:
             if taken >= per_domain:
@@ -96,6 +99,8 @@ def run_search(
     settings: Settings | None = None,
     metadata: dict | None = None,
     domains: str | list[str] | None = None,
+    date_from: datetime | None = None,
+    date_to: datetime | None = None,
 ) -> dict:
     """Выполняет поиск, дедуплицирует находки и upsert-ит их в
     discovered_sources под новым search_run. `metadata` — необязательные
@@ -109,7 +114,7 @@ def run_search(
         run = client.create_search_run(query=query, provider=chain.providers[0].name)
         run_id = run["id"]
         try:
-            hits = _search(chain, query, doms, max_results)
+            hits = _search(chain, query, doms, max_results, date_from, date_to)
         except QuotaExceeded as exc:
             logger.warning("search run %s failed: %s", run_id, exc)
             client.update_search_run(run_id, status="failed", error=str(exc))
