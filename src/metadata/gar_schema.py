@@ -123,6 +123,10 @@ def category_options_for_direction(fields: dict, direction_value: str) -> list[s
     ]
 
 
+# age — required select GAR; fallback, если LLM/gar_mapping не определили (issue #186)
+FALLBACK_AGE = "Все возрасты"
+
+
 def required_field_keys(fields: dict) -> list[str]:
     return [f["key"] for f in fields.get("fields", []) if f.get("active", True) and f.get("required")]
 
