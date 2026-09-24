@@ -73,16 +73,41 @@ def _sync_tab_js() -> None:
             u.searchParams.set("tab", encodeURIComponent(name));
             history.replaceState(null, "", u.toString());
           }
-          // при загрузке — выставить URL под текущую вкладку
-          writeUrl(currentTabName());
-          // при клике на вкладку — обновить URL
-          parent.document.addEventListener("click", function (e) {
-            const t = e.target.closest('[data-baseweb="tab"]');
-            if (!t) return;
-            const btns = parent.document.querySelectorAll('[data-baseweb="tab"]');
-            const i = Array.from(btns).indexOf(t);
-            writeUrl(names[i] || null);
-          });
+          // при клике на вкладку — обновить URL (регистрируем до восстановления
+          // ниже, чтобы клик из restoreFromUrl тоже сработал через тот же путь).
+          // Флаг на window — чтобы не плодить обработчики при каждом rerun.
+          if (!parent.window.__dsTabSyncBound) {
+            parent.window.__dsTabSyncBound = true;
+            parent.document.addEventListener("click", function (e) {
+              const t = e.target.closest('[data-baseweb="tab"]');
+              if (!t) return;
+              const btns = parent.document.querySelectorAll('[data-baseweb="tab"]');
+              const i = Array.from(btns).indexOf(t);
+              writeUrl(names[i] || null);
+            });
+          }
+          // Восстановление вкладки из URL при загрузке/обновлении страницы:
+          // st.tabs не умеет открывать вкладку по индексу программно, поэтому
+          // симулируем клик по нужной кнопке вкладки.
+          const params = new URLSearchParams(location.search);
+          const raw = params.get("tab");
+          let restored = false;
+          if (raw) {
+            let wanted;
+            try { wanted = decodeURIComponent(raw); } catch (e) { wanted = raw; }
+            const idx = names.indexOf(wanted);
+            if (idx >= 0) {
+              const btns = parent.document.querySelectorAll('[data-baseweb="tab"]');
+              const target = btns[idx];
+              if (target && target.getAttribute("aria-selected") !== "true") {
+                target.click();
+                restored = true;
+              }
+            }
+          }
+          if (!restored) {
+            writeUrl(currentTabName());
+          }
         })();
         </script>
         """ % json.dumps(TABS),
