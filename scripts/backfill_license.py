@@ -8,13 +8,14 @@ import json
 import sys
 from pathlib import Path
 
-import yaml
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from src.license.registry_store import load_registry
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def main(source: str) -> None:
-    registry = yaml.safe_load((ROOT / 'config' / 'licenses.yaml').read_text(encoding='utf-8')) or {}
+    registry = load_registry()
     src_dir = ROOT / 'data' / 'raw' / source
     files = sorted(src_dir.glob('*.json'))
     updated = 0

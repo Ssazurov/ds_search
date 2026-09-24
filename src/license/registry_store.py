@@ -14,6 +14,8 @@ import json
 import logging
 import os
 import tempfile
+
+import yaml
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -101,3 +103,53 @@ class GarRegistryStore:
             return None
         self._cache_put(domain, entry)
         return entry
+
+    def put(self, domain: str, entry: dict) -> dict:
+        """Создать/обновить запись (PUT). Ошибки пробрасываются — UI покажет пользователю."""
+        saved = self._call("put_source_registry_entry", domain, **entry)
+        self._cache_put(domain, saved)
+        return saved
+
+    def delete(self, domain: str) -> None:
+        self._call("delete_source_registry_entry", domain)
+        self._cache_put(domain, None)
+
+
+# --- фасад для потребителей (UI, скрипты): yaml или GAR по SOURCE_REGISTRY_BACKEND ---
+YAML_PATH = Path(__file__).resolve().parents[2] / "config" / "licenses.yaml"
+_YAML_HEADER = "# Реестр лицензий/ToS источников (issue #3, ADR-001 п.3).\n"
+
+
+def _use_gar(path: Path | None) -> bool:
+    return (path is None or Path(path) == YAML_PATH) and registry_backend() == "gar"
+
+
+def load_registry(path: Path | None = None) -> dict[str, dict]:
+    if _use_gar(path):
+        return GarRegistryStore().load_all()
+    p = Path(path) if path else YAML_PATH
+    return (yaml.safe_load(p.read_text(encoding="utf-8")) or {}) if p.exists() else {}
+
+
+def _yaml_save(registry: dict, p: Path) -> None:
+    p.write_text(_YAML_HEADER + yaml.safe_dump(registry, allow_unicode=True, sort_keys=True), encoding="utf-8")
+
+
+def save_entry(domain: str, entry: dict, path: Path | None = None) -> None:
+    if _use_gar(path):
+        GarRegistryStore().put(domain, entry)
+        return
+    p = Path(path) if path else YAML_PATH
+    registry = load_registry(p)
+    registry[domain] = entry
+    _yaml_save(registry, p)
+
+
+def delete_entry(domain: str, path: Path | None = None) -> None:
+    if _use_gar(path):
+        GarRegistryStore().delete(domain)
+        return
+    p = Path(path) if path else YAML_PATH
+    registry = load_registry(p)
+    registry.pop(domain, None)
+    _yaml_save(registry, p)
