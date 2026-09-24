@@ -6,14 +6,12 @@ TAVILY_API_KEY для вкладки "Поиск".
 """
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import streamlit as st
-from streamlit.components.v1 import html
 
 from ui import (
     agents_status_tab, dashboard_tab, dictionaries_tab, documents_tab,
@@ -42,85 +40,6 @@ TABS = [
     "Дашборд", "Новости", "Материалы", "Статус агентов", "Внешний сайт",
 ]
 
-
-def _sync_tab_js() -> None:
-    """Синхронизирует открытую вкладку с query-параметром `tab`.
-
-    При переключении вкладки JS пишет имя активной вкладки в URL
-    (`history.replaceState`), Streamlit перезапускает скрипт и при старте
-    (ниже) читает `tab` из query params — так при обновлении страницы
-    открывается последняя активная вкладка.
-    """
-    html(
-        """
-        <script>
-        (function () {
-          const names = %s;
-          function tabButtons() {
-            return parent.document.querySelectorAll('[data-baseweb="tab"]');
-          }
-          function currentTabName() {
-            const btns = tabButtons();
-            for (const b of btns) {
-              if (b.getAttribute("aria-selected") === "true") {
-                return names[Array.from(btns).indexOf(b)] || null;
-              }
-            }
-            return null;
-          }
-          function writeUrl(name) {
-            if (!name) return;
-            const u = new URL(location.href);
-            u.searchParams.set("tab", name);
-            history.replaceState(null, "", u.toString());
-          }
-          // при клике на вкладку — обновить URL. Флаг на window — чтобы не
-          // плодить обработчики при каждом Streamlit-rerun.
-          if (!parent.window.__dsTabSyncBound) {
-            parent.window.__dsTabSyncBound = true;
-            parent.document.addEventListener("click", function (e) {
-              const t = e.target.closest('[data-baseweb="tab"]');
-              if (!t) return;
-              const btns = tabButtons();
-              const i = Array.from(btns).indexOf(t);
-              writeUrl(names[i] || null);
-            });
-          }
-          // Восстановление вкладки из URL при полной перезагрузке страницы (F5):
-          // кнопки вкладок могут ещё не быть отрисованы в момент выполнения
-          // этого скрипта (iframe компонента грузится независимо от основного
-          // DOM), поэтому дожидаемся их появления (до ~3с), затем эмулируем
-          // клик — st.tabs не умеет открывать вкладку по индексу программно.
-          function tryRestore(attemptsLeft) {
-            const btns = tabButtons();
-            if (btns.length < names.length) {
-              if (attemptsLeft > 0) {
-                setTimeout(function () { tryRestore(attemptsLeft - 1); }, 100);
-              }
-              return;
-            }
-            const wanted = new URLSearchParams(location.search).get("tab");
-            if (wanted) {
-              const idx = names.indexOf(wanted);
-              const target = idx >= 0 ? btns[idx] : null;
-              if (target && target.getAttribute("aria-selected") !== "true") {
-                target.click();
-                return;
-              }
-            }
-            writeUrl(currentTabName());
-          }
-          tryRestore(30);
-        })();
-        </script>
-        """ % json.dumps(TABS),
-        height=0,
-    )
-
-
-tabs = st.tabs(TABS)
-_sync_tab_js()
-
 _RENDER = {
     "Справочники": dictionaries_tab.render,
     "Поиск": search_tab.render,
@@ -135,6 +54,34 @@ _RENDER = {
     "Внешний сайт": site_publish_tab.render,
 }
 
-for idx, name in enumerate(TABS):
-    with tabs[idx]:
-        _RENDER[name]()
+# Запоминание открытой вкладки (issue #275).
+#
+# ВАЖНО: st.tabs() принципиально не подходит для этого — у него нет параметра
+# для программного выбора активной вкладки, а его внутренняя DOM-разметка
+# (BaseWeb) — деталь реализации, которая меняется между версиями Streamlit;
+# JS-хаки поверх неё (клики по data-baseweb="tab" через components.v1.html)
+# трижды не сработали из-за гонок/несовпадения разметки. Вместо этого
+# используем st.segmented_control — управляемый Python-виджет, чьё состояние
+# задаётся через st.session_state без единой строчки JS.
+_qp_tab = st.query_params.get("tab")
+if "active_tab" not in st.session_state:
+    st.session_state["active_tab"] = _qp_tab if _qp_tab in TABS else TABS[0]
+
+selected = st.segmented_control(
+    "Раздел",
+    TABS,
+    key="active_tab",
+    label_visibility="collapsed",
+)
+
+# selection_mode по умолчанию "single" — повторный клик по уже выбранному
+# пункту снимает выбор (вернёт None). В этом случае остаёмся на последней
+# известной вкладке, не трогая ключ виджета (Streamlit запрещает менять
+# st.session_state виджета после его инстанцирования в этом же прогоне).
+active = selected if selected is not None else st.session_state.get("_last_active_tab", TABS[0])
+st.session_state["_last_active_tab"] = active
+
+if st.query_params.get("tab") != active:
+    st.query_params["tab"] = active
+
+_RENDER[active]()
