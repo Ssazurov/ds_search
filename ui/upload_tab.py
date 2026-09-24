@@ -16,7 +16,7 @@ import streamlit as st
 from src.discovery.config import load_settings
 from src.discovery.download import DownloadError, download_single
 from src.discovery.gar_client import GarDiscoveryClient
-from src.metadata.schema import load_dictionaries
+from src.metadata.schema import label_of, load_dictionaries
 from src.metadata.profile import LIFECYCLE_STAGES, build_ingestion_metadata
 
 DATA_ROOT = Path(__file__).resolve().parents[1] / "data" / "raw"
@@ -95,7 +95,8 @@ def _render_direct_download() -> None:
     directions = list(dictionaries["directions"].keys())
     url = st.text_input("URL страницы", key="direct_dl_url")
     direction = (
-        st.selectbox("Направление", directions, key="direct_dl_dir")
+        st.selectbox("Направление", directions, key="direct_dl_dir",
+                     format_func=lambda v: label_of(dictionaries, "direction", v))
         if directions else st.text_input("Направление", key="direct_dl_dir")
     )
     dest_dir = st.text_input(
@@ -138,11 +139,19 @@ def _render_manual() -> None:
     if mode == "Файл":
         uploaded = st.file_uploader("Файл документа")
         title = st.text_input("Заголовок (обязательно)")
-        direction = st.selectbox("Направление", directions) if directions else st.text_input("Направление")
+        direction = (
+            st.selectbox("Направление", directions, format_func=lambda v: label_of(dictionaries, "direction", v))
+            if directions else st.text_input("Направление")
+        )
         categories = dictionaries["directions"].get(direction, [])
-        category = st.selectbox("Категория", [""] + categories)
-        lifecycle_stage = st.selectbox("Этап жизненного пути", dictionaries.get("lifecycle_stages", LIFECYCLE_STAGES))
-        doc_type = st.selectbox("Тип документа", dictionaries.get("doc_types", []) or [""])
+        category = st.selectbox("Категория", [""] + categories,
+                                format_func=lambda v: label_of(dictionaries, "category", v))
+        lifecycle_stage = st.selectbox(
+            "Этап жизненного пути", dictionaries.get("lifecycle_stages", LIFECYCLE_STAGES),
+            format_func=lambda v: label_of(dictionaries, "lifecycle_stage", v))
+        doc_type = st.selectbox(
+            "Тип документа", dictionaries.get("doc_types", []) or [""],
+            format_func=lambda v: label_of(dictionaries, "doc_type", v))
         if st.button("Сохранить файл", disabled=not (uploaded and title.strip())):
             _save_manual_file(uploaded, title.strip(), direction, doc_type, category or None, lifecycle_stage)
             st.success("Документ сохранён в data/raw/manual/")
@@ -153,7 +162,11 @@ def _render_manual() -> None:
             "через очередь во вкладке «Результаты» — не скачивает сразу."
         )
         url = st.text_input("URL страницы/документа")
-        direction = st.selectbox("Направление", directions, key="link_dir") if directions else st.text_input("Направление", key="link_dir")
+        direction = (
+            st.selectbox("Направление", directions, key="link_dir",
+                         format_func=lambda v: label_of(dictionaries, "direction", v))
+            if directions else st.text_input("Направление", key="link_dir")
+        )
         if st.button("Добавить как одобренную находку", disabled=not url.strip()):
             try:
                 _add_manual_link(url.strip(), direction)

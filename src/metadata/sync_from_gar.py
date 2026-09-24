@@ -18,6 +18,7 @@ from .gar_schema import (
     GarSchemaError,
     load_gar_schema,
     field_options,
+    option_labels,
     category_options_for_direction,
 )
 
@@ -51,9 +52,11 @@ def sync_from_gar(path: Path = _CATEGORIES_PATH, dry_run: bool = False) -> None:
         raise ValueError("categories.yaml root must be a map")
 
     original["directions"] = gar_directions
+    original["labels"] = option_labels(fields)
 
     if dry_run:
-        print(json.dumps(gar_directions, ensure_ascii=False, indent=2))
+        print(json.dumps({"directions": gar_directions, "labels": original["labels"]},
+                         ensure_ascii=False, indent=2))
         return
 
     temporary: str | None = None
