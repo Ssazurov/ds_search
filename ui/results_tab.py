@@ -10,7 +10,7 @@ import streamlit as st
 from src.discovery.config import load_settings
 from src.discovery.gar_client import GarDiscoveryClient
 from src.license.checker import check_license
-from src.metadata.schema import label_of, load_dictionaries
+from ui.table_utils import COLUMN_LABELS, datetime_column, link_column, localize
 
 _STATUS_OPTIONS = ["new", "approved", "rejected", "queued", "downloaded"]
 _NONE = "— не выбрано —"
@@ -77,12 +77,7 @@ def render() -> None:
     ] if c in df.columns]
     # п.1: русские заголовки столбцов
     column_labels = {
-        "select": "Выбор",
-        "title": "Название",
-        "domain": "Домен",
-        "direction": "Направление",
-        "category": "Категория",
-        "doc_type": "Тип документа",
+        **COLUMN_LABELS,
         "is_duplicate": "Дубль",
         "status": "Статус",
         "found_at": "Найдено",
@@ -94,23 +89,13 @@ def render() -> None:
     if "url" in df.columns:
         insert_at = display_cols_final.index("title") + 1 if "title" in display_cols_final else len(display_cols_final)
         display_cols_final.insert(insert_at, "url")
-    dictionaries = load_dictionaries()
-    df_display = df[display_cols_final].copy()
-    for field in ("direction", "category", "doc_type"):  # русские labels из GAR (ADR-013)
-        if field in df_display.columns:
-            df_display[field] = df_display[field].map(
-                lambda v, f=field: label_of(dictionaries, f, v) if isinstance(v, str) else v)
-    df_display = df_display.rename(columns=column_labels)
+    df_display = localize(df[display_cols_final]).rename(columns=column_labels)
     edited = st.data_editor(
         df_display, hide_index=True, width="stretch",
         disabled=[c for c in df_display.columns if c != column_labels["select"]], key="results_editor",
         column_config={
-            "url": st.column_config.LinkColumn(
-                "Ссылка", display_text=":material/open_in_new:", width="small",
-            ),
-            column_labels["found_at"]: st.column_config.DatetimeColumn(
-                column_labels["found_at"], format="DD.MM.YYYY HH:mm",
-            ),
+            "url": link_column(),
+            column_labels["found_at"]: datetime_column(column_labels["found_at"]),
         },
     )
     # Маппинг обратно на оригинальные имена для извлечения id

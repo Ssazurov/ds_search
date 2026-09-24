@@ -1,3 +1,11 @@
+## 2026-09-24 -- issue #270: таблица «Документы» по образцу «Результатов»
+
+- Новый `ui/table_utils.py` (COLUMN_LABELS, `localize` — label_of для direction/category/doc_type, `link_column`, `datetime_column`); используется в `results_tab` и `documents_tab` (заголовок doc_type в «Результатах» теперь «Тип»).
+- `ui/documents_tab.py`: русские заголовки, колонки Выбор/Название/Ссылка (source_url из sidecar)/Домен/Направление/Категория/Тип/Очищен/В GAR/Ошибка/Добавлен (mtime sidecar); убраны doc_id/raw/metadata/дубль error.
+- Фильтры: поиск по названию и домену, статус «В GAR», домен со счётчиком, направление. Сортировка: ошибки, не загружены, загружены; затем по названию.
+- Bulk: «Загрузить в GAR выбранные», «Удалить выбранные»; блок «по одному» и кнопка «Загрузить все» убраны (`_ingest_one/_delete_one` удалены, `_delete_files` общий).
+- Проверка: `pytest` — 309 passed; AppTest рендера вкладки без исключений (248 документов).
+
 ## 2026-09-24 -- issue #256 (ADR-013): GAR — источник справочников, русские labels в UI
 - `gar_schema.option_labels()` + `sync_from_gar` пишут в `categories.yaml` секцию `labels` ({field: {value: label}}).
 - `schema.load_dictionaries()` для дефолтного пути накладывает directions+labels из `config/gar_schema_cache.json` (без сети); yaml — офлайн-фолбэк. `schema.label_of(dicts, field, value)` — label или value.
