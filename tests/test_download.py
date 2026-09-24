@@ -141,6 +141,7 @@ def test_sanitize_filename_strips_unsafe_chars():
 def test_download_single_rejects_destination_outside_data_root(monkeypatch, tmp_path, dest_dir):
     """issue #67: dest_dir не должен позволять запись вне data_root
     (ни абсолютным путём, ни через .. )."""
+    monkeypatch.setattr(dl, "check_license", lambda domain, url: _license())
     source = {"url": "https://downsideup.org/a"}
 
     with pytest.raises(dl.DownloadError, match="папка назначения"):
