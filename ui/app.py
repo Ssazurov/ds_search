@@ -41,7 +41,6 @@ TABS = [
     "Справочники", "Поиск", "Результаты", "Загрузка", "Документы", "Источники",
     "Дашборд", "Новости", "Материалы", "Статус агентов", "Внешний сайт",
 ]
-TABS_BY_NAME = {name: idx for idx, name in enumerate(TABS)}
 
 
 def _sync_tab_js() -> None:
@@ -57,12 +56,14 @@ def _sync_tab_js() -> None:
         <script>
         (function () {
           const names = %s;
+          function tabButtons() {
+            return parent.document.querySelectorAll('[data-baseweb="tab"]');
+          }
           function currentTabName() {
-            const btns = parent.document.querySelectorAll('[data-baseweb="tab"]');
+            const btns = tabButtons();
             for (const b of btns) {
               if (b.getAttribute("aria-selected") === "true") {
-                const i = Array.from(btns).indexOf(b);
-                return names[i] || null;
+                return names[Array.from(btns).indexOf(b)] || null;
               }
             }
             return null;
@@ -70,54 +71,52 @@ def _sync_tab_js() -> None:
           function writeUrl(name) {
             if (!name) return;
             const u = new URL(location.href);
-            u.searchParams.set("tab", encodeURIComponent(name));
+            u.searchParams.set("tab", name);
             history.replaceState(null, "", u.toString());
           }
-          // при клике на вкладку — обновить URL (регистрируем до восстановления
-          // ниже, чтобы клик из restoreFromUrl тоже сработал через тот же путь).
-          // Флаг на window — чтобы не плодить обработчики при каждом rerun.
+          // при клике на вкладку — обновить URL. Флаг на window — чтобы не
+          // плодить обработчики при каждом Streamlit-rerun.
           if (!parent.window.__dsTabSyncBound) {
             parent.window.__dsTabSyncBound = true;
             parent.document.addEventListener("click", function (e) {
               const t = e.target.closest('[data-baseweb="tab"]');
               if (!t) return;
-              const btns = parent.document.querySelectorAll('[data-baseweb="tab"]');
+              const btns = tabButtons();
               const i = Array.from(btns).indexOf(t);
               writeUrl(names[i] || null);
             });
           }
-          // Восстановление вкладки из URL при загрузке/обновлении страницы:
-          // st.tabs не умеет открывать вкладку по индексу программно, поэтому
-          // симулируем клик по нужной кнопке вкладки.
-          const params = new URLSearchParams(location.search);
-          const raw = params.get("tab");
-          let restored = false;
-          if (raw) {
-            let wanted;
-            try { wanted = decodeURIComponent(raw); } catch (e) { wanted = raw; }
-            const idx = names.indexOf(wanted);
-            if (idx >= 0) {
-              const btns = parent.document.querySelectorAll('[data-baseweb="tab"]');
-              const target = btns[idx];
+          // Восстановление вкладки из URL при полной перезагрузке страницы (F5):
+          // кнопки вкладок могут ещё не быть отрисованы в момент выполнения
+          // этого скрипта (iframe компонента грузится независимо от основного
+          // DOM), поэтому дожидаемся их появления (до ~3с), затем эмулируем
+          // клик — st.tabs не умеет открывать вкладку по индексу программно.
+          function tryRestore(attemptsLeft) {
+            const btns = tabButtons();
+            if (btns.length < names.length) {
+              if (attemptsLeft > 0) {
+                setTimeout(function () { tryRestore(attemptsLeft - 1); }, 100);
+              }
+              return;
+            }
+            const wanted = new URLSearchParams(location.search).get("tab");
+            if (wanted) {
+              const idx = names.indexOf(wanted);
+              const target = idx >= 0 ? btns[idx] : null;
               if (target && target.getAttribute("aria-selected") !== "true") {
                 target.click();
-                restored = true;
+                return;
               }
             }
-          }
-          if (!restored) {
             writeUrl(currentTabName());
           }
+          tryRestore(30);
         })();
         </script>
         """ % json.dumps(TABS),
         height=0,
     )
 
-
-# 1. Восстановление открытой вкладки при старте/обновлении.
-active_name = st.query_params.get("tab") or "Справочники"
-active_idx = TABS_BY_NAME.get(active_name, 0)
 
 tabs = st.tabs(TABS)
 _sync_tab_js()
