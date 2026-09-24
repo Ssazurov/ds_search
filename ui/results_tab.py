@@ -90,10 +90,12 @@ def render() -> None:
         insert_at = display_cols_final.index("title") + 1 if "title" in display_cols_final else len(display_cols_final)
         display_cols_final.insert(insert_at, "url")
     df_display = localize(df[display_cols_final]).rename(columns=column_labels)
-    order, config = column_settings(
+    order, config, sort = column_settings(
         "results", {k: column_labels[k] for k in display_cols_final},
         {column_labels["url"]: link_column(),
          column_labels["found_at"]: datetime_column(column_labels["found_at"])})
+    if sort:
+        df_display = df_display.sort_values(sort[0], ascending=sort[1])
     edited = st.data_editor(
         df_display, hide_index=True, width="stretch",
         disabled=[c for c in df_display.columns if c != column_labels["select"]], key="results_editor",

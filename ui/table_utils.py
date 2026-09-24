@@ -91,7 +91,9 @@ def merge_settings(saved: dict | None, columns: list[str], pinned: tuple[str, ..
     hidden = [c for c in _as_list(saved.get("hidden")) if c in columns and c not in pinned]
     widths = saved.get("widths")
     widths = {c: w for c, w in widths.items() if c in columns and _valid_width(w)} if isinstance(widths, dict) else {}
-    return {"order": order, "hidden": hidden, "widths": widths}
+    sort = saved.get("sort")
+    sort = sort if isinstance(sort, dict) and sort.get("col") in columns else None
+    return {"order": order, "hidden": hidden, "widths": widths, "sort": sort}
 
 
 def column_settings(table_key: str, columns: dict[str, str], base_config: dict | None = None,
@@ -126,11 +128,20 @@ def column_settings(table_key: str, columns: dict[str, str], base_config: dict |
                     key=f"{kp}_w_{k}")
                 if w != _DEFAULT_WIDTH:
                     widths[k] = w
+        st.caption("Сортировка:")
+        sort_options = ["(без сортировки)"] + list(names.values())
+        cur_sort_name = names[cur["sort"]["col"]] if cur["sort"] else sort_options[0]
+        sort_col_name = st.selectbox(
+            "Колонка", sort_options, index=sort_options.index(cur_sort_name), key=f"{kp}_sort_col")
+        sort_asc = st.checkbox(
+            "По возрастанию", value=cur["sort"]["asc"] if cur["sort"] else True, key=f"{kp}_sort_asc")
         b1, b2 = st.columns(2)
         if b1.button("Сохранить", key=f"{table_key}_cols_save"):
             new_order = [by_name[n] for n in ordered if n in by_name]
             new_hidden = [k for k in new_order if k not in pinned and names[k] not in shown]
-            save_prefs({**load_prefs(), table_key: {"order": new_order, "hidden": new_hidden, "widths": widths}})
+            new_sort = {"col": by_name[sort_col_name], "asc": sort_asc} if sort_col_name != sort_options[0] else None
+            save_prefs({**load_prefs(), table_key: {
+                "order": new_order, "hidden": new_hidden, "widths": widths, "sort": new_sort}})
             st.session_state[f"{table_key}__ver"] = ver + 1
             st.rerun()
         if b2.button("Сбросить", key=f"{table_key}_cols_reset"):
@@ -143,4 +154,5 @@ def column_settings(table_key: str, columns: dict[str, str], base_config: dict |
     for k, w in cur["widths"].items():
         name = columns[k]
         config[name] = {**(config.get(name) or {}), "width": w}
-    return order, config
+    sort = (columns[cur["sort"]["col"]], cur["sort"]["asc"]) if cur["sort"] else None
+    return order, config, sort
