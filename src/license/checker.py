@@ -128,6 +128,19 @@ def _register_pending(domain: str, path: Path) -> None:
     )
 
 
+def _resolve_store(registry_path: Path, registry_store):
+    """Хранилище реестра GAR или None (тогда — yaml). Явный registry_store приоритетнее;
+    иначе GAR только при SOURCE_REGISTRY_BACKEND=gar и стандартном registry_path
+    (тесты и скрипты с собственным yaml-файлом остаются на yaml)."""
+    if registry_store is not None:
+        return registry_store
+    if registry_path == _CONFIG_PATH:
+        from .registry_store import GarRegistryStore, registry_backend
+        if registry_backend() == "gar":
+            return GarRegistryStore()
+    return None
+
+
 def _check_robots(base_url: str, user_agent: str) -> bool | None:
     """True/False — явное разрешение/запрет, None — robots.txt недоступен."""
     robots_url = urljoin(base_url, "/robots.txt")
@@ -148,6 +161,7 @@ def check_license(
     base_url: str,
     user_agent: str = _DEFAULT_USER_AGENT,
     registry_path: Path = _CONFIG_PATH,
+    registry_store=None,
 ) -> LicenseCheckResult:
     robots_ok = _check_robots(base_url, user_agent)
     if robots_ok is False:
@@ -157,18 +171,32 @@ def check_license(
         )
 
     domain = normalize_domain(domain)
-    registry = _load_registry(registry_path)
-    # запасной поиск по старому ключу "www.<домен>" — реестры, не приведённые к канону
-    entry = registry.get(domain) or registry.get(f"www.{domain}")
-    if entry is None:
-        _register_pending(domain, registry_path)
-        return LicenseCheckResult(
-            status=LicenseStatus.PENDING_MANUAL_REVIEW,
-            reason=(
-                f"домен {domain} отсутствует в config/licenses.yaml — "
-                "требуется ручная проверка ToS перед автосбором"
-            ),
-        )
+    store = _resolve_store(registry_path, registry_store)
+    if store is not None:
+        # реестр в GAR (+ кэш при недоступности), ds ADR-0021
+        entry = store.get(domain)
+        if entry is None:
+            store.ensure(domain, default_attribution_template(domain))
+            return LicenseCheckResult(
+                status=LicenseStatus.PENDING_MANUAL_REVIEW,
+                reason=(
+                    f"домен {domain} отсутствует в реестре источников (или реестр GAR недоступен) — "
+                    "требуется ручная проверка ToS перед автосбором"
+                ),
+            )
+    else:
+        registry = _load_registry(registry_path)
+        # запасной поиск по старому ключу "www.<домен>" — реестры, не приведённые к канону
+        entry = registry.get(domain) or registry.get(f"www.{domain}")
+        if entry is None:
+            _register_pending(domain, registry_path)
+            return LicenseCheckResult(
+                status=LicenseStatus.PENDING_MANUAL_REVIEW,
+                reason=(
+                    f"домен {domain} отсутствует в config/licenses.yaml — "
+                    "требуется ручная проверка ToS перед автосбором"
+                ),
+            )
 
     status = LicenseStatus(entry["status"])
     reason = entry.get("notes", "статус из config/licenses.yaml")
