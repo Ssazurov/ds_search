@@ -6,7 +6,7 @@
 недоступности GAR читается кэш. Домена нет ни в GAR, ни в кэше — вызывающий
 трактует это как pending_manual_review (безопасный дефолт "не скачивать").
 
-Переходный флаг SOURCE_REGISTRY_BACKEND: yaml (по умолчанию, config/licenses.yaml)
+Флаг SOURCE_REGISTRY_BACKEND: gar (по умолчанию; после #265) или yaml (legacy, config/licenses.yaml)
 или gar. Переключение на gar — после миграции реестра (ds_search#265)."""
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ _DEFAULT_CACHE = Path(__file__).resolve().parents[2] / "data" / "source_registry
 
 
 def registry_backend() -> str:
-    return os.environ.get("SOURCE_REGISTRY_BACKEND", "yaml").strip().lower()
+    return os.environ.get("SOURCE_REGISTRY_BACKEND", "gar").strip().lower()
 
 
 def cache_path() -> Path:

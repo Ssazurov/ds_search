@@ -299,3 +299,5 @@
 - 2026-09-24 (#263, ADR-0021): клиент реестра источников (GarDiscoveryClient.*_source_registry_*), src/license/registry_store.py (GarRegistryStore: GAR + кэш data/source_registry_cache.json, при недоступности GAR — кэш, иначе pending_manual_review), check_license(registry_store=...). Переходный флаг SOURCE_REGISTRY_BACKEND=yaml|gar (по умолчанию yaml, поведение не изменено; gar включаем при миграции #265). Проверено: pytest tests/test_registry_store.py + test_license_checker.py (17 passed). Пересборка контейнера не нужна (по умолчанию поведение прежнее).
 
 - ds_search#264: потребители реестра (sources_tab, search_tab, backfill_license) через фасад src/license/registry_store (load_registry/save_entry/delete_entry); backend по SOURCE_REGISTRY_BACKEND (yaml по умолчанию). checker/crawler/manual_add/news/site_publish уже идут через check_license. Тесты: 21 passed. ds ADR-0021.
+
+- ds_search#265: реестр мигрирован в GAR (20 доменов, scripts/migrate_registry_to_gar.py, идемпотентно); SOURCE_REGISTRY_BACKEND по умолчанию gar; config/licenses.yaml удалён; тесты герметичны (yaml через conftest). GAR пересобран из main, alembic r6e7f8a9b0c1 применён. ds ADR-0021.
