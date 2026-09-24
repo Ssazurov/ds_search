@@ -1,3 +1,8 @@
+## 2026-09-24 -- issue #272 (доработка): зависимость вынесена из requirements.txt
+
+- Правка `requirements.txt` инвалидирует слои pip и chromium (тяжёлая перекачка). `streamlit-sortables` перенесён в `requirements-extra.txt`; в Dockerfile этот слой стоит после chromium/node и перед `COPY . .` (с кэшем pip). Правило: новые зависимости — в `requirements-extra.txt`; `requirements.txt` не трогать без необходимости.
+- `requirements.txt` возвращён к состоянию до #273 (слои pip/chromium берутся из кэша).
+
 ## 2026-09-24 -- issue #272: выбор колонок, порядок и ширина с сохранением
 
 - `ui/table_utils.py`: `column_settings(table_key, columns, base_config)` — popover «⚙ Колонки» (показывать, порядок drag-and-drop через `streamlit-sortables`, ширина small/medium/large, Сохранить/Сбросить); `merge_settings` (новые колонки в конец, удалённые пропускаются, «Выбор»/«Название» не скрываются), `load_prefs`/`save_prefs` (атомарно).
