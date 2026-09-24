@@ -86,14 +86,20 @@ def render() -> None:
         "status": "Статус",
         "found_at": "Найдено",
     }
-    df_display = df[display_cols].rename(columns=column_labels)
+    # п.4: title читаемый текст; отдельная узкая иконка-ссылка на url.
+    # LinkColumn.display_text в st.data_editor — regex/иконка ОДНА НА ВСЮ колонку,
+    # per-row текст (markdown-ссылка тоже не рендерится инлайн в гриде) не поддерживается.
+    display_cols_final = list(display_cols)
+    if "url" in df.columns:
+        insert_at = display_cols_final.index("title") + 1 if "title" in display_cols_final else len(display_cols_final)
+        display_cols_final.insert(insert_at, "url")
+    df_display = df[display_cols_final].rename(columns=column_labels)
     edited = st.data_editor(
         df_display, hide_index=True, width="stretch",
         disabled=[c for c in df_display.columns if c != column_labels["select"]], key="results_editor",
         column_config={
-            # п.4: title кликабельный, ведёт на url; п.2: found_at — datetime
-            column_labels["title"]: st.column_config.LinkColumn(
-                column_labels["title"], display_text=df["title"].tolist(),
+            "url": st.column_config.LinkColumn(
+                "Ссылка", display_text=":material/open_in_new:", width="small",
             ),
             column_labels["found_at"]: st.column_config.DatetimeColumn(
                 column_labels["found_at"], format="DD.MM.YYYY HH:mm",
