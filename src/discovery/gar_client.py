@@ -5,6 +5,8 @@ ds_search не пишет discovered_sources/search_runs напрямую в Pos
 gar-core-api для любого доступа к GAR (routers/discovery.py, PR #222)."""
 from __future__ import annotations
 
+from urllib.parse import quote
+
 import httpx
 
 from .config import Settings
@@ -75,3 +77,56 @@ class GarDiscoveryClient:
         resp = self._client.delete(f"/discovered-sources/{source_id}")
         if resp.status_code not in (200, 204):
             raise GarDiscoveryClientError(f"delete discovered source {source_id} failed: {resp.status_code} {resp.text}")
+
+    # --- реестр источников (ds ADR-0021, gar-core-api /source-registry) ---
+
+    def _registry_request(self, method: str, path: str, **kwargs) -> httpx.Response:
+        try:
+            return self._client.request(method, path, **kwargs)
+        except httpx.HTTPError as exc:
+            raise GarDiscoveryClientError(f"{method} {path} failed: {exc}") from exc
+
+    @staticmethod
+    def _registry_path(domain: str, suffix: str = "") -> str:
+        return f"/source-registry/{quote(domain, safe='')}{suffix}"
+
+    def list_source_registry(self) -> list[dict]:
+        resp = self._registry_request("GET", "/source-registry")
+        if resp.status_code != 200:
+            raise GarDiscoveryClientError(f"list source registry failed: {resp.status_code} {resp.text}")
+        return resp.json()
+
+    def get_source_registry_entry(self, domain: str) -> dict | None:
+        """Запись реестра по домену; None, если домена в реестре нет (404)."""
+        resp = self._registry_request("GET", self._registry_path(domain))
+        if resp.status_code == 404:
+            return None
+        if resp.status_code != 200:
+            raise GarDiscoveryClientError(f"get source registry {domain} failed: {resp.status_code} {resp.text}")
+        return resp.json()
+
+    def put_source_registry_entry(self, domain: str, **fields) -> dict:
+        resp = self._registry_request("PUT", self._registry_path(domain), json=fields)
+        if resp.status_code != 200:
+            raise GarDiscoveryClientError(f"put source registry {domain} failed: {resp.status_code} {resp.text}")
+        return resp.json()
+
+    def ensure_source_registry_entry(self, domain: str, attribution_template: str = "") -> dict:
+        """Атомарно создаёт pending_manual_review, только если записи нет (существующую не трогает)."""
+        resp = self._registry_request(
+            "POST", self._registry_path(domain, "/ensure"), json={"attribution_template": attribution_template},
+        )
+        if resp.status_code not in (200, 201):
+            raise GarDiscoveryClientError(f"ensure source registry {domain} failed: {resp.status_code} {resp.text}")
+        return resp.json()
+
+    def delete_source_registry_entry(self, domain: str) -> None:
+        resp = self._registry_request("DELETE", self._registry_path(domain))
+        if resp.status_code not in (200, 204, 404):
+            raise GarDiscoveryClientError(f"delete source registry {domain} failed: {resp.status_code} {resp.text}")
+
+    def source_registry_history(self, domain: str, limit: int = 50) -> list[dict]:
+        resp = self._registry_request("GET", self._registry_path(domain, "/history"), params={"limit": limit})
+        if resp.status_code != 200:
+            raise GarDiscoveryClientError(f"source registry history {domain} failed: {resp.status_code} {resp.text}")
+        return resp.json()
