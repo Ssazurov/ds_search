@@ -1,7 +1,0 @@
-# Реестр лицензий/ToS источников (issue #3, ADR-001 п.3).
-downsideup.org:
-  attribution_template: 'Источник: {title} ({source_url}), downsideup.org'
-  checked_date: null
-  notes: ''
-  publish_permission: not_set
-  status: pending_manual_review
