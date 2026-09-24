@@ -337,3 +337,5 @@
 - ds_search#265: реестр мигрирован в GAR (20 доменов, scripts/migrate_registry_to_gar.py, идемпотентно); SOURCE_REGISTRY_BACKEND по умолчанию gar; config/licenses.yaml удалён; тесты герметичны (yaml через conftest). GAR пересобран из main, alembic r6e7f8a9b0c1 применён. ds ADR-0021.
 
 - 2026-09-24 (#278, уточнение после закрытия): жалоба «сортировка сбрасывается» — не баг сохранения (popover ⚙ Колонки → выбор колонки+Сохранить в ui_prefs.json работает исправно), а путаница с нативным кликом по заголовку st.data_editor (glide-data-grid) — тот сорт чисто клиентский, в Python не попадает и в принципе не персистится (нет API у Streamlit). Решение не требуется, документировано на будущее. Issue #278 остаётся closed.
+
+- 2026-09-24 (#280, PR #281): вкладка Загрузка — формы «по ссылке» объединены, _render_direct_download удалён из ui/upload_tab.py. py_compile и git diff --check OK; вживую в UI проверяется после пересборки deploy-ds-search.
