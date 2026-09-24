@@ -16,7 +16,7 @@ import streamlit as st
 from src.crawler.manual_add import add_manual_document
 from src.gar_ingest.documents import ingest_document
 from src.metadata.schema import label_of, load_dictionaries
-from ui.table_utils import COLUMN_LABELS, datetime_column, link_column, localize
+from ui.table_utils import COLUMN_LABELS, column_settings, datetime_column, link_column, localize
 
 ROOT = Path(__file__).resolve().parents[1] / "data"
 RAW_ROOT = ROOT / "raw"
@@ -198,10 +198,14 @@ def render() -> None:
         for r in filtered
     ])
     df.insert(0, "select", False)
+    order, config = column_settings(
+        "documents", {k: labels[k] for k in ("select", "title", "url", "domain", "direction", "category",
+                                             "doc_type", "clean", "gar", "error", "added")},
+        {labels["url"]: link_column(), labels["added"]: datetime_column(labels["added"])})
     edited = st.data_editor(
         localize(df).rename(columns=labels), hide_index=True, width="stretch",
         disabled=[c for c in labels.values() if c != labels["select"]], key="doc_table_editor",
-        column_config={"url": link_column(), labels["added"]: datetime_column(labels["added"])},
+        column_order=order, column_config=config,
     )
     selected_rows = [filtered[i] for i in edited.index[edited[labels["select"]]]]
     st.caption(

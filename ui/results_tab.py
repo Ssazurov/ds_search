@@ -10,7 +10,7 @@ import streamlit as st
 from src.discovery.config import load_settings
 from src.discovery.gar_client import GarDiscoveryClient
 from src.license.checker import check_license
-from ui.table_utils import COLUMN_LABELS, datetime_column, link_column, localize
+from ui.table_utils import COLUMN_LABELS, column_settings, datetime_column, link_column, localize
 
 _STATUS_OPTIONS = ["new", "approved", "rejected", "queued", "downloaded"]
 _NONE = "— не выбрано —"
@@ -90,13 +90,14 @@ def render() -> None:
         insert_at = display_cols_final.index("title") + 1 if "title" in display_cols_final else len(display_cols_final)
         display_cols_final.insert(insert_at, "url")
     df_display = localize(df[display_cols_final]).rename(columns=column_labels)
+    order, config = column_settings(
+        "results", {k: column_labels[k] for k in display_cols_final},
+        {column_labels["url"]: link_column(),
+         column_labels["found_at"]: datetime_column(column_labels["found_at"])})
     edited = st.data_editor(
         df_display, hide_index=True, width="stretch",
         disabled=[c for c in df_display.columns if c != column_labels["select"]], key="results_editor",
-        column_config={
-            "url": link_column(),
-            column_labels["found_at"]: datetime_column(column_labels["found_at"]),
-        },
+        column_order=order, column_config=config,
     )
     # Маппинг обратно на оригинальные имена для извлечения id
     selected_mask = edited[column_labels["select"]]
