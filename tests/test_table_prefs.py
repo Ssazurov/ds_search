@@ -7,7 +7,16 @@ PINNED = ("select", "title")
 
 def test_defaults_when_no_saved():
     s = merge_settings(None, COLS, PINNED)
-    assert s == {"order": COLS, "hidden": [], "widths": {}}
+    assert s == {"order": COLS, "hidden": [], "widths": {}, "sort": None}
+
+
+def test_sort_kept_if_column_exists_dropped_otherwise():
+    s = merge_settings({"sort": {"col": "status", "asc": False}}, COLS, PINNED)
+    assert s["sort"] == {"col": "status", "asc": False}
+    s = merge_settings({"sort": {"col": "gone", "asc": True}}, COLS, PINNED)
+    assert s["sort"] is None
+    s = merge_settings({"sort": "junk"}, COLS, PINNED)
+    assert s["sort"] is None
 
 
 def test_new_columns_appended_removed_skipped():
@@ -26,7 +35,7 @@ def test_pinned_never_hidden_and_bad_widths_dropped():
 
 def test_garbage_saved_values():
     assert merge_settings({"order": None, "hidden": 5, "widths": [1]}, COLS, PINNED) == {
-        "order": COLS, "hidden": [], "widths": {}}
+        "order": COLS, "hidden": [], "widths": {}, "sort": None}
     s = merge_settings("junk", COLS, PINNED)
     assert s["order"] == COLS
 

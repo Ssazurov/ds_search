@@ -198,12 +198,15 @@ def render() -> None:
         for r in filtered
     ])
     df.insert(0, "select", False)
-    order, config = column_settings(
+    order, config, sort = column_settings(
         "documents", {k: labels[k] for k in ("select", "title", "url", "domain", "direction", "category",
                                              "doc_type", "clean", "gar", "error", "added")},
         {labels["url"]: link_column(), labels["added"]: datetime_column(labels["added"])})
+    df_display = localize(df).rename(columns=labels)
+    if sort:
+        df_display = df_display.sort_values(sort[0], ascending=sort[1])
     edited = st.data_editor(
-        localize(df).rename(columns=labels), hide_index=True, width="stretch",
+        df_display, hide_index=True, width="stretch",
         disabled=[c for c in labels.values() if c != labels["select"]], key="doc_table_editor",
         column_order=order, column_config=config,
     )
