@@ -1,3 +1,15 @@
+## 2026-09-24 -- issue #253: UI результатов — русские заголовки, формат даты, скрыты лишние столбцы
+
+- `ui/results_tab.py`: все заголовки на русском (Выбор, Название, Домен, Направление, Категория, Тип документа, Дубль, Статус, Найдено).
+- `found_at` выводится DatetimeColumn в формате DD.MM.YYYY HH:mm, сортировка по datetime работает корректно.
+- Столбец `snippet` убран из таблицы (фильтр по snippet в text_input сохранён).
+- `title` кликабельный (LinkColumn → url), столбцы `url` и `open` удалены.
+- **Скрыты из UI** (остаются в БД, показ отложен до проработки UX):
+  - `relevance_score` — релевантность источника запросу (ранжирование выдачи).
+  - `license_status` — юридический статус использования контента (open/restricted/unknown, заполняется при approve).
+  
+  Это независимые оси: высокорелевантный источник может иметь ограниченную лицензию, и наоборот.
+- Проверка: синтаксис OK. Коммит aaada6f, issue #253 closed.
 
 ## 2026-09-20 -- issue #224: publish_permission в реестре источников
 
@@ -262,6 +274,15 @@
 - ui/sources_tab.py: список доменов слева (фильтры, поиск, пагинация 10/20/50), форма справа (Сохранить/Отменить/Удалить); русские подписи статусов (значения в licenses.yaml не менялись); баннер pending убран.
 - tests/test_sources_tab_rows.py; проверка: pytest 12 passed.
 
+
+## 2026-09-23 — «Параметры поиска»: необязательный период дат (от/до) (#247, PR #248)
+- `ui/search_tab.py::_date_range()`: два date_input + time_input «От»/«До» (необязательно, очистка поля убирает границу). «До» по умолчанию — текущая дата и время (через `session_state.setdefault`). Предупреждение, если «От» позже «До».
+- `src/search/base.py::SearchProvider.search` — `date_from`/`date_to: datetime | None` в интерфейсе (точность — день).
+- `src/search/chain.py::SearchProviderChain.search` — прокидывает даты только если заданы (`extra` строится по не-None).
+- `src/search/firecrawl.py` — `tbs=cdr:{from}:{to}` (Firecrawl date range); `brave.py` — `freshness`-параметр; `tavily.py` — `start_date`/`end_date`.
+- `src/discovery/run_search.py::_search`/`run_search` — `date_from`/`date_to` прокидываются в цепочку (сайты-домены получают даты каждый).
+- Тест: `tests/test_search_date_range.py` (2: даты доходят до провайдера только когда заданы; `chain` не шлёт None-границы).
+- Проверка: pytest 5 passed (test_search_date_range + test_run_search_domains); контейнер ds-search пересобран (CACHED, без `failed to solve`), код в контейнере подтверждён по `ui/search_tab.py` (строки 57/59/61/63/109/123).
 
 ## 2026-09-23 — «Параметры поиска»: необязательный перечень доменов
 - `ui/search_tab.py`: поле «Домены (необязательно)» (запятая/перенос), сохраняется в пресет.

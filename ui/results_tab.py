@@ -69,20 +69,40 @@ def render() -> None:
 
     df = pd.DataFrame(rows)
     df.insert(0, "select", False)
-    df.insert(1, "open", df["url"])
+    # п.4: url скрыт, title — кликабельная ссылка на url
     display_cols = [c for c in [
-        "select", "open", "url", "title", "snippet", "domain", "direction", "category",
-        "doc_type", "relevance_score", "license_status", "is_duplicate", "status", "found_at",
+        "select", "title", "domain", "direction", "category",
+        "doc_type", "is_duplicate", "status", "found_at",
     ] if c in df.columns]
+    # п.1: русские заголовки столбцов
+    column_labels = {
+        "select": "Выбор",
+        "title": "Название",
+        "domain": "Домен",
+        "direction": "Направление",
+        "category": "Категория",
+        "doc_type": "Тип документа",
+        "is_duplicate": "Дубль",
+        "status": "Статус",
+        "found_at": "Найдено",
+    }
+    df_display = df[display_cols].rename(columns=column_labels)
     edited = st.data_editor(
-        df[display_cols], hide_index=True, width="stretch",
-        disabled=[c for c in display_cols if c != "select"], key="results_editor",
+        df_display, hide_index=True, width="stretch",
+        disabled=[c for c in df_display.columns if c != column_labels["select"]], key="results_editor",
         column_config={
-            "open": st.column_config.LinkColumn("Источник", display_text="🔗", width="small"),
-            "url": st.column_config.LinkColumn("url"),
+            # п.4: title кликабельный, ведёт на url; п.2: found_at — datetime
+            column_labels["title"]: st.column_config.LinkColumn(
+                column_labels["title"], display_text=df["title"].tolist(),
+            ),
+            column_labels["found_at"]: st.column_config.DatetimeColumn(
+                column_labels["found_at"], format="DD.MM.YYYY HH:mm",
+            ),
         },
     )
-    selected_ids = df.loc[edited["select"], "id"].tolist() if "id" in df.columns else []
+    # Маппинг обратно на оригинальные имена для извлечения id
+    selected_mask = edited[column_labels["select"]]
+    selected_ids = df.loc[selected_mask, "id"].tolist() if "id" in df.columns else []
     st.caption(f"Выбрано: {len(selected_ids)}")
 
     b1, b2, b3, b4 = st.columns(4)
