@@ -9,4 +9,3 @@ reportlab>=4.0
 feedparser
 pytest
 pytest-xdist
-streamlit-sortables>=0.3.1

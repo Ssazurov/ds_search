@@ -17,6 +17,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends git gh xz-utils
        | tar -xJ -C /usr/local --strip-components=1 --exclude='*.md' --exclude=LICENSE \
     && node --version && git --version && gh --version | head -1
 
+# Новые Python-зависимости добавлять СЮДА (requirements-extra.txt), а не в requirements.txt:
+# слой стоит после chromium/node, поэтому его изменение не перекачивает тяжёлые слои.
+COPY requirements-extra.txt .
+RUN --mount=type=cache,target=/root/.cache/pip pip install -r requirements-extra.txt
+
 COPY . .
 
 EXPOSE 8501
