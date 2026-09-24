@@ -21,11 +21,12 @@ downsideup.org:
     разрешается при условии активной ссылки на downsideup.org".'
   status: attribution_required
 foma.ru:
-  attribution_template: 'Источник: {title} ({source_url}), foma.ru'
+  attribution_template: 'Источник: {title} ({source_url}) -- foma.ru'
   checked_date: null
-  notes: ''
-  publish_permission: not_set
-  status: pending_manual_review
+  is_aggregator: false
+  notes: Разрешение получено от Ольги Ершовой (referent@foma.ru) 23.09.2026 на sazurov@mail.ru
+  publish_permission: granted
+  status: attribution_required
 globaldownsyndrome.org:
   attribution_template: 'Источник: {title} ({source_url}), globaldownsyndrome.org'
   checked_date: null
