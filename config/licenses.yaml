@@ -20,6 +20,12 @@ downsideup.org:
   notes: 'В подвале сайта: "Использование любых материалов, размещённых на сайте,
     разрешается при условии активной ссылки на downsideup.org".'
   status: attribution_required
+foma.ru:
+  attribution_template: 'Источник: {title} ({source_url}), foma.ru'
+  checked_date: null
+  notes: ''
+  publish_permission: not_set
+  status: pending_manual_review
 globaldownsyndrome.org:
   attribution_template: 'Источник: {title} ({source_url}), globaldownsyndrome.org'
   checked_date: null
