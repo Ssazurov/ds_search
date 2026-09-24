@@ -5,3 +5,4 @@ __pycache__/
 .env
 data/
 config/gar_schema_cache.json
+config/ui_prefs.json

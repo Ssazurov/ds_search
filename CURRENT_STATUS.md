@@ -1,3 +1,11 @@
+## 2026-09-24 -- issue #272: выбор колонок, порядок и ширина с сохранением
+
+- `ui/table_utils.py`: `column_settings(table_key, columns, base_config)` — popover «⚙ Колонки» (показывать, порядок drag-and-drop через `streamlit-sortables`, ширина small/medium/large, Сохранить/Сбросить); `merge_settings` (новые колонки в конец, удалённые пропускаются, «Выбор»/«Название» не скрываются), `load_prefs`/`save_prefs` (атомарно).
+- Хранение: `config/ui_prefs.json` (в .gitignore, каталог config смонтирован в контейнер), ключ = таблица (`results`, `documents`), только технические имена колонок.
+- Подключено в `results_tab` и `documents_tab`; колонка ссылки теперь «Ссылка» из COLUMN_LABELS. Остальные таблицы (dashboard, agents_status, site_publish — read-only st.dataframe) — следующим шагом.
+- Ограничение Streamlit: ручное перетаскивание/растягивание в самой таблице в Python не возвращается, поэтому порядок и ширина задаются в popover.
+- Проверка: `pytest` весь зелёный (+5 тестов test_table_prefs), AppTest обеих вкладок без исключений; drag-and-drop в браузере не проверялся.
+
 ## 2026-09-24 -- issue #270: таблица «Документы» по образцу «Результатов»
 
 - Новый `ui/table_utils.py` (COLUMN_LABELS, `localize` — label_of для direction/category/doc_type, `link_column`, `datetime_column`); используется в `results_tab` и `documents_tab` (заголовок doc_type в «Результатах» теперь «Тип»).
