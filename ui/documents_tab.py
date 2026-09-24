@@ -1,10 +1,13 @@
 """Документы — статус по стадиям сканированием ФС, не отдельной таблицей
 (issue #20 п.3, ADR-002 уточнения п.3). Кнопки ingestion в GAR (issue #116,
-ADR-006 п.5): одиночная и пакетная загрузка через src/gar_ingest/documents.py."""
+ADR-006 п.5): пакетная загрузка через src/gar_ingest/documents.py.
+Вид таблицы — по образцу «Результатов» через ui/table_utils.py (issue #270)."""
 from __future__ import annotations
 
 import asyncio
 import json
+from collections import Counter
+from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
@@ -13,10 +16,16 @@ import streamlit as st
 from src.crawler.manual_add import add_manual_document
 from src.gar_ingest.documents import ingest_document
 from src.metadata.schema import label_of, load_dictionaries
+from ui.table_utils import COLUMN_LABELS, datetime_column, link_column, localize
 
 ROOT = Path(__file__).resolve().parents[1] / "data"
 RAW_ROOT = ROOT / "raw"
 CLEAN_ROOT = ROOT / "clean"
+
+_ALL = "Все"
+_STATUS_ORDER = {"error": 0, "pending": 1, "loaded": 2}  # ошибки сверху
+_STATUS_CELL = {"loaded": "✅ загружен", "error": "⚠️ ошибка", "pending": "— не загружен"}
+_STATUS_FILTER = {"pending": "Не загружены", "error": "Ошибка", "loaded": "Загружены"}
 
 
 def _scan_raw() -> list[dict]:
@@ -32,80 +41,71 @@ def _scan_raw() -> list[dict]:
             continue
         doc_id = meta_path.stem
         clean_exists = (CLEAN_ROOT / meta_path.parent.name / f"{doc_id}.json").exists() if CLEAN_ROOT.exists() else False
+        gar_id, error = meta.get("gar_document_id"), meta.get("ingest_error")
         rows.append({
             "doc_id": doc_id,
             "doc_json_path": meta_path,
-            "title": meta.get("title") or "",
+            "title": meta.get("title") or doc_id,
+            "url": meta.get("source_url") or None,
             "domain": meta.get("source_domain", ""),
             "direction": meta.get("direction", ""),
-            "raw": True,
+            "category": meta.get("category", ""),
+            "doc_type": meta.get("doc_type", ""),
             "clean": clean_exists,
-            "metadata": "not_started",
-            "gar_document_id": meta.get("gar_document_id"),
-            "ingest_error": meta.get("ingest_error"),
+            "gar_document_id": gar_id,
+            "ingest_error": error,
+            "status": "loaded" if gar_id else ("error" if error else "pending"),
+            "added": datetime.fromtimestamp(meta_path.stat().st_mtime),
         })
     return rows
 
 
 def _apply_filters(rows: list[dict]) -> list[dict]:
-    directions = sorted({r["direction"] for r in rows if r["direction"]})
-    domains = sorted({r["domain"] for r in rows if r["domain"]})
-    col1, col2 = st.columns(2)
     dictionaries = load_dictionaries()
-    direction = col1.selectbox(
-        "Направление", ["Все"] + directions, key="doc_filter_direction",
-        format_func=lambda v: label_of(dictionaries, "direction", v))
-    domain = col2.selectbox("Источник", ["Все"] + domains, key="doc_filter_domain")
+    directions = sorted({r["direction"] for r in rows if r["direction"]})
+    domain_counts = Counter(r["domain"] for r in rows if r["domain"])
+    c1, c2, c3, c4 = st.columns(4)
+    text = c1.text_input("Поиск (название/домен)", key="doc_filter_text").strip().lower()
+    status = c2.selectbox(
+        "В GAR", [_ALL, *_STATUS_FILTER], key="doc_filter_status",
+        format_func=lambda v: _STATUS_FILTER.get(v, _ALL))
+    domain = c3.selectbox(
+        "Домен", [_ALL, *sorted(domain_counts)], key="doc_filter_domain",
+        format_func=lambda d: f"Все ({len(rows)})" if d == _ALL else f"{d} ({domain_counts[d]})")
+    direction = c4.selectbox(
+        "Направление", [_ALL, *directions], key="doc_filter_direction",
+        format_func=lambda v: v if v == _ALL else label_of(dictionaries, "direction", v))
     filtered = rows
-    if direction != "Все":
-        filtered = [r for r in filtered if r["direction"] == direction]
-    if domain != "Все":
+    if text:
+        filtered = [r for r in filtered if text in r["title"].lower() or text in r["domain"].lower()]
+    if status != _ALL:
+        filtered = [r for r in filtered if r["status"] == status]
+    if domain != _ALL:
         filtered = [r for r in filtered if r["domain"] == domain]
-    return filtered
+    if direction != _ALL:
+        filtered = [r for r in filtered if r["direction"] == direction]
+    return sorted(filtered, key=lambda r: (_STATUS_ORDER[r["status"]], r["title"].lower()))
 
 
-def _ingest_one(row: dict) -> None:
-    try:
-        ingest_document(row["doc_json_path"])
-        st.toast(f"Загружено: {row['doc_id']}")
-    except Exception as exc:  # noqa: BLE001 — ошибка ingestion, не должна ронять UI
-        st.error(f"{row['doc_id']}: {exc}")
-    st.rerun()
-
-
-def _delete_one(row: dict) -> None:
+def _delete_files(row: dict) -> None:
     """Удаляет локальные файлы документа: raw meta + content + clean sidecar.
     GAR не трогаем (вариант "а"): если ingested, запись в GAR остаётся."""
-    try:
-        meta = json.loads(row["doc_json_path"].read_text(encoding="utf-8"))
-        content_path = meta.get("content_path")
-        if content_path and Path(content_path).exists():
-            Path(content_path).unlink()
-        clean_dir_name = row["doc_json_path"].parent.name
-        clean_path = CLEAN_ROOT / clean_dir_name / f"{row['doc_id']}.json"
-        if clean_path.exists():
-            clean_path.unlink()
-        row["doc_json_path"].unlink(missing_ok=True)
-        st.toast(f"Удалено: {row['doc_id']}")
-    except OSError as exc:
-        st.error(f"{row['doc_id']}: не удалось удалить — {exc}")
-    st.rerun()
+    meta = json.loads(row["doc_json_path"].read_text(encoding="utf-8"))
+    content_path = meta.get("content_path")
+    if content_path and Path(content_path).exists():
+        Path(content_path).unlink()
+    clean_path = CLEAN_ROOT / row["doc_json_path"].parent.name / f"{row['doc_id']}.json"
+    if clean_path.exists():
+        clean_path.unlink()
+    row["doc_json_path"].unlink(missing_ok=True)
 
 
 def _delete_batch(rows: list[dict]) -> None:
     errors: list[str] = []
     for row in rows:
         try:
-            meta = json.loads(row["doc_json_path"].read_text(encoding="utf-8"))
-            content_path = meta.get("content_path")
-            if content_path and Path(content_path).exists():
-                Path(content_path).unlink()
-            clean_dir_name = row["doc_json_path"].parent.name
-            clean_path = CLEAN_ROOT / clean_dir_name / f"{row['doc_id']}.json"
-            if clean_path.exists():
-                clean_path.unlink()
-            row["doc_json_path"].unlink(missing_ok=True)
-        except OSError as exc:
+            _delete_files(row)
+        except (OSError, json.JSONDecodeError) as exc:
             errors.append(f"{row['doc_id']}: {exc}")
     for err in errors:
         st.error(err)
@@ -116,7 +116,7 @@ def _delete_batch(rows: list[dict]) -> None:
 def _ingest_batch(rows: list[dict]) -> None:
     pending = [r for r in rows if not r["gar_document_id"]]
     if not pending:
-        st.info("Все документы по текущему фильтру уже загружены в GAR")
+        st.info("Все документы уже загружены в GAR")
         return
     progress = st.progress(0.0, text=f"0/{len(pending)}")
     errors: list[str] = []
@@ -181,52 +181,38 @@ def render() -> None:
         return
 
     filtered = _apply_filters(rows)
-    not_ingested = [r for r in filtered if not r["gar_document_id"]]
-    st.button(
-        f"Загрузить все не загруженные ({len(not_ingested)})",
-        disabled=not not_ingested,
-        on_click=_ingest_batch,
-        args=(filtered,),
-    )
+    if not filtered:
+        st.info("Ничего не найдено по текущим фильтрам")
+        return
 
+    labels = {
+        **COLUMN_LABELS, "clean": "Очищен", "gar": "В GAR", "error": "Ошибка", "added": "Добавлен",
+    }
     df = pd.DataFrame([
         {
-            "doc_id": r["doc_id"], "title": r["title"], "domain": r["domain"],
-            "direction": r["direction"], "raw": r["raw"], "clean": r["clean"],
-            "metadata": r["metadata"],
-            "ingested": "done" if r["gar_document_id"] else ("error" if r["ingest_error"] else "not_started"),
-            "error": r["ingest_error"] or "",
+            "title": r["title"], "url": r["url"], "domain": r["domain"],
+            "direction": r["direction"], "category": r["category"], "doc_type": r["doc_type"],
+            "clean": r["clean"], "gar": _STATUS_CELL[r["status"]],
+            "error": r["ingest_error"] or "", "added": r["added"],
         }
         for r in filtered
     ])
     df.insert(0, "select", False)
     edited = st.data_editor(
-        df, hide_index=True, width="stretch",
-        disabled=[c for c in df.columns if c != "select"], key="doc_table_editor",
+        localize(df).rename(columns=labels), hide_index=True, width="stretch",
+        disabled=[c for c in labels.values() if c != labels["select"]], key="doc_table_editor",
+        column_config={"url": link_column(), labels["added"]: datetime_column(labels["added"])},
     )
-    selected_idx = edited.index[edited["select"]].tolist()
-    selected_rows = [filtered[i] for i in selected_idx]
+    selected_rows = [filtered[i] for i in edited.index[edited[labels["select"]]]]
     st.caption(
-        f"Всего: {len(df)}, clean: {int(df['clean'].sum())}, "
-        f"в GAR: {int((df['ingested'] == 'done').sum())}, выбрано: {len(selected_rows)}"
+        f"Всего: {len(df)}, очищено: {int(df['clean'].sum())}, "
+        f"в GAR: {sum(r['status'] == 'loaded' for r in filtered)}, выбрано: {len(selected_rows)}"
     )
-    if st.button("Удалить выбранные", disabled=not selected_rows, key="delete_selected_btn"):
-        _delete_batch(selected_rows)
 
-    st.subheader("Загрузка по одному документу")
-    for i, row in enumerate(filtered):
-        c1, c2, c3, c4 = st.columns([4, 2, 2, 2])
-        c1.write(f"**{row['title'] or row['doc_id']}** — {row['direction']}/{row['domain']}")
-        if row["gar_document_id"]:
-            c2.write("✅ в GAR")
-        elif row["ingest_error"]:
-            c2.write(f"⚠️ {row['ingest_error']}")
-        else:
-            c2.write("не загружен")
-        # key включает индекс и domain: doc_id (stem файла) может повторяться
-        # между разными доменами/папками raw/<domain>/<doc_id>.json.
-        c3.button("Загрузить в GAR", key=f"ingest_{i}_{row['domain']}_{row['doc_id']}",
-                   disabled=bool(row["gar_document_id"]),
-                   on_click=_ingest_one, args=(row,))
-        c4.button("Удалить", key=f"delete_{i}_{row['domain']}_{row['doc_id']}",
-                   on_click=_delete_one, args=(row,))
+    not_loaded = [r for r in selected_rows if not r["gar_document_id"]]
+    b1, b2 = st.columns(2)
+    if b1.button(f"Загрузить в GAR выбранные ({len(not_loaded)})", disabled=not not_loaded,
+                 key="ingest_selected_btn"):
+        _ingest_batch(not_loaded)
+    if b2.button("Удалить выбранные", disabled=not selected_rows, key="delete_selected_btn"):
+        _delete_batch(selected_rows)
