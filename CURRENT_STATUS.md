@@ -8,6 +8,7 @@
 - ADR не нужен (UI-полировка, без архитектурных изменений).
 - **Пересборка (2026-09-24):** контейнер `deploy-ds-search` пересобран через `scripts/rebuild.sh ds-search`. Лог `~/build.log`: нет `failed to solve`, образ создан за ~3 с — все слои (pip, chromium, apt, node) взяты из кэша, перескачивающих шагов не было. В контейнере проверено: `Солнечный мир` — 3 совпадения, `block-container` — 2 (CSS `padding-top: 2.5rem !important`), `query_params` — 1, `curl localhost:8501` → HTTP 200.
 - Примечание: локальная ветка `feat/275-ui-polish` и PR #276 были убраны — то же правка уже слита в `origin/main` коммитом `c4ceadf`, PR #276 закрыт как дубликат.
+- **Регрессия и фикс (2026-09-24, issue #277):** коммит `c4ceadf` убрал `sys.path.insert(0, .../parents[1])` в начале `ui/app.py` → в проде `ModuleNotFoundError: No module named 'ui'` (при `streamlit run ui/app.py` в sys.path попадает только `/app/ui`, а не `/app`, нужный для `from ui import (...)`). Исправлено коммитом `ca654e6` — строка возвращена. Контейнер `ds-search` пересобран и перезапущен, проверено: `curl localhost:8501` → HTTP 200, в логах контейнера ошибок нет.
 
 ## 2026-09-24 -- issue #272 (доработка): зависимость вынесена из requirements.txt
 
