@@ -10,10 +10,10 @@ from collections import Counter
 from pathlib import Path
 
 import streamlit as st
-import yaml
 
 from src.discovery.config import load_settings
 from src.discovery.gar_client import GarDiscoveryClient
+from src.license.registry_store import delete_entry, load_registry, save_entry
 from src.license.checker import (
     default_attribution_template,
     PUBLISH_PERMISSION_LABELS, LicenseStatus, PublishPermission, _CONFIG_PATH,
@@ -34,17 +34,7 @@ _ATTR_EXAMPLE = "Источник: {title} ({source_url}), Агентство с
 
 
 def _load_registry() -> dict:
-    if not _CONFIG_PATH.exists():
-        return {}
-    return yaml.safe_load(_CONFIG_PATH.read_text(encoding="utf-8")) or {}
-
-
-def _save_registry(registry: dict) -> None:
-    _CONFIG_PATH.write_text(
-        "# Реестр лицензий/ToS источников (issue #3, ADR-001 п.3).\n"
-        + yaml.safe_dump(registry, allow_unicode=True, sort_keys=True),
-        encoding="utf-8",
-    )
+    return load_registry(_CONFIG_PATH)
 
 
 def _domain_counts() -> Counter:
@@ -165,7 +155,7 @@ def _render_detail(domain: str, registry: dict, row: dict) -> None:
             "is_aggregator": is_aggregator,
             "publish_permission": permission,
         }
-        _save_registry(registry)
+        save_entry(domain, registry[domain], _CONFIG_PATH)
         st.rerun()
     if c2.button("Отменить", key=f"cancel_{domain}", width="stretch"):
         for p in ("status", "perm", "attr", "notes", "agg"):
@@ -178,7 +168,7 @@ def _render_detail(domain: str, registry: dict, row: dict) -> None:
             st.error(f"Не удалось убрать находки домена в GAR: {exc}")
             return
         registry.pop(domain, None)
-        _save_registry(registry)
+        delete_entry(domain, _CONFIG_PATH)
         st.session_state.pop("dom_sel", None)
         st.rerun()
 
@@ -228,6 +218,6 @@ def render() -> None:
             registry[nd] = {"status": "pending_manual_review", "notes": "",
                             "attribution_template": default_attribution_template(nd),
                             "publish_permission": PublishPermission.NOT_SET.value}
-            _save_registry(registry)
+            save_entry(nd, registry[nd], _CONFIG_PATH)
             st.session_state["dom_sel"] = nd
             st.rerun()

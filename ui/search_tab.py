@@ -5,8 +5,8 @@ from collections import Counter
 from datetime import datetime, time
 
 import streamlit as st
-import yaml
 
+from src.license.registry_store import load_registry
 from src.license.checker import _CONFIG_PATH, LicenseStatus, normalize_domain
 from src.discovery.config import load_settings
 from src.discovery.gar_client import GarDiscoveryClient
@@ -37,8 +37,7 @@ def _found_counts() -> Counter:
 def _known_domains() -> dict[str, int]:
     """Домены вкладки «Источники» (licenses.yaml ∪ discovered_sources без rejected),
     кроме status=deny -> число находок."""
-    registry = yaml.safe_load(_CONFIG_PATH.read_text(encoding="utf-8")) if _CONFIG_PATH.exists() else {}
-    registry = registry or {}
+    registry = load_registry(_CONFIG_PATH)
     counts = _found_counts()
     domains = {d: counts.get(d, 0) for d in set(registry) | set(counts)
                if (registry.get(d) or {}).get("status") != LicenseStatus.DENY.value}
