@@ -105,6 +105,20 @@ def field_options(fields: dict, key: str) -> list[str]:
     return []
 
 
+def option_labels(fields: dict) -> dict[str, dict[str, str]]:
+    """{field_key: {value: русский label}} по всем активным select-полям GAR
+    (ADR-013). В данных хранится value (slug), label — только для отображения."""
+    result: dict[str, dict[str, str]] = {}
+    for field in fields.get("fields", []):
+        if not field.get("active", True) or not field.get("options"):
+            continue
+        result[field["key"]] = {
+            opt["value"]: opt.get("label") or opt["value"]
+            for opt in field["options"] if opt.get("active", True)
+        }
+    return result
+
+
 def category_options_for_direction(fields: dict, direction_value: str) -> list[str]:
     """category — dependent select: его опции привязаны parent_option_id
     к конкретной опции direction, а не к direction напрямую."""

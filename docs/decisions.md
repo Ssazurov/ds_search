@@ -16,6 +16,7 @@
 | 2026-09-17 | ADR-011 | Tavily keyless отдаёт 403 второй день — добавить Brave Search (free tier) первым звеном в `SearchProviderChain`, Tavily фолбэком. Приоритет: доразобрать ToS для 5 RSS-доменов без записи в `licenses.yaml` (иначе RSS-канал ADR-010 их не скачивает вообще) выше issue #164 (Tavily-пилот). |
 | 2026-09-17 | ADR-011 (доп.) | Brave free tier снят (нужна карта), Tavily заблокирован на уровне сети (не keyless-проблема) — заменить первое звено `SearchProviderChain` на `FirecrawlProvider` (free tier 1000 кред/мес, без карты); Brave/Tavily остаются фолбэком в коде. |
 | 2026-09-18 | ADR-012 | Флаг `is_aggregator` в `licenses.yaml`; для агрегатора (wildcar.ru) — ссылка на первоисточник берётся из уже скачанного текста статьи (паттерн "Источник: [домен](url)"), первоисточник НЕ краулится; summary делается по тексту агрегатора, атрибуция — на найденную ссылку. |
+| 2026-09-24 | ADR-013 | GAR — единственный источник справочников (direction/category и др.); вкладка «Справочники» read-only + «Обновить из GAR»; `load_dictionaries` берёт данные из gar_schema (labels сохраняются), `categories.yaml` — офлайн-фолбэк; во всех вкладках отображаются русские labels через `label_of`/`format_func`, в данных хранится slug. |
 
 ## 2026-09-08 — ADR-052 (gar-core-api): публичный шлюз для сайта
 Не автономное ADR ds_search (репозиторий gar-core-api ведёт свою нумерацию

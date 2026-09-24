@@ -20,6 +20,7 @@ from typing import Any
 import yaml
 
 from .profile import LIFECYCLE_STAGES
+from .gar_schema import load_cache, field_options, option_labels, category_options_for_direction
 
 DIRECTIONS = ["methodology", "medicine", "law", "science", "news"]
 
@@ -68,7 +69,28 @@ _DEFAULT_DICTIONARIES = {
     "age_groups": list(AGE_GROUPS),
     "lifecycle_stages": list(LIFECYCLE_STAGES),
     "license_statuses": list(LICENSE_STATUSES),
+    "labels": {},  # {field_key: {value: русский label}}, источник — GAR (ADR-013)
 }
+
+
+def _gar_overlay() -> tuple[dict[str, list[str]], dict[str, dict[str, str]]] | None:
+    """directions+labels из локального кэша GAR-схемы (без сети; обновляется
+    кнопкой «Обновить из GAR» / sync_from_gar). None — кэша нет/битый."""
+    cache = load_cache()
+    if not cache:
+        return None
+    try:
+        fields = cache["fields"]
+        directions = {d: category_options_for_direction(fields, d)
+                      for d in field_options(fields, "direction")}
+        return (directions, option_labels(fields)) if directions else None
+    except (KeyError, TypeError):
+        return None
+
+
+def label_of(dictionaries: dict, field: str, value: str) -> str:
+    """Русский label значения справочника; если нет — сам value (ADR-013)."""
+    return (dictionaries.get("labels") or {}).get(field, {}).get(value) or value
 
 
 def load_categories(path: Path = _CATEGORIES_PATH) -> dict[str, list[str]]:
@@ -91,6 +113,10 @@ def load_dictionaries(path: Path = _CATEGORIES_PATH) -> dict:
     result = {}
     for key, default in _DEFAULT_DICTIONARIES.items():
         result[key] = data.get(key, default)
+    if path == _CATEGORIES_PATH:  # ADR-013: GAR — источник правды, yaml — офлайн-фолбэк
+        overlay = _gar_overlay()
+        if overlay:
+            result["directions"], result["labels"] = overlay
     return result
 
 

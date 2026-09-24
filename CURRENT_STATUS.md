@@ -1,3 +1,10 @@
+## 2026-09-24 -- issue #256 (ADR-013): GAR — источник справочников, русские labels в UI
+- `gar_schema.option_labels()` + `sync_from_gar` пишут в `categories.yaml` секцию `labels` ({field: {value: label}}).
+- `schema.load_dictionaries()` для дефолтного пути накладывает directions+labels из `config/gar_schema_cache.json` (без сети); yaml — офлайн-фолбэк. `schema.label_of(dicts, field, value)` — label или value.
+- `format_func`/labels: upload_tab (3 формы), search_tab, documents_tab (фильтр), results_tab (колонки direction/category/doc_type). В данных — slug.
+- Вкладка «Справочники» — read-only + «Обновить из GAR» (`sync_from_gar`); CRUD убран (`save_dictionaries`/`validate_dictionaries` остались в schema.py).
+- Проверка: `pytest tests` — 300 passed; `sync_from_gar --dry-run` отдаёт labels (zdorove → «Здоровье»); тесты `tests/test_option_labels.py`.
+
 ## 2026-09-24 -- issue #253: UI результатов — русские заголовки, формат даты, скрыты лишние столбцы
 
 - `ui/results_tab.py`: все заголовки на русском (Выбор, Название, Домен, Направление, Категория, Тип документа, Дубль, Статус, Найдено).

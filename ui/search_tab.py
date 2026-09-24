@@ -12,7 +12,7 @@ from src.discovery.config import load_settings
 from src.discovery.gar_client import GarDiscoveryClient
 from src.discovery.presets import delete_preset, load_presets, save_preset
 from src.discovery.run_search import run_search
-from src.metadata.schema import load_dictionaries
+from src.metadata.schema import label_of, load_dictionaries
 from src.metadata.profile import LIFECYCLE_STAGES
 from src.search.base import QuotaExceeded
 from src.search.brave import BraveProvider
@@ -79,19 +79,27 @@ def render() -> None:
     preset = next((p for p in presets if p["name"] == chosen), {}) if chosen != _NONE else {}
 
     query = st.text_input("Тема поиска", value=preset.get("query", ""))
+
+    def fmt(field):  # русские labels из GAR (ADR-013); _NONE и неизвестные значения — как есть
+        return lambda v: label_of(dictionaries, field, v)
+
     direction = st.selectbox(
         "Направление", [_NONE] + list(dictionaries["directions"].keys()),
         index=(list(dictionaries["directions"].keys()).index(preset["direction"]) + 1
                if preset.get("direction") in dictionaries["directions"] else 0),
+        format_func=fmt("direction"),
     )
     categories = dictionaries["directions"].get(direction, []) if direction != _NONE else []
-    category = st.selectbox("Категория", [_NONE] + categories)
+    category = st.selectbox("Категория", [_NONE] + categories, format_func=fmt("category"))
     target_audience = st.selectbox(
         "Целевая аудитория", [_NONE] + dictionaries["target_audiences"],
         index=(dictionaries["target_audiences"].index(preset["target_audience"]) + 1
                if preset.get("target_audience") in dictionaries["target_audiences"] else 0),
+        format_func=fmt("target_audience"),
     )
-    lifecycle_stage = st.selectbox("Этап жизненного пути", ["— не выбрано —"] + dictionaries.get("lifecycle_stages", LIFECYCLE_STAGES))
+    lifecycle_stage = st.selectbox(
+        "Этап жизненного пути", ["— не выбрано —"] + dictionaries.get("lifecycle_stages", LIFECYCLE_STAGES),
+        format_func=fmt("lifecycle_stage"))
     known = _known_domains()
     domains_selected = st.multiselect(
         "Домены из источников", list(known),

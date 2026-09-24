@@ -10,6 +10,7 @@ import streamlit as st
 from src.discovery.config import load_settings
 from src.discovery.gar_client import GarDiscoveryClient
 from src.license.checker import check_license
+from src.metadata.schema import label_of, load_dictionaries
 
 _STATUS_OPTIONS = ["new", "approved", "rejected", "queued", "downloaded"]
 _NONE = "— не выбрано —"
@@ -93,7 +94,13 @@ def render() -> None:
     if "url" in df.columns:
         insert_at = display_cols_final.index("title") + 1 if "title" in display_cols_final else len(display_cols_final)
         display_cols_final.insert(insert_at, "url")
-    df_display = df[display_cols_final].rename(columns=column_labels)
+    dictionaries = load_dictionaries()
+    df_display = df[display_cols_final].copy()
+    for field in ("direction", "category", "doc_type"):  # русские labels из GAR (ADR-013)
+        if field in df_display.columns:
+            df_display[field] = df_display[field].map(
+                lambda v, f=field: label_of(dictionaries, f, v) if isinstance(v, str) else v)
+    df_display = df_display.rename(columns=column_labels)
     edited = st.data_editor(
         df_display, hide_index=True, width="stretch",
         disabled=[c for c in df_display.columns if c != column_labels["select"]], key="results_editor",

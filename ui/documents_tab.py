@@ -12,6 +12,7 @@ import streamlit as st
 
 from src.crawler.manual_add import add_manual_document
 from src.gar_ingest.documents import ingest_document
+from src.metadata.schema import label_of, load_dictionaries
 
 ROOT = Path(__file__).resolve().parents[1] / "data"
 RAW_ROOT = ROOT / "raw"
@@ -50,7 +51,10 @@ def _apply_filters(rows: list[dict]) -> list[dict]:
     directions = sorted({r["direction"] for r in rows if r["direction"]})
     domains = sorted({r["domain"] for r in rows if r["domain"]})
     col1, col2 = st.columns(2)
-    direction = col1.selectbox("Направление", ["Все"] + directions, key="doc_filter_direction")
+    dictionaries = load_dictionaries()
+    direction = col1.selectbox(
+        "Направление", ["Все"] + directions, key="doc_filter_direction",
+        format_func=lambda v: label_of(dictionaries, "direction", v))
     domain = col2.selectbox("Источник", ["Все"] + domains, key="doc_filter_domain")
     filtered = rows
     if direction != "Все":
