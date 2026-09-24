@@ -1,4 +1,4 @@
-"""Загрузка — очередь одобренных + ручная (issue #20 п.1-2, ADR-002 уточнения).
+"""Загрузка — очередь одобренных + ручная: файл или ссылка (issue #20 п.1-2, #67, ADR-002).
 
 Полное скачивание — src/discovery/download.py (не SourceCrawler.run(), см. ADR).
 Ручная ссылка идёт "стандартным пайпом" — создаётся как approved находка
@@ -82,43 +82,6 @@ def _save_manual_file(
     (out_dir / f"{doc_id}.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def _render_direct_download() -> None:
-    """issue #67: закачка одной страницы напрямую через download_single,
-    минуя discovered_sources/очередь gar-core-api (та ветка — для находок
-    из "Поиска"; здесь пользователь уже знает конкретный URL)."""
-    st.subheader("Скачать одну страницу по ссылке")
-    st.caption(
-        "Прямое скачивание файла сейчас же (минуя очередь и модерацию). "
-        "Используйте, если URL уже точно нужен."
-    )
-    dictionaries = load_dictionaries()
-    directions = list(dictionaries["directions"].keys())
-    url = st.text_input("URL страницы", key="direct_dl_url")
-    direction = (
-        st.selectbox("Направление", directions, key="direct_dl_dir",
-                     format_func=lambda v: label_of(dictionaries, "direction", v))
-        if directions else st.text_input("Направление", key="direct_dl_dir")
-    )
-    dest_dir = st.text_input(
-        "Папка назначения (опционально, относительно data/raw; по умолчанию — домен)",
-        key="direct_dl_dest",
-    )
-    filename = st.text_input(
-        "Имя файла (опционально, без расширения; по умолчанию — хэш URL)",
-        key="direct_dl_name",
-    )
-    if st.button("Скачать сейчас", disabled=not url.strip()):
-        try:
-            meta = asyncio.run(download_single(
-                {"url": url.strip(), "suggested_direction": direction},
-                dest_dir=dest_dir.strip() or None,
-                filename=filename.strip() or None,
-            ))
-            st.success(f"Скачано: {meta['content_path']}")
-        except DownloadError as exc:
-            st.error(f"Ошибка: {exc}")
-
-
 def _add_manual_link(url: str, direction: str) -> None:
     settings = load_settings()
     with GarDiscoveryClient(settings) as client:
@@ -128,6 +91,53 @@ def _add_manual_link(url: str, direction: str) -> None:
             "url": url, "domain": None, "title": url, "direction": direction,
             "status": "approved",
         }])
+
+
+def _render_link(dictionaries: dict, directions: list) -> None:
+    """Единая форма URL: скачать сразу (issue #67) или добавить в очередь."""
+    action = st.radio(
+        "Что сделать со ссылкой",
+        ["Скачать сейчас", "В очередь на модерацию"],
+        horizontal=True, key="link_action",
+    )
+    now = action == "Скачать сейчас"
+    st.caption(
+        "Прямое скачивание сейчас же (минуя очередь и модерацию), license-check — сразу."
+        if now else
+        "Добавляет URL в discovered_sources (статус approved) для модерации/скачивания "
+        "через очередь во вкладке «Результаты» — не скачивает сразу."
+    )
+    url = st.text_input("URL страницы/документа", key="link_url")
+    direction = (
+        st.selectbox("Направление", directions, key="link_dir",
+                     format_func=lambda v: label_of(dictionaries, "direction", v))
+        if directions else st.text_input("Направление", key="link_dir")
+    )
+    if now:
+        dest_dir = st.text_input(
+            "Папка назначения (опционально, относительно data/raw; по умолчанию — домен)",
+            key="link_dest",
+        )
+        filename = st.text_input(
+            "Имя файла (опционально, без расширения; по умолчанию — хэш URL)",
+            key="link_name",
+        )
+        if st.button("Скачать сейчас", disabled=not url.strip()):
+            try:
+                meta = asyncio.run(download_single(
+                    {"url": url.strip(), "suggested_direction": direction},
+                    dest_dir=dest_dir.strip() or None,
+                    filename=filename.strip() or None,
+                ))
+                st.success(f"Скачано: {meta['content_path']}")
+            except DownloadError as exc:
+                st.error(f"Ошибка: {exc}")
+    elif st.button("Добавить как одобренную находку", disabled=not url.strip()):
+        try:
+            _add_manual_link(url.strip(), direction)
+            st.success("Добавлено в discovered_sources со статусом approved — переведите в очередь во вкладке «Результаты»")
+        except Exception as exc:  # noqa: BLE001
+            st.error(f"gar-core-api недоступен: {exc}")
 
 
 def _render_manual() -> None:
@@ -157,28 +167,11 @@ def _render_manual() -> None:
             st.success("Документ сохранён в data/raw/manual/")
             st.rerun()
     else:
-        st.caption(
-            "Добавляет URL в discovered_sources (статус approved) для модерации/скачивания "
-            "через очередь во вкладке «Результаты» — не скачивает сразу."
-        )
-        url = st.text_input("URL страницы/документа")
-        direction = (
-            st.selectbox("Направление", directions, key="link_dir",
-                         format_func=lambda v: label_of(dictionaries, "direction", v))
-            if directions else st.text_input("Направление", key="link_dir")
-        )
-        if st.button("Добавить как одобренную находку", disabled=not url.strip()):
-            try:
-                _add_manual_link(url.strip(), direction)
-                st.success("Добавлено в discovered_sources со статусом approved — переведите в очередь во вкладке «Результаты»")
-            except Exception as exc:  # noqa: BLE001
-                st.error(f"gar-core-api недоступен: {exc}")
+        _render_link(dictionaries, directions)
 
 
 def render() -> None:
     st.header("Загрузка")
     _render_queue()
-    st.divider()
-    _render_direct_download()
     st.divider()
     _render_manual()
