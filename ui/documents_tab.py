@@ -165,6 +165,21 @@ def _render_metadata_form(selected_rows: list[dict]) -> None:
     loaded_count = sum(1 for r in selected_rows if r["gar_document_id"])
     st.caption(f"Выбрано: {len(selected_rows)}, из них уже в GAR: {loaded_count} (для них уйдёт PATCH в GAR)")
 
+    # автоподстановка direction/category при смене состава выбора: общее
+    # значение — если оно одно на всех выбранных и валидно в живой схеме GAR,
+    # иначе пусто ("не выбрано"), чтобы не перезаписать разные документы одним
+    # значением по ошибке
+    sel_key = tuple(sorted(r["doc_id"] for r in selected_rows))
+    if st.session_state.get("_batch_meta_sel_key") != sel_key:
+        dirs = {r["direction"] for r in selected_rows}
+        common_dir = next(iter(dirs)) if len(dirs) == 1 else ""
+        st.session_state["batch_direction"] = common_dir if common_dir in directions else ""
+        cats = {r["category"] for r in selected_rows}
+        common_cat = next(iter(cats)) if len(cats) == 1 else ""
+        valid_cats = category_options_for_direction(gar_fields, common_dir) if common_dir and gar_fields else []
+        st.session_state["batch_category"] = common_cat if common_cat in valid_cats else ""
+        st.session_state["_batch_meta_sel_key"] = sel_key
+
     with st.form("batch_metadata_form"):
         st.write("**Пакетное обновление выбранных документов**")
         direction = ""
