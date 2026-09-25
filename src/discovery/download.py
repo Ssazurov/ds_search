@@ -102,6 +102,7 @@ async def _save_pdf(pdf_url: str, teaser_url: str, domain: str, direction: str,
         content_path=str(pdf_path), content_status="saved",
         doc_type="article",  # issue: doc_type не проставлялся веб-статьям (0 из 107)
         is_aggregator=license_result.is_aggregator,
+        publish_permission=license_result.publish_permission.value,  # issue #286: наследование от домена
     )
     (out_dir / f"{doc_id}.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
     return meta
@@ -186,6 +187,7 @@ async def download_single(
             content_path=str(md_path), content_status="saved",
             doc_type="article",  # issue: doc_type не проставлялся веб-статьям (0 из 107)
             is_aggregator=license_result.is_aggregator,
+            publish_permission=license_result.publish_permission.value,  # issue #286: наследование от домена
         )
         meta.update(header_meta)
         (out_dir / f"{doc_id}.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")

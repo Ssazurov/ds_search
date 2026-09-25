@@ -269,6 +269,7 @@ class SourceCrawler:
             direction=self.cfg.direction, attribution=attribution,
             content_path=str(pdf_path), content_status="saved",
             doc_type="article",  # issue: doc_type не проставлялся веб-статьям (0 из 107)
+            publish_permission=self.license_result.publish_permission.value,  # issue #286: наследование от домена
         )
         meta = self._apply_classification(meta, title="", text="")
         (self.out_dir / f"{doc_id}.json").write_text(
@@ -301,6 +302,7 @@ class SourceCrawler:
             lifecycle_stage=self.cfg.lifecycle_stage, direction=self.cfg.direction,
             attribution=attribution, content_path=str(md_path), content_status="saved",
             doc_type="article",  # issue: doc_type не проставлялся веб-статьям (0 из 107)
+            publish_permission=self.license_result.publish_permission.value,  # issue #286: наследование от домена
             **page_meta,
         )
         meta = self._apply_classification(meta, title, fit_markdown)
