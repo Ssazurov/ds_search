@@ -51,6 +51,7 @@ def _scan_raw() -> list[dict]:
             "direction": meta.get("direction", ""),
             "category": meta.get("category", ""),
             "doc_type": meta.get("doc_type", ""),
+            "content_path": meta.get("content_path"),
             "clean": clean_exists,
             "gar_document_id": gar_id,
             "ingest_error": error,
@@ -302,21 +303,33 @@ def render() -> None:
 
     labels = {
         **COLUMN_LABELS, "clean": "Очищен", "gar": "В GAR", "error": "Ошибка", "added": "Добавлен",
+        "md": "MD", "json": "JSON",
     }
+
+    def _file_uri(p) -> str | None:
+        # issue #292: ссылка на локальный файл черновика, открывается ОС в
+        # приложении по умолчанию для .md/.json (не рендерится в браузере).
+        return Path(p).resolve().as_uri() if p else None
+
     df = pd.DataFrame([
         {
             "title": r["title"], "url": r["url"], "domain": r["domain"],
             "direction": r["direction"], "category": r["category"], "doc_type": r["doc_type"],
             "clean": r["clean"], "gar": _STATUS_CELL[r["status"]],
             "error": r["ingest_error"] or "", "added": r["added"],
+            "md": _file_uri(r["content_path"]), "json": _file_uri(r["doc_json_path"]),
         }
         for r in filtered
     ])
     df.insert(0, "select", False)
     order, config, sort = column_settings(
         "documents", {k: labels[k] for k in ("select", "title", "url", "domain", "direction", "category",
-                                             "doc_type", "clean", "gar", "error", "added")},
-        {labels["url"]: link_column(), labels["added"]: datetime_column(labels["added"])})
+                                             "doc_type", "clean", "gar", "error", "added", "md", "json")},
+        {labels["url"]: link_column(), labels["added"]: datetime_column(labels["added"]),
+         labels["md"]: st.column_config.LinkColumn(
+             labels["md"], display_text=":material/description:", width="small"),
+         labels["json"]: st.column_config.LinkColumn(
+             labels["json"], display_text=":material/data_object:", width="small")})
     df_display = localize(df).rename(columns=labels)
     if sort:
         df_display = df_display.sort_values(sort[0], ascending=sort[1])
