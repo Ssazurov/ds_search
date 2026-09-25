@@ -10,10 +10,9 @@ class PatientProfile(TypedDict, total=False):
     sex: str
     diagnosis: str
     comorbidities: list[str]
-    lifecycle_stage: str
 
 
-_PROFILE_FIELDS = {"age", "sex", "diagnosis", "comorbidities", "lifecycle_stage"}
+_PROFILE_FIELDS = {"age", "sex", "diagnosis", "comorbidities"}
 
 
 def validate_patient_profile(profile: Mapping[str, Any] | None) -> PatientProfile | None:
@@ -37,23 +36,20 @@ def filter_chunks_by_patient_profile(
 ) -> list[dict]:
     """Keep chunks matching profile retrieval metadata.
 
-    Only ``lifecycle_stage`` and ``comorbidity_tags`` are retrieval filters;
-    demographic fields remain generation context. Chunks without the requested
-    metadata are not treated as matching.
+    Only ``comorbidity_tags`` is a retrieval filter; demographic fields
+    remain generation context. Chunks without the requested metadata are
+    not treated as matching.
     """
     validated = validate_patient_profile(profile)
     if not validated:
         return list(chunks)
-    stage = validated.get("lifecycle_stage")
     requested_tags = {tag.strip().casefold() for tag in validated.get("comorbidities", [])}
-    if not stage and not requested_tags:
+    if not requested_tags:
         return list(chunks)
 
     result = []
     for chunk in chunks:
         metadata = chunk.get("metadata", chunk)
-        if stage and metadata.get("lifecycle_stage") != stage:
-            continue
         chunk_tags = metadata.get("comorbidity_tags", [])
         if requested_tags and not requested_tags.intersection(
             {str(tag).strip().casefold() for tag in chunk_tags}

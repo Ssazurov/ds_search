@@ -5,23 +5,21 @@ from src.rag.response_modes import prepare_generation_request
 
 
 def test_profile_is_included_in_generation_context():
-    profile = {"age": 4, "sex": "female", "lifecycle_stage": "early_development"}
+    profile = {"age": 4, "sex": "female"}
     request = prepare_generation_request("Вопрос", [], patient_profile=profile)
 
     assert request.patient_profile == profile
     assert "Контекст пациента" in request.system_prompt
-    assert "early_development" in request.system_prompt
 
 
-def test_profile_filters_stage_and_comorbidity_metadata():
+def test_profile_filters_comorbidity_metadata():
     chunks = [
-        {"id": "match", "lifecycle_stage": "school", "comorbidity_tags": ["hearing"]},
-        {"id": "wrong-stage", "lifecycle_stage": "early_development", "comorbidity_tags": ["hearing"]},
-        {"id": "wrong-tag", "lifecycle_stage": "school", "comorbidity_tags": ["vision"]},
+        {"id": "match", "comorbidity_tags": ["hearing"]},
+        {"id": "wrong-tag", "comorbidity_tags": ["vision"]},
     ]
 
     result = filter_chunks_by_patient_profile(
-        chunks, {"lifecycle_stage": "school", "comorbidities": ["HEARING"]}
+        chunks, {"comorbidities": ["HEARING"]}
     )
 
     assert [chunk["id"] for chunk in result] == ["match"]

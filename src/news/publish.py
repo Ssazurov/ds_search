@@ -90,7 +90,6 @@ def build_metadata(item: dict) -> dict:
         source_url=source_url, source_domain=urlparse(source_url).netloc or MANUAL_SOURCE_DOMAIN,
         title=item["title"], license="own_generated",
         category=item.get("category") or classified.get("category"),
-        lifecycle_stage=item.get("lifecycle_stage"),
         direction=item.get("direction") or classified.get("direction") or "news",
         doc_type="news",
         description=item.get("summary"),

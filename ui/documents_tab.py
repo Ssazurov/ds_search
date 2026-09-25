@@ -134,7 +134,7 @@ def _patch_gar_metadata(gar_document_id: str, updates: dict) -> None:
 
 
 def _render_metadata_form(selected_rows: list[dict]) -> None:
-    """Форма редактирования direction/category/lifecycle_stage/age/needs_review
+    """Форма редактирования direction/category/age/needs_review
     перед публикацией (issue #286). publish_permission наследуется от домена
     автоматически при скачивании и здесь не редактируется. Значения
     direction/category берутся из ЖИВОЙ схемы GAR (ADR-013) — только активные
@@ -149,7 +149,6 @@ def _render_metadata_form(selected_rows: list[dict]) -> None:
                "Пустое значение поля = не менять.")
 
     from src.metadata.schema import AGE_OPTIONS
-    from src.metadata.profile import LIFECYCLE_STAGES
     from src.metadata.gar_schema import (
         load_gar_schema, field_options, option_labels, category_options_for_direction,
     )
@@ -196,8 +195,6 @@ def _render_metadata_form(selected_rows: list[dict]) -> None:
                     format_func=lambda v: v if not v else cat_labels.get(v, v))
             else:
                 st.caption("Категория — сначала выберите направление")
-        lifecycle_stage = st.selectbox(
-            "Этап (lifecycle_stage)", [""] + LIFECYCLE_STAGES, key="batch_lifecycle_stage")
         age = st.selectbox("Age (возраст)", [""] + AGE_OPTIONS, key="batch_age")
         needs_review_choice = st.selectbox(
             "Needs review (требует проверки)", ["не менять", "да", "нет"], key="batch_needs_review")
@@ -208,8 +205,6 @@ def _render_metadata_form(selected_rows: list[dict]) -> None:
                 updates["direction"] = direction
             if category:
                 updates["category"] = category
-            if lifecycle_stage:
-                updates["lifecycle_stage"] = lifecycle_stage
             if age:
                 updates["age"] = age
             if needs_review_choice != "не менять":

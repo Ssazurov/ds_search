@@ -77,7 +77,6 @@ def test_download_single_substantive_saves_md(monkeypatch, tmp_path):
     assert meta["content_status"] == "saved"
     assert meta["title"] == "Заголовок"
     assert meta["category"] == "basic"
-    assert meta["lifecycle_stage"] == "unspecified"
     assert meta["comorbidity_tags"] == ""
     assert meta["reviewed_by"] == ""
     assert len(meta["date_indexed"]) == 10
@@ -100,10 +99,8 @@ def test_download_single_preserves_curated_information_architecture(monkeypatch,
     monkeypatch.setattr(dl, "classify_article", lambda path: {"direction": "methodology", "category": "comorbidities"})
     meta = asyncio.run(dl.download_single({
         "url": "https://downsideup.org/a", "suggested_category": "comorbidities",
-        "lifecycle_stage": "medical",
     }, tmp_path))
     assert meta["category"] == "comorbidities"
-    assert meta["lifecycle_stage"] == "medical"
 
 
 def test_download_single_fetch_failed(monkeypatch, tmp_path):

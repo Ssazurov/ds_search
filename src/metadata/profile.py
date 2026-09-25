@@ -9,13 +9,6 @@ from datetime import date
 # category нет собственного варианта для direction=news, например). Без
 # явного category лучше не проставлять поле вовсе, чем подставлять
 # невалидное значение и ловить 422 "unknown value for controlled field".
-LIFECYCLE_STAGES = [
-    "unspecified", "prenatal", "early_development", "preschool_school",
-    "medical", "legal_benefits", "adult_life",
-]
-UNSPECIFIED_LIFECYCLE_STAGE = LIFECYCLE_STAGES[0]
-
-
 def build_ingestion_metadata(
     *,
     source_url: str,
@@ -23,7 +16,6 @@ def build_ingestion_metadata(
     title: str,
     license: str,
     category: str | None = None,
-    lifecycle_stage: str | None = None,
     comorbidity_tags: str | None = None,
     reviewed_by: str | None = None,
     date_indexed: str | None = None,
@@ -31,9 +23,9 @@ def build_ingestion_metadata(
 ) -> dict:
     """Build mandatory ADR-0002 fields without inferring medical facts.
 
-    ``unspecified`` marks a document that still needs lifecycle curation;
-    it is intentionally not guessed from page text or source direction.
     Tags and reviewer are text fields compatible with GAR's metadata API.
+    lifecycle_stage removed (ADR-0002-amend-1): field was never wired to
+    live retrieval, dropped from the contract instead of staying unused.
     """
     result = {
         "source_url": source_url,
@@ -42,7 +34,6 @@ def build_ingestion_metadata(
         "license": license,
         "date_indexed": date_indexed or date.today().isoformat(),
         "category": category,
-        "lifecycle_stage": lifecycle_stage or UNSPECIFIED_LIFECYCLE_STAGE,
         "comorbidity_tags": comorbidity_tags or "",
         "reviewed_by": reviewed_by or "",
     }

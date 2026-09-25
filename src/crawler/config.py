@@ -12,7 +12,6 @@ class SourceConfig:
     allowed_formats: tuple[str, ...] = (".html", ".pdf")
     direction: str = "methodology"  # см. ADR-001 п.2 (enum направлений)
     category: str = "basic"
-    lifecycle_stage: str = "unspecified"
     # issue #8 / ADR-001 п.3b: конкретные RU-слаги источника (не общий
     # англоязычный список) — служебные/листинговые/интерактивные разделы.
     exclude_slugs: tuple[str, ...] = ()
@@ -35,7 +34,6 @@ DOWNSIDEUP = SourceConfig(
     max_pages=10,
     direction="methodology",
     category="basic",
-    lifecycle_stage="early_development",
     exclude_slugs=(
         "novosti", "kalendar-sobytiy", "forum", "registratsiya",
         "otzyvy", "politika-konfidentialnosti", "search",

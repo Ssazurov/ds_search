@@ -17,7 +17,7 @@ from src.discovery.config import load_settings
 from src.discovery.download import DownloadError, download_single
 from src.discovery.gar_client import GarDiscoveryClient
 from src.metadata.schema import label_of, load_dictionaries
-from src.metadata.profile import LIFECYCLE_STAGES, build_ingestion_metadata
+from src.metadata.profile import build_ingestion_metadata
 
 DATA_ROOT = Path(__file__).resolve().parents[1] / "data" / "raw"
 
@@ -62,7 +62,7 @@ def _render_queue() -> None:
 
 def _save_manual_file(
     uploaded_file, title: str, direction: str, doc_type: str,
-    category: str | None = None, lifecycle_stage: str | None = None,
+    category: str | None = None,
 ) -> None:
     import hashlib
     domain = "manual"
@@ -75,7 +75,7 @@ def _save_manual_file(
     content_path.write_bytes(uploaded_file.getvalue())
     meta = build_ingestion_metadata(
         source_url=pseudo_url, source_domain=domain, title=title,
-        license="manual_upload", category=category, lifecycle_stage=lifecycle_stage,
+        license="manual_upload", category=category,
         direction=direction, doc_type=doc_type, attribution=None,
         content_path=str(content_path), content_status="saved",
     )
@@ -156,14 +156,11 @@ def _render_manual() -> None:
         categories = dictionaries["directions"].get(direction, [])
         category = st.selectbox("Категория", [""] + categories,
                                 format_func=lambda v: label_of(dictionaries, "category", v))
-        lifecycle_stage = st.selectbox(
-            "Этап жизненного пути", dictionaries.get("lifecycle_stages", LIFECYCLE_STAGES),
-            format_func=lambda v: label_of(dictionaries, "lifecycle_stage", v))
         doc_type = st.selectbox(
             "Тип документа", dictionaries.get("doc_types", []) or [""],
             format_func=lambda v: label_of(dictionaries, "doc_type", v))
         if st.button("Сохранить файл", disabled=not (uploaded and title.strip())):
-            _save_manual_file(uploaded, title.strip(), direction, doc_type, category or None, lifecycle_stage)
+            _save_manual_file(uploaded, title.strip(), direction, doc_type, category or None)
             st.success("Документ сохранён в data/raw/manual/")
             st.rerun()
     else:
