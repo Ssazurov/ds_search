@@ -45,7 +45,7 @@ def test_prompt_requires_explicit_coverage_gap_statement():
 
 
 def test_prompt_requests_profile_aware_follow_up_questions():
-    prompt = build_system_prompt("full", {"age": 3, "lifecycle_stage": "early_development"})
+    prompt = build_system_prompt("full", {"age": 3})
 
     assert "ровно 2–3 коротких вопроса-продолжения" in prompt
     assert "релевантных ответу и контексту пациента" in prompt

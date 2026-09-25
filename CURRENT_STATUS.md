@@ -1,3 +1,11 @@
+## 2026-09-25 -- issue #290 (Epic): удаление lifecycle_stage (ADR-0022, амендмент ADR-0002)
+
+- Поле `lifecycle_stage` полностью убрано из кода ds_search: `src/metadata/profile.py` (`build_ingestion_metadata`, `LIFECYCLE_STAGES`), `src/metadata/schema.py` (`REQUIRED_FIELDS`, словари), `config/categories.yaml`, `src/crawler/config.py`/`crawler.py`, `src/discovery/download.py`, `src/news/publish.py`, `ui/search_tab.py`/`upload_tab.py`/`documents_tab.py` (поле/фильтр/форма), `src/rag/sessions.py` (`SessionTopic` — теперь единственный дискриминатор `category`), `src/rag/patient_profile.py` (retrieval-фильтр только по `comorbidity_tags`).
+- Тесты обновлены под новый контракт (test_metadata_profile/test_news_publish/test_download/test_rag_sessions/test_patient_profile/test_rag_response_modes.py). Полный прогон: **314 passed**.
+- ADR: `ds/docs/adr/0022-remove-lifecycle-stage.md` (амендмент root ADR-0002) + запись в `ds/docs/decisions.md` и `ds_search/docs/decisions.md`.
+- Не тронуто (вне скоупа эпика): поле в самой GAR-админке (удаляется вручную), `ds_ingestion` (`gar_client/metadata_fields.py`, `adapter/pipeline.py` — маппинг известных полей, отдельная задача при необходимости), исторические значения в старых sidecar `.json`.
+- Пересборка не требуется отдельно от PR-мержа (см. ниже после коммита/деплоя).
+
 ## 2026-09-25 -- issue #286 (запушено) + #288: метаданные на вкладке Документы
 
 - **#286** (PR #287): форма редактирования direction/category/lifecycle_stage/age/needs_review на вкладке Документы (`ui/documents_tab.py::_render_metadata_form`). direction/category — из живой схемы GAR (`src/metadata/gar_schema.py`, только активные controlled-опции), не из локальных констант. Для уже загруженных в GAR документов правка уходит и в sidecar `.json`, и через `PATCH /documents/{id}` (`_patch_gar_metadata`, `GarIngestClient.patch_document_metadata`). `publish_permission` теперь проставляется при скачивании из `license_result.publish_permission` (`src/crawler/crawler.py`, `src/discovery/download.py`) — раньше поле не заполнялось. Таблица уже локализовала direction/category через существующий `ui/table_utils.localize()`/`label_of()` (кэш словаря из GAR, обновляется кнопкой на вкладке Справочники) — отдельный маппинг не потребовался. Код был реализован в прошлой сессии, но не закоммичен — в этой сессии только commit/PR/merge.

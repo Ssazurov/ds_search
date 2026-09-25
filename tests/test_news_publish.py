@@ -54,7 +54,6 @@ def test_build_metadata_mapping():
     # issue #186: age — required в GAR, дефолт подставляется, если
     # classify() не смог его определить.
     assert meta["age"] == publish.FALLBACK_AGE
-    assert meta["lifecycle_stage"] == "unspecified"
     assert meta["date_indexed"]
 
 

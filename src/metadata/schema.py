@@ -19,7 +19,6 @@ from typing import Any
 
 import yaml
 
-from .profile import LIFECYCLE_STAGES
 from .gar_schema import load_cache, field_options, option_labels, category_options_for_direction
 
 DIRECTIONS = ["methodology", "medicine", "law", "science", "news"]
@@ -55,7 +54,7 @@ LICENSE_STATUSES = ["unknown", "allow", "attribution_required", "deny", "pending
 # "required field age must not be blank".
 REQUIRED_FIELDS = [
     "source_url", "source_domain", "title", "license", "direction",
-    "date_indexed", "category", "lifecycle_stage", "comorbidity_tags",
+    "date_indexed", "category", "comorbidity_tags",
     "reviewed_by", "age",
 ]
 
@@ -67,7 +66,6 @@ _DEFAULT_DICTIONARIES = {
     "doc_types": list(DOC_TYPES),
     "target_audiences": list(TARGET_AUDIENCES),
     "age_groups": list(AGE_GROUPS),
-    "lifecycle_stages": list(LIFECYCLE_STAGES),
     "license_statuses": list(LICENSE_STATUSES),
     "labels": {},  # {field_key: {value: русский label}}, источник — GAR (ADR-013)
 }
@@ -165,7 +163,7 @@ def save_dictionaries(dictionaries: dict, path: Path = _CATEGORIES_PATH) -> None
     if "license_statuses" in original and candidate.get("license_statuses") != original["license_statuses"]:
         raise ValueError("license_statuses нельзя изменять через UI")
     original["directions"] = candidate["directions"]
-    for key in ("doc_types", "target_audiences", "age_groups", "lifecycle_stages", "license_statuses"):
+    for key in ("doc_types", "target_audiences", "age_groups", "license_statuses"):
         if key in candidate:
             original[key] = candidate[key]
     validate_dictionaries(original)

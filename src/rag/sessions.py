@@ -1,12 +1,10 @@
-"""Thematic RAG sessions (notebooks) bound to lifecycle topics (issue #43)."""
+"""Thematic RAG sessions (notebooks) bound to topics (issue #43)."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Mapping, Sequence
 from uuid import uuid4
-
-from src.metadata.profile import LIFECYCLE_STAGES
 
 from .export import SourceReference, normalize_sources
 from .patient_profile import PatientProfile, validate_patient_profile
@@ -20,16 +18,11 @@ def _now() -> str:
 class SessionTopic:
     """A session topic from the information architecture."""
 
-    lifecycle_stage: str | None = None
     category: str | None = None
 
     def __post_init__(self) -> None:
-        if self.lifecycle_stage is None and self.category is None:
-            raise ValueError("тема должна содержать lifecycle_stage или category")
-        if self.lifecycle_stage is not None and self.lifecycle_stage not in LIFECYCLE_STAGES:
-            raise ValueError(
-                f"неизвестный lifecycle_stage: {self.lifecycle_stage!r}"
-            )
+        if self.category is None:
+            raise ValueError("тема должна содержать category")
 
 
 @dataclass(frozen=True)

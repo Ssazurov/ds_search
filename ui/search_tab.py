@@ -13,7 +13,6 @@ from src.discovery.gar_client import GarDiscoveryClient
 from src.discovery.presets import delete_preset, load_presets, save_preset
 from src.discovery.run_search import run_search
 from src.metadata.schema import label_of, load_dictionaries
-from src.metadata.profile import LIFECYCLE_STAGES
 from src.search.base import QuotaExceeded
 from src.search.brave import BraveProvider
 from src.search.chain import SearchProviderChain
@@ -96,9 +95,6 @@ def render() -> None:
                if preset.get("target_audience") in dictionaries["target_audiences"] else 0),
         format_func=fmt("target_audience"),
     )
-    lifecycle_stage = st.selectbox(
-        "Этап жизненного пути", ["— не выбрано —"] + dictionaries.get("lifecycle_stages", LIFECYCLE_STAGES),
-        format_func=fmt("lifecycle_stage"))
     known = _known_domains()
     domains_selected = st.multiselect(
         "Домены из источников", list(known),
@@ -120,7 +116,6 @@ def render() -> None:
         "suggested_direction": direction if direction != _NONE else None,
         "suggested_category": category if category != _NONE else None,
         "suggested_target_audience": target_audience if target_audience != _NONE else None,
-        "lifecycle_stage": lifecycle_stage if lifecycle_stage != _NONE else None,
     }
 
     col1, col2 = st.columns(2)

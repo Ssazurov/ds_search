@@ -265,7 +265,7 @@ class SourceCrawler:
         meta = build_ingestion_metadata(
             source_url=teaser_url, source_domain=self.cfg.domain, title="",
             license=self.license_result.status.value, category=self.cfg.category,
-            lifecycle_stage=self.cfg.lifecycle_stage, pdf_url=pdf_url,
+            pdf_url=pdf_url,
             direction=self.cfg.direction, attribution=attribution,
             content_path=str(pdf_path), content_status="saved",
             doc_type="article",  # issue: doc_type не проставлялся веб-статьям (0 из 107)
@@ -299,7 +299,7 @@ class SourceCrawler:
         meta = build_ingestion_metadata(
             source_url=canon_url, source_domain=self.cfg.domain, title=title,
             license=self.license_result.status.value, category=self.cfg.category,
-            lifecycle_stage=self.cfg.lifecycle_stage, direction=self.cfg.direction,
+            direction=self.cfg.direction,
             attribution=attribution, content_path=str(md_path), content_status="saved",
             doc_type="article",  # issue: doc_type не проставлялся веб-статьям (0 из 107)
             publish_permission=self.license_result.publish_permission.value,  # issue #286: наследование от домена
