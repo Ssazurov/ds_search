@@ -1,3 +1,10 @@
+## 2026-09-25 -- issue #286 (запушено) + #288: метаданные на вкладке Документы
+
+- **#286** (PR #287): форма редактирования direction/category/lifecycle_stage/age/needs_review на вкладке Документы (`ui/documents_tab.py::_render_metadata_form`). direction/category — из живой схемы GAR (`src/metadata/gar_schema.py`, только активные controlled-опции), не из локальных констант. Для уже загруженных в GAR документов правка уходит и в sidecar `.json`, и через `PATCH /documents/{id}` (`_patch_gar_metadata`, `GarIngestClient.patch_document_metadata`). `publish_permission` теперь проставляется при скачивании из `license_result.publish_permission` (`src/crawler/crawler.py`, `src/discovery/download.py`) — раньше поле не заполнялось. Таблица уже локализовала direction/category через существующий `ui/table_utils.localize()`/`label_of()` (кэш словаря из GAR, обновляется кнопкой на вкладке Справочники) — отдельный маппинг не потребовался. Код был реализован в прошлой сессии, но не закоммичен — в этой сессии только commit/PR/merge.
+- **#288** (PR #289): при отметке документов галочкой форма выше предзаполняется direction/category, если значение одно на всех выбранных и валидно в текущей схеме GAR; при разных значениях в выборке — пусто ("не выбрано"), чтобы не перезаписать документы одним значением по ошибке. Реализовано через `st.session_state["_batch_meta_sel_key"]` (сигнатура выбранных `doc_id`) — сброс `batch_direction`/`batch_category` в session_state только при смене состава выборки, ручной выбор пользователя внутри одной и той же выборки не затирается.
+- Проверка: `py_compile` обоих файлов OK; `pytest tests/test_gar_ingest_documents.py tests/test_gar_schema.py tests/test_metadata_profile.py tests/test_metadata_schema.py` — 20 passed. ADR не требовался (без изменения контракта/схемы, только UI+инициализация уже существующего поля).
+- Пересборка ds-search дважды (после #287 и после #289): `~/build.log` — нет `failed to solve`, все шаги (pip/apt/chromium/node) `CACHED`.
+
 ## 2026-09-24 -- issue #275: UI-полировка (запоминание вкладки, название, отступ)
 
 - `ui/app.py`:
