@@ -1,3 +1,12 @@
+## 2026-09-25 -- issue #292: ссылки на локальные md/json черновики в таблице Документов
+
+- Добавлены колонки «MD» и «JSON» с `file://` ссылками на `content_path` (md/pdf) и `doc_json_path` (sidecar) через `st.column_config.LinkColumn` с material-иконками.
+- Ссылки открываются в приложении по умолчанию через браузер (не рендерятся в браузере).
+- Только вкладка Документы — для Материалов нет прямой связи `gar_document_id → content_path` без доп. поиска по `*.ingested.json`.
+- Проверка: `py_compile` OK, коммит db9337b.
+- ADR не требуется (UI-правка без изменения контракта).
+- Пересборка не нужна (не влияет на функциональность в контейнере, только UI Streamlit).
+
 ## 2026-09-25 -- issue #290 (Epic): удаление lifecycle_stage (ADR-0022, амендмент ADR-0002)
 
 - Поле `lifecycle_stage` полностью убрано из кода ds_search: `src/metadata/profile.py` (`build_ingestion_metadata`, `LIFECYCLE_STAGES`), `src/metadata/schema.py` (`REQUIRED_FIELDS`, словари), `config/categories.yaml`, `src/crawler/config.py`/`crawler.py`, `src/discovery/download.py`, `src/news/publish.py`, `ui/search_tab.py`/`upload_tab.py`/`documents_tab.py` (поле/фильтр/форма), `src/rag/sessions.py` (`SessionTopic` — теперь единственный дискриминатор `category`), `src/rag/patient_profile.py` (retrieval-фильтр только по `comorbidity_tags`).
