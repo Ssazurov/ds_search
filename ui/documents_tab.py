@@ -113,6 +113,111 @@ def _delete_batch(rows: list[dict]) -> None:
     st.rerun()
 
 
+def _update_document_metadata(doc_json_path: Path, updates: dict) -> None:
+    """Обновить метаданные документа в sidecar .json (issue #286)."""
+    meta = json.loads(doc_json_path.read_text(encoding="utf-8"))
+    meta.update(updates)
+    if meta.get("ingest_error") and {"direction", "category", "age"} & updates.keys():
+        # правка контролируемых полей — сбрасываем старую ошибку 422, чтобы
+        # повторная загрузка не путала пользователя устаревшим текстом
+        meta["ingest_error"] = None
+    doc_json_path.write_text(json.dumps(meta, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def _patch_gar_metadata(gar_document_id: str, updates: dict) -> None:
+    """PATCH метаданных уже загруженного в GAR документа (issue #286).
+    Сервер мержит с существующими метаданными (ADR-006)."""
+    from src.gar_ingest.client import GarIngestClient, load_settings
+    settings = load_settings()
+    with GarIngestClient(settings) as client:
+        client.patch_document_metadata(gar_document_id, updates)
+
+
+def _render_metadata_form(selected_rows: list[dict]) -> None:
+    """Форма редактирования direction/category/lifecycle_stage/age/needs_review
+    перед публикацией (issue #286). publish_permission наследуется от домена
+    автоматически при скачивании и здесь не редактируется. Значения
+    direction/category берутся из ЖИВОЙ схемы GAR (ADR-013) — только активные
+    controlled-опции, чтобы не повторить 422 "unknown value" из-за устаревших
+    локальных констант. Для уже загруженных в GAR документов правки уходят
+    и в sidecar .json, и через PATCH в сам GAR."""
+    if not selected_rows:
+        return
+
+    st.subheader("Редактирование метаданных перед публикацией")
+    st.caption("publish_permission наследуется от домена автоматически при скачивании и здесь не меняется. "
+               "Пустое значение поля = не менять.")
+
+    from src.metadata.schema import AGE_OPTIONS
+    from src.metadata.profile import LIFECYCLE_STAGES
+    from src.metadata.gar_schema import (
+        load_gar_schema, field_options, option_labels, category_options_for_direction,
+    )
+
+    gar_fields, directions, dir_labels = None, [], {}
+    try:
+        gar_fields = load_gar_schema()
+        directions = field_options(gar_fields, "direction")
+        dir_labels = option_labels(gar_fields).get("direction", {})
+    except Exception as exc:  # noqa: BLE001 — деградируем, а не роняем вкладку
+        st.warning(f"Справочник направлений GAR недоступен ({exc}) — direction/category временно не редактируются.")
+
+    loaded_count = sum(1 for r in selected_rows if r["gar_document_id"])
+    st.caption(f"Выбрано: {len(selected_rows)}, из них уже в GAR: {loaded_count} (для них уйдёт PATCH в GAR)")
+
+    with st.form("batch_metadata_form"):
+        st.write("**Пакетное обновление выбранных документов**")
+        direction = ""
+        category = ""
+        if directions:
+            direction = st.selectbox(
+                "Направление", [""] + directions, key="batch_direction",
+                format_func=lambda v: v if not v else dir_labels.get(v, v))
+            if direction:
+                categories = category_options_for_direction(gar_fields, direction)
+                cat_labels = option_labels(gar_fields).get("category", {})
+                category = st.selectbox(
+                    "Категория", [""] + categories, key="batch_category",
+                    format_func=lambda v: v if not v else cat_labels.get(v, v))
+            else:
+                st.caption("Категория — сначала выберите направление")
+        lifecycle_stage = st.selectbox(
+            "Этап (lifecycle_stage)", [""] + LIFECYCLE_STAGES, key="batch_lifecycle_stage")
+        age = st.selectbox("Age (возраст)", [""] + AGE_OPTIONS, key="batch_age")
+        needs_review_choice = st.selectbox(
+            "Needs review (требует проверки)", ["не менять", "да", "нет"], key="batch_needs_review")
+
+        if st.form_submit_button("Применить ко всем выбранным"):
+            updates = {}
+            if direction:
+                updates["direction"] = direction
+            if category:
+                updates["category"] = category
+            if lifecycle_stage:
+                updates["lifecycle_stage"] = lifecycle_stage
+            if age:
+                updates["age"] = age
+            if needs_review_choice != "не менять":
+                updates["needs_review"] = needs_review_choice == "да"
+
+            if not updates:
+                st.warning("Ничего не выбрано для изменения")
+            else:
+                errors = []
+                for row in selected_rows:
+                    try:
+                        _update_document_metadata(row["doc_json_path"], updates)
+                        if row["gar_document_id"]:
+                            _patch_gar_metadata(row["gar_document_id"], updates)
+                    except Exception as exc:  # noqa: BLE001
+                        errors.append(f"{row['doc_id']}: {exc}")
+
+                for err in errors:
+                    st.error(err)
+                st.success(f"Обновлено: {len(selected_rows) - len(errors)}/{len(selected_rows)}")
+                st.rerun()
+
+
 def _ingest_batch(rows: list[dict]) -> None:
     pending = [r for r in rows if not r["gar_document_id"]]
     if not pending:
@@ -215,6 +320,12 @@ def render() -> None:
         f"Всего: {len(df)}, очищено: {int(df['clean'].sum())}, "
         f"в GAR: {sum(r['status'] == 'loaded' for r in filtered)}, выбрано: {len(selected_rows)}"
     )
+
+    # issue #286: форма редактирования метаданных перед публикацией
+    if selected_rows:
+        st.divider()
+        _render_metadata_form(selected_rows)
+        st.divider()
 
     not_loaded = [r for r in selected_rows if not r["gar_document_id"]]
     b1, b2 = st.columns(2)
