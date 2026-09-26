@@ -91,11 +91,8 @@ def _apply_filters(rows: list[dict]) -> list[dict]:
     gar_status = c6.selectbox(
         "Статус GAR", [_ALL, *_GAR_STATUS_FILTER], key="doc_filter_gar_status",
         format_func=lambda v: _GAR_STATUS_FILTER.get(v, _ALL))
-    c7.write("")  # выравнивание по высоте с лейблами фильтров слева
-    if c7.button("Сбросить", key="doc_filters_reset_btn"):
-        for k in _FILTER_KEYS:
-            st.session_state.pop(k, None)
-        st.rerun()
+    c7.write("")  # пустой label для выравнивания
+    c7.button("Сбросить", key="doc_filters_reset_btn", on_click=lambda: [st.session_state.pop(k, None) for k in _FILTER_KEYS])
     filtered = rows
     if text:
         filtered = [r for r in filtered if text in r["title"].lower() or text in r["domain"].lower()]
@@ -438,26 +435,6 @@ def _ingest_batch(rows: list[dict]) -> None:
 
 def render() -> None:
     st.header("Документы")
-    st.caption("Стадии raw/clean — по наличию файлов на диске. Ingestion в GAR — "
-               "по факту gar_document_id в sidecar .json (issue #116, ADR-006).")
-    st.caption("Скачивание документов по URL — во вкладке «Загрузка».")
-
-    c_btn, c_info = st.columns([1, 3])
-    if c_btn.button("Обновить список из GAR", key="gar_docs_refresh_btn"):
-        try:
-            st.session_state["gar_docs_cache"] = _fetch_gar_documents()
-        except Exception as exc:  # noqa: BLE001 — сеть/GAR недоступны, не роняем вкладку
-            st.error(f"Не удалось получить список из GAR: {exc}")
-        else:
-            st.rerun()
-    if "gar_docs_cache" in st.session_state:
-        c_info.caption(
-            f"GAR-документов в кэше: {len(st.session_state['gar_docs_cache'])} "
-            "(обновляется по кнопке, issue #295)"
-        )
-    else:
-        c_info.caption("Список GAR ещё не загружен — нажмите «Обновить список из GAR», "
-                        "чтобы увидеть документы без локального файла")
 
     rows = _scan_raw()
     # Добавляем gar_status из кэша GAR к локальным строкам (issue #297)
@@ -495,14 +472,34 @@ def render() -> None:
         for r in filtered
     ])
     df.insert(0, "select", False)
-    order, config, sort = column_settings(
-        "documents", {k: labels[k] for k in ("select", "title", "url", "domain", "direction", "category",
-                                             "doc_type", "clean", "gar", "error", "added", "md", "json")},
-        {labels["url"]: link_column(), labels["added"]: datetime_column(labels["added"]),
-         labels["md"]: st.column_config.LinkColumn(
-             labels["md"], display_text=":material/description:", width="small"),
-         labels["json"]: st.column_config.LinkColumn(
-             labels["json"], display_text=":material/data_object:", width="small")})
+    
+    # Кнопка "Колонки" и "Обновить список из GAR" в одной строке
+    col_settings, col_gar_refresh, col_gar_info = st.columns([1, 2, 5])
+    with col_settings:
+        order, config, sort = column_settings(
+            "documents", {k: labels[k] for k in ("select", "title", "url", "domain", "direction", "category",
+                                                 "doc_type", "clean", "gar", "error", "added", "md", "json")},
+            {labels["url"]: link_column(), labels["added"]: datetime_column(labels["added"]),
+             labels["md"]: st.column_config.LinkColumn(
+                 labels["md"], display_text=":material/description:", width="small"),
+             labels["json"]: st.column_config.LinkColumn(
+                 labels["json"], display_text=":material/data_object:", width="small")})
+    if col_gar_refresh.button("Обновить список из GAR", key="gar_docs_refresh_btn"):
+        try:
+            st.session_state["gar_docs_cache"] = _fetch_gar_documents()
+        except Exception as exc:  # noqa: BLE001 — сеть/GAR недоступны, не роняем вкладку
+            st.error(f"Не удалось получить список из GAR: {exc}")
+        else:
+            st.rerun()
+    if "gar_docs_cache" in st.session_state:
+        col_gar_info.caption(
+            f"GAR-документов в кэше: {len(st.session_state['gar_docs_cache'])} "
+            "(обновляется по кнопке, issue #295)"
+        )
+    else:
+        col_gar_info.caption("Список GAR ещё не загружен — нажмите «Обновить список из GAR», "
+                             "чтобы увидеть документы без локального файла")
+    
     df_display = localize(df).rename(columns=labels)
     if sort:
         df_display = df_display.sort_values(sort[0], ascending=sort[1])
@@ -548,7 +545,8 @@ def render() -> None:
     all_have_gar = len(gar_only) == len(selected_rows) and selected_rows
     archivable = [r for r in selected_rows if r["gar_document_id"]]
 
-    b1, b2, b3, b4, b5 = st.columns(5)
+    # Кнопки прижаты к правому краю
+    spacer, b1, b2, b3, b4, b5 = st.columns([3, 1.2, 1, 1, 1, 1.2])
     if b1.button(f"Загрузить в GAR выбранные ({len(not_loaded)})", disabled=not not_loaded,
                  key="ingest_selected_btn"):
         _ingest_batch(not_loaded)
