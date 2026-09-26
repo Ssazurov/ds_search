@@ -455,3 +455,17 @@ local rows + GAR-документы без соответствия по gar_doc
 - Проверка: `py_compile` OK, `git diff --check` чисто, коммит 396db3b.
 - ADR не требуется (UI-правка, продолжение ADR-014 из эпика #294).
 - Пересборка: UI-правка Streamlit требует пересборки контейнера ds-search для применения изменений в проде.
+
+## 2026-09-26 -- issue #314: recrawl_url override-параметры dest_dir/filename/direction/category
+
+- `SourceCrawler.recrawl_url` (src/crawler/crawler.py) получил keyword-only параметры `dest_dir`, `filename`, `direction`, `category` для объединения с `download_single` (часть epic #313).
+- `dest_dir` — путь относительно `self.out_dir`, валидация через новый метод `_resolve_dest_dir` (абсолютный путь или escape за пределы `self.out_dir.resolve()` → `None` + `logger.warning`, без исключения, контракт `recrawl_url` сохранён).
+- `filename` — санитизируется через `discovery.download._sanitize_filename` (импорт добавлен, циклического импорта нет), используется как basename вместо `sha256(canon_url)[:16]`.
+- `direction`/`category` — перекрывают `self.cfg.direction`/`self.cfg.category` только для данного вызова, не мутируют конфиг.
+- Параметры протащены в `_save` и `_download_pdf`: `base_dir = self._resolve_dest_dir(dest_dir)` вместо жёсткого `self.out_dir`, `doc_id = _sanitize_filename(filename) if filename else hashlib.sha256(...)[:16]`, `direction=direction or self.cfg.direction`, `category=category or self.cfg.category` в `build_ingestion_metadata`.
+- Обратная совместимость: вызовы `_save`/`_download_pdf` из `run()` (full-scan) без изменений сигнатур (4 позиционных аргумента, новые параметры по умолчанию `None`).
+- Старые вызовы `recrawl_url(url)` (manual_add.py, recrawl_cli) работают без изменений (все новые параметры keyword-only с дефолтом `None`).
+- Тесты: `tests/test_crawler_recrawl_overrides.py` (6 сценариев: регрессия без kwargs, filename override, dest_dir override, escape rejection, direction/category override, run() full-scan регрессия). Запускаются в Docker после пересборки.
+- Проверка: `git diff --check` — чисто, `python3 -m py_compile` — синтаксис OK, сигнатура в runtime: `(self, url: str, *, dest_dir: str | None = None, filename: str | None = None, direction: str | None = None, category: str | None = None) -> dict | None`, `_resolve_dest_dir` работает корректно (валидирует относительные пути, отклоняет абсолютные/escape).
+- Коммит 93e71c6, PR #319 merged в main (7186e6d).
+- Пересборка ds-search: `~/build.log` — нет `failed to solve`, все шаги (pip/apt/chromium/node) `CACHED`, chromium не перекачивался.
