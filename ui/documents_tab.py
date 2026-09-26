@@ -273,27 +273,6 @@ def _reload_from_source(document_id: str) -> dict:
     return resp.json()
 
 
-def _render_title_summary_form(row: dict) -> None:
-    """Правка title/summary одного документа с PATCH в GAR (issue #301,
-    перенос из materials_tab._render_card). Доступно только если есть
-    gar_document_id — PATCH идёт только в GAR, sidecar .json не трогаем
-    (в отличие от _render_metadata_form)."""
-    if not row["gar_document_id"]:
-        return
-    st.subheader("Заголовок и описание (PATCH в GAR)")
-    new_title = st.text_input("Заголовок", value=row["title"], key=f"ts_title_{row['doc_id']}")
-    new_summary = st.text_area(
-        "Summary", value=row.get("summary", ""), key=f"ts_summary_{row['doc_id']}")
-    if st.button("💾 Сохранить заголовок/summary", key=f"ts_save_{row['doc_id']}"):
-        try:
-            _patch_gar_metadata(row["gar_document_id"], {"title": new_title, "summary": new_summary})
-            st.success("Сохранено")
-            st.session_state.pop("gar_docs_cache", None)
-            st.rerun()
-        except Exception as exc:  # noqa: BLE001
-            st.error(str(exc))
-
-
 def _render_metadata_form(selected_rows: list[dict]) -> None:
     """Форма редактирования direction/category/age/needs_review
     перед публикацией (issue #286). publish_permission наследуется от домена
@@ -340,54 +319,58 @@ def _render_metadata_form(selected_rows: list[dict]) -> None:
         st.session_state["batch_category"] = common_cat if common_cat in valid_cats else ""
         st.session_state["_batch_meta_sel_key"] = sel_key
 
-    with st.form("batch_metadata_form"):
-        st.write("**Пакетное обновление выбранных документов**")
-        direction = ""
-        category = ""
-        if directions:
-            direction = st.selectbox(
-                "Направление", [""] + directions, key="batch_direction",
-                format_func=lambda v: v if not v else dir_labels.get(v, v))
-            if direction:
-                categories = category_options_for_direction(gar_fields, direction)
-                cat_labels = option_labels(gar_fields).get("category", {})
-                category = st.selectbox(
-                    "Категория", [""] + categories, key="batch_category",
-                    format_func=lambda v: v if not v else cat_labels.get(v, v))
-            else:
-                st.caption("Категория — сначала выберите направление")
-        age = st.selectbox("Age (возраст)", [""] + AGE_OPTIONS, key="batch_age")
-        needs_review_choice = st.selectbox(
-            "Needs review (требует проверки)", ["не менять", "да", "нет"], key="batch_needs_review")
+    # Без st.form: внутри st.form виджеты не вызывают rerun при изменении
+    # (только по submit), поэтому список категорий не пересчитывался бы под
+    # новое направление (issue #304). Обычные виджеты + обычная кнопка вместо
+    # формы — заодно нет рамки, отделяющей «Направление» от остальных полей.
+    st.write("**Пакетное обновление выбранных документов**")
+    direction = ""
+    if directions:
+        direction = st.selectbox(
+            "Направление", [""] + directions, key="batch_direction",
+            format_func=lambda v: v if not v else dir_labels.get(v, v))
+    category = ""
+    if directions:
+        if direction:
+            categories = category_options_for_direction(gar_fields, direction)
+            cat_labels = option_labels(gar_fields).get("category", {})
+            category = st.selectbox(
+                "Категория", [""] + categories, key="batch_category",
+                format_func=lambda v: v if not v else cat_labels.get(v, v))
+        else:
+            st.caption("Категория — сначала выберите направление")
+    age = st.selectbox("Age (возраст)", [""] + AGE_OPTIONS, key="batch_age")
+    needs_review_choice = st.selectbox(
+        "Needs review (требует проверки)", ["не менять", "да", "нет"], key="batch_needs_review")
 
-        if st.form_submit_button("Применить ко всем выбранным"):
-            updates = {}
-            if direction:
-                updates["direction"] = direction
-            if category:
-                updates["category"] = category
-            if age:
-                updates["age"] = age
-            if needs_review_choice != "не менять":
-                updates["needs_review"] = needs_review_choice == "да"
+    if st.button("Применить ко всем выбранным", key="batch_metadata_apply_btn"):
+        updates = {}
+        if direction:
+            updates["direction"] = direction
+        if category:
+            updates["category"] = category
+        if age:
+            updates["age"] = age
+        if needs_review_choice != "не менять":
+            updates["needs_review"] = needs_review_choice == "да"
 
-            if not updates:
-                st.warning("Ничего не выбрано для изменения")
-            else:
-                errors = []
-                for row in selected_rows:
-                    try:
-                        if row["doc_json_path"] is not None:
-                            _update_document_metadata(row["doc_json_path"], updates)
-                        if row["gar_document_id"]:
-                            _patch_gar_metadata(row["gar_document_id"], updates)
-                    except Exception as exc:  # noqa: BLE001
-                        errors.append(f"{row['doc_id']}: {exc}")
+        if not updates:
+            st.warning("Ничего не выбрано для изменения")
+        else:
+            errors = []
+            for row in selected_rows:
+                try:
+                    if row["doc_json_path"] is not None:
+                        _update_document_metadata(row["doc_json_path"], updates)
+                    if row["gar_document_id"]:
+                        _patch_gar_metadata(row["gar_document_id"], updates)
+                except Exception as exc:  # noqa: BLE001
+                    errors.append(f"{row['doc_id']}: {exc}")
 
-                for err in errors:
-                    st.error(err)
-                st.success(f"Обновлено: {len(selected_rows) - len(errors)}/{len(selected_rows)}")
-                st.rerun()
+            for err in errors:
+                st.error(err)
+            st.success(f"Обновлено: {len(selected_rows) - len(errors)}/{len(selected_rows)}")
+            st.rerun()
 
 
 def _archive_batch(rows: list[dict], archive: bool) -> None:
@@ -516,7 +499,6 @@ def render() -> None:
 
     # issue #286: форма редактирования метаданных перед публикацией
     if selected_rows:
-        st.divider()
         _render_metadata_form(selected_rows)
 
         # issue #300: кнопка перезагрузки из источника для одного документа с gar_document_id
@@ -533,11 +515,6 @@ def render() -> None:
                     st.rerun()
                 except GarPublishError as exc:
                     st.error(str(exc))
-
-            # issue #301: форма правки title/summary через PATCH в GAR
-            _render_title_summary_form(selected_rows[0])
-
-        st.divider()
 
     # issue #299: кнопки удаления с явной семантикой и подтверждением
     not_loaded = [r for r in selected_rows if not r["gar_document_id"]]
