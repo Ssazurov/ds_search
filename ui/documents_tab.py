@@ -4,7 +4,6 @@ ADR-006 п.5): пакетная загрузка через src/gar_ingest/docum
 Вид таблицы — по образцу «Результатов» через ui/table_utils.py (issue #270)."""
 from __future__ import annotations
 
-import asyncio
 import json
 import os
 from collections import Counter
@@ -15,7 +14,6 @@ import httpx
 import pandas as pd
 import streamlit as st
 
-from src.crawler.manual_add import add_manual_document
 from src.gar_ingest.client import GarPublishError
 from src.gar_ingest.documents import ingest_document
 from src.metadata.schema import label_of, load_dictionaries
@@ -438,49 +436,12 @@ def _ingest_batch(rows: list[dict]) -> None:
     st.rerun()
 
 
-def _add_by_url() -> None:
-    url = st.session_state.get("manual_add_url", "").strip()
-    if not url:
-        return
-    result = asyncio.run(add_manual_document(url))
-    status = result["status"]
-    if status == "added":
-        st.session_state["manual_add_msg"] = (
-            "success", f"Документ добавлен: {result['doc_id']} (source: {result['source']})"
-        )
-    elif status == "duplicate":
-        st.session_state["manual_add_msg"] = (
-            "warning",
-            f"Документ с этим URL уже есть ({result['doc_id']}) — используйте reload "
-            "для обновления содержимого, не повторное добавление.",
-        )
-    elif status == "license_pending":
-        st.session_state["manual_add_msg"] = (
-            "warning",
-            f"Домен не проверен: {result['reason']} — проставьте статус во вкладке "
-            "«Источники», затем повторите добавление.",
-        )
-    elif status == "license_denied":
-        st.session_state["manual_add_msg"] = ("error", f"Домен запрещён к скачиванию: {result['reason']}")
-    else:
-        st.session_state["manual_add_msg"] = ("error", f"Не удалось добавить документ: {result['reason']}")
-
-
 def render() -> None:
     st.header("Документы")
     st.caption("Стадии raw/clean — по наличию файлов на диске. Ingestion в GAR — "
                "по факту gar_document_id в sidecar .json (issue #116, ADR-006).")
+    st.caption("Скачивание документов по URL — во вкладке «Загрузка».")
 
-    st.subheader("Добавить документ по URL")
-    st.caption("Разовое добавление одного известного материала (ADR-0014, issue #204) — "
-               "тот же staged crawl и license gate, что и у reload/автосбора.")
-    st.text_input("Ссылка на документ", key="manual_add_url")
-    st.button("Добавить документ", key="manual_add_btn", on_click=_add_by_url)
-    if "manual_add_msg" in st.session_state:
-        level, msg = st.session_state.pop("manual_add_msg")
-        getattr(st, level)(msg)
-
-    st.divider()
     c_btn, c_info = st.columns([1, 3])
     if c_btn.button("Обновить список из GAR", key="gar_docs_refresh_btn"):
         try:
