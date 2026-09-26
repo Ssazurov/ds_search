@@ -443,15 +443,14 @@ def render() -> None:
     _WSL_DISTRO = os.environ.get("HOST_WSL_DISTRO", "Ubuntu")
 
     def _file_uri(p) -> str | None:
-        # issue #292/#327: пробовали vscode://vscode-remote/wsl+<distro>/... —
-        # ненадёжно: при уже открытом remote-окне VS Code просто
-        # фокусируется, файл не открывается (переоткрытие того же authority
-        # не переобрабатывается). Рабочий вариант — file://wsl.localhost/
-        # <distro>/<abs-host-path>: Windows резолвит это как UNC-путь и
-        # открывает файл приложением по умолчанию для расширения (у автора —
-        # Notepad++), без блокировки из http-страницы (issue #292 опасение
-        # не подтвердилось для формата wsl.localhost). Требует host path
-        # (data — volume-mount внутри контейнера), см. HOST_DATA_ROOT.
+        # issue #292/#327: vscode://vscode-remote/wsl+<distro>/... — ненадёжно
+        # (переоткрытие уже открытого remote-окна фокусирует его, файл не
+        # открывается). file://wsl.localhost/... — браузер блокирует
+        # ("Not allowed to load local resource"), это подтвердилось.
+        # Решение: свой протокол dsdoc:// (зарегистрирован в реестре хоста,
+        # HKCU\Software\Classes\dsdoc -> открывает файл по default handler'у
+        # расширения через \\wsl.localhost\<distro>\<path> — у автора это
+        # Notepad++). Требует host path, см. HOST_DATA_ROOT.
         # Статика Streamlit (issue #325) оставлена как fallback ниже.
         if not p:
             return None
@@ -460,7 +459,7 @@ def render() -> None:
             rel = resolved.relative_to(ROOT)
         except ValueError:
             return None
-        return f"file://wsl.localhost/{_WSL_DISTRO}{_HOST_DATA_ROOT}/{rel.as_posix()}"
+        return f"dsdoc://{_WSL_DISTRO}{_HOST_DATA_ROOT}/{rel.as_posix()}"
 
     def _static_uri(p) -> str | None:
         # Fallback для тех, у кого нет VS Code/Remote-WSL — статика Streamlit
