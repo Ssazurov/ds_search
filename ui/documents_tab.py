@@ -157,13 +157,9 @@ def _gar_only_rows(rows: list[dict]) -> list[dict]:
     return extra
 
 
-def _delete_files(row: dict) -> None:
+def _delete_local_only(row: dict) -> None:
     """Удаляет локальные файлы документа: raw meta + content + clean sidecar.
-    GAR не трогаем (вариант "а"): если ingested, запись в GAR остаётся.
-    Для строк без локального файла (GAR-only, issue #295) удаление из GAR —
-    отдельная задача #299, здесь только пропускаем с явной ошибкой."""
-    if row["doc_json_path"] is None:
-        raise ValueError("нет локального файла — удаление из GAR см. #299")
+    Вызывать только когда doc_json_path is not None (issue #299)."""
     meta = json.loads(row["doc_json_path"].read_text(encoding="utf-8"))
     content_path = meta.get("content_path")
     if content_path and Path(content_path).exists():
@@ -174,17 +170,68 @@ def _delete_files(row: dict) -> None:
     row["doc_json_path"].unlink(missing_ok=True)
 
 
-def _delete_batch(rows: list[dict]) -> None:
+def _delete_from_gar_batch(rows: list[dict]) -> None:
+    """Удаляет документы из GAR, не трогая локальные файлы (issue #299)."""
+    from src.gar_ingest.client import GarIngestClient, GarPublishError, load_settings
     errors: list[str] = []
-    for row in rows:
-        try:
-            _delete_files(row)
-        except (OSError, json.JSONDecodeError) as exc:
-            errors.append(f"{row['doc_id']}: {exc}")
+    settings = load_settings()
+    with GarIngestClient(settings) as client:
+        for row in rows:
+            try:
+                client.delete_document(row["gar_document_id"])
+            except GarPublishError as exc:
+                errors.append(f"{row['doc_id']}: {exc}")
     for err in errors:
         st.error(err)
-    st.success(f"Удалено: {len(rows) - len(errors)}/{len(rows)}")
+    st.success(f"Удалено из GAR: {len(rows) - len(errors)}/{len(rows)}")
+    try:
+        st.session_state["gar_docs_cache"] = _fetch_gar_documents()
+    except Exception:  # noqa: BLE001
+        st.session_state.pop("gar_docs_cache", None)
     st.rerun()
+
+
+def _delete_everywhere_batch(rows: list[dict]) -> None:
+    """Удаляет документы везде: из GAR (если есть) и локально (если есть).
+    Issue #299: не прерываем обработку при ошибке в GAR."""
+    from src.gar_ingest.client import GarIngestClient, GarPublishError, load_settings
+    errors: list[str] = []
+    settings = load_settings()
+    with GarIngestClient(settings) as client:
+        for row in rows:
+            # удалить в GAR, если есть
+            if row["gar_document_id"]:
+                try:
+                    client.delete_document(row["gar_document_id"])
+                except GarPublishError:  # noqa: PERF203
+                    pass  # ожидаемо — документа уже нет в GAR, продолжаем к локальному
+            # удалить локально, если есть
+            if row["doc_json_path"] is not None:
+                try:
+                    _delete_local_only(row)
+                except (OSError, json.JSONDecodeError) as exc:
+                    errors.append(f"{row['doc_id']}: {exc}")
+    for err in errors:
+        st.error(err)
+    st.success(f"Удалено везде: {len(rows) - len(errors)}/{len(rows)}")
+    try:
+        st.session_state["gar_docs_cache"] = _fetch_gar_documents()
+    except Exception:  # noqa: BLE001
+        st.session_state.pop("gar_docs_cache", None)
+    st.rerun()
+
+
+def _confirm_and_run(flag_key: str, warning: str, on_confirm) -> None:
+    """Подтверждение необратимой операции (issue #299)."""
+    if st.session_state.get(flag_key):
+        st.warning(warning)
+        cc1, cc2 = st.columns(2)
+        if cc1.button("Да, удалить", key=f"{flag_key}_yes"):
+            st.session_state[flag_key] = False
+            on_confirm()
+        if cc2.button("Отмена", key=f"{flag_key}_no"):
+            st.session_state[flag_key] = False
+            st.rerun()
 
 
 def _update_document_metadata(doc_json_path: Path, updates: dict) -> None:
@@ -475,8 +522,28 @@ def render() -> None:
     if b1.button(f"Загрузить в GAR выбранные ({len(not_loaded)})", disabled=not not_loaded,
                  key="ingest_selected_btn"):
         _ingest_batch(not_loaded)
-    if b2.button("Удалить выбранные", disabled=not selected_rows, key="delete_selected_btn"):
-        _delete_batch(selected_rows)
+
+    # issue #299: кнопки удаления с явной семантикой и подтверждением
+    gar_only = [r for r in selected_rows if r["gar_document_id"]]
+    all_have_gar = len(gar_only) == len(selected_rows) and selected_rows
+    b3, b4 = st.columns(2)
+    if b3.button(f"Удалить из GAR ({len(gar_only)})", disabled=not all_have_gar,
+                 key="delete_from_gar_btn"):
+        st.session_state["confirm_delete_from_gar"] = True
+        st.rerun()
+    if b4.button(f"Удалить везде ({len(selected_rows)})", disabled=not selected_rows,
+                 key="delete_everywhere_btn"):
+        st.session_state["confirm_delete_everywhere"] = True
+        st.rerun()
+
+    _confirm_and_run(
+        "confirm_delete_from_gar",
+        f"⚠️ Будет удалено {len(gar_only)} документов из GAR. Локальные файлы останутся. Операция необратима.",
+        lambda: _delete_from_gar_batch(gar_only))
+    _confirm_and_run(
+        "confirm_delete_everywhere",
+        f"⚠️ Будет удалено {len(selected_rows)} документов везде (из GAR и локально). Операция необратима.",
+        lambda: _delete_everywhere_batch(selected_rows))
 
     archivable = [r for r in selected_rows if r["gar_document_id"]]
     b3, b4 = st.columns(2)
