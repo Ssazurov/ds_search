@@ -439,19 +439,31 @@ def render() -> None:
         "md": "MD", "json": "JSON",
     }
 
+    _HOST_DATA_ROOT = os.environ.get("HOST_DATA_ROOT", "/home/vector/projects/ds/ds_search/data")
+    _WSL_DISTRO = os.environ.get("HOST_WSL_DISTRO", "Ubuntu")
+
     def _file_uri(p) -> str | None:
         # issue #292: ссылка на локальный файл черновика (было: file:// —
-        # открывается ОС в приложении по умолчанию).
-        # issue #325: ds-search работает в контейнере (data — volume-mount),
-        # поэтому file:// либо ведёт на путь ВНУТРИ контейнера, либо (даже с
-        # хостовым UNC-путём) браузер блокирует переход с http-страницы на
-        # file:// ("Not allowed to load local resource"). Решение: отдавать
-        # файл через встроенную статику Streamlit (enableStaticServing,
-        # см. .streamlit/config.toml) — data смонтирован volume'ом ещё раз
-        # в /app/ui/static/data (docker-compose.yml), НЕ через symlink: у
-        # symlink'а realpath уходит за пределы app_static_root, и Streamlit
-        # отвечает 400 Bad Request на любой файл (issue #325 фикс v2).
-        # Ссылка относительная — работает независимо от хоста/порта.
+        # открывается ОС в приложении по умолчанию, но браузер блокирует
+        # переход с http-страницы на file://).
+        # issue #327: открываем файл напрямую в VS Code (Remote-WSL) —
+        # vscode://vscode-remote/wsl+<distro>/<abs-host-path>. Требует host
+        # path (data — volume-mount внутри контейнера), см. HOST_DATA_ROOT.
+        # Статика Streamlit (issue #325) оставлена как fallback ниже.
+        if not p:
+            return None
+        resolved = Path(p).resolve()
+        try:
+            rel = resolved.relative_to(ROOT)
+        except ValueError:
+            return None
+        return f"vscode://vscode-remote/wsl+{_WSL_DISTRO}{_HOST_DATA_ROOT}/{rel.as_posix()}"
+
+    def _static_uri(p) -> str | None:
+        # Fallback для тех, у кого нет VS Code/Remote-WSL — статика Streamlit
+        # (data смонтирован ещё раз в /app/ui/static/data, НЕ symlink'ом:
+        # у symlink'а realpath уходит за пределы app_static_root, и Streamlit
+        # отвечает 400 Bad Request на любой файл — issue #325).
         if not p:
             return None
         resolved = Path(p).resolve()
