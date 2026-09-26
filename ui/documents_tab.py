@@ -443,12 +443,15 @@ def render() -> None:
     _WSL_DISTRO = os.environ.get("HOST_WSL_DISTRO", "Ubuntu")
 
     def _file_uri(p) -> str | None:
-        # issue #292: ссылка на локальный файл черновика (было: file:// —
-        # открывается ОС в приложении по умолчанию, но браузер блокирует
-        # переход с http-страницы на file://).
-        # issue #327: открываем файл напрямую в VS Code (Remote-WSL) —
-        # vscode://vscode-remote/wsl+<distro>/<abs-host-path>. Требует host
-        # path (data — volume-mount внутри контейнера), см. HOST_DATA_ROOT.
+        # issue #292/#327: пробовали vscode://vscode-remote/wsl+<distro>/... —
+        # ненадёжно: при уже открытом remote-окне VS Code просто
+        # фокусируется, файл не открывается (переоткрытие того же authority
+        # не переобрабатывается). Рабочий вариант — file://wsl.localhost/
+        # <distro>/<abs-host-path>: Windows резолвит это как UNC-путь и
+        # открывает файл приложением по умолчанию для расширения (у автора —
+        # Notepad++), без блокировки из http-страницы (issue #292 опасение
+        # не подтвердилось для формата wsl.localhost). Требует host path
+        # (data — volume-mount внутри контейнера), см. HOST_DATA_ROOT.
         # Статика Streamlit (issue #325) оставлена как fallback ниже.
         if not p:
             return None
@@ -457,7 +460,7 @@ def render() -> None:
             rel = resolved.relative_to(ROOT)
         except ValueError:
             return None
-        return f"vscode://vscode-remote/wsl+{_WSL_DISTRO}{_HOST_DATA_ROOT}/{rel.as_posix()}"
+        return f"file://wsl.localhost/{_WSL_DISTRO}{_HOST_DATA_ROOT}/{rel.as_posix()}"
 
     def _static_uri(p) -> str | None:
         # Fallback для тех, у кого нет VS Code/Remote-WSL — статика Streamlit
