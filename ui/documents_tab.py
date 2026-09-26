@@ -50,6 +50,7 @@ def _scan_raw() -> list[dict]:
             "doc_id": doc_id,
             "doc_json_path": meta_path,
             "title": meta.get("title") or doc_id,
+            "summary": meta.get("summary", ""),
             "url": meta.get("source_url") or None,
             "domain": meta.get("source_domain", ""),
             "direction": meta.get("direction", ""),
@@ -144,6 +145,7 @@ def _gar_only_rows(rows: list[dict]) -> list[dict]:
             "doc_id": doc_id,
             "doc_json_path": None,
             "title": meta.get("title") or doc.get("doc_name", doc_id),
+            "summary": meta.get("summary", ""),
             "url": meta.get("source_url") or None,
             "domain": meta.get("source_domain", ""),
             "direction": meta.get("direction", ""),
@@ -273,6 +275,27 @@ def _reload_from_source(document_id: str) -> dict:
     if resp.status_code != 200:
         raise GarPublishError(f"reload {document_id} failed: {resp.status_code} {resp.text}")
     return resp.json()
+
+
+def _render_title_summary_form(row: dict) -> None:
+    """Правка title/summary одного документа с PATCH в GAR (issue #301,
+    перенос из materials_tab._render_card). Доступно только если есть
+    gar_document_id — PATCH идёт только в GAR, sidecar .json не трогаем
+    (в отличие от _render_metadata_form)."""
+    if not row["gar_document_id"]:
+        return
+    st.subheader("Заголовок и описание (PATCH в GAR)")
+    new_title = st.text_input("Заголовок", value=row["title"], key=f"ts_title_{row['doc_id']}")
+    new_summary = st.text_area(
+        "Summary", value=row.get("summary", ""), key=f"ts_summary_{row['doc_id']}")
+    if st.button("💾 Сохранить заголовок/summary", key=f"ts_save_{row['doc_id']}"):
+        try:
+            _patch_gar_metadata(row["gar_document_id"], {"title": new_title, "summary": new_summary})
+            st.success("Сохранено")
+            st.session_state.pop("gar_docs_cache", None)
+            st.rerun()
+        except Exception as exc:  # noqa: BLE001
+            st.error(str(exc))
 
 
 def _render_metadata_form(selected_rows: list[dict]) -> None:
@@ -551,6 +574,9 @@ def render() -> None:
                     st.rerun()
                 except GarPublishError as exc:
                     st.error(str(exc))
+
+            # issue #301: форма правки title/summary через PATCH в GAR
+            _render_title_summary_form(selected_rows[0])
 
         st.divider()
 
