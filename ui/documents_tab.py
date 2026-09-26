@@ -440,9 +440,26 @@ def render() -> None:
     }
 
     def _file_uri(p) -> str | None:
-        # issue #292: ссылка на локальный файл черновика, открывается ОС в
-        # приложении по умолчанию для .md/.json (не рендерится в браузере).
-        return Path(p).resolve().as_uri() if p else None
+        # issue #292: ссылка на локальный файл черновика (было: file:// —
+        # открывается ОС в приложении по умолчанию).
+        # issue #325: ds-search работает в контейнере (data — volume-mount),
+        # поэтому file:// либо ведёт на путь ВНУТРИ контейнера, либо (даже с
+        # хостовым UNC-путём) браузер блокирует переход с http-страницы на
+        # file:// ("Not allowed to load local resource"). Решение: отдавать
+        # файл через встроенную статику Streamlit (enableStaticServing,
+        # см. .streamlit/config.toml) — data смонтирован volume'ом ещё раз
+        # в /app/ui/static/data (docker-compose.yml), НЕ через symlink: у
+        # symlink'а realpath уходит за пределы app_static_root, и Streamlit
+        # отвечает 400 Bad Request на любой файл (issue #325 фикс v2).
+        # Ссылка относительная — работает независимо от хоста/порта.
+        if not p:
+            return None
+        resolved = Path(p).resolve()
+        try:
+            rel = resolved.relative_to(ROOT)
+        except ValueError:
+            return None
+        return f"app/static/data/{rel.as_posix()}"
 
     df = pd.DataFrame([
         {

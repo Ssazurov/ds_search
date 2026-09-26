@@ -24,5 +24,13 @@ RUN --mount=type=cache,target=/root/.cache/pip pip install -r requirements-extra
 
 COPY . .
 
+# issue #325: MD/JSON-ссылки на вкладке Документы отдаются через встроенную
+# статику Streamlit (enableStaticServing, .streamlit/config.toml), т.к.
+# file:// не открывается браузером с http-страницы. data — volume-mount;
+# смонтирован ДВАЖДЫ (docker-compose.yml: /app/data и /app/ui/static/data),
+# а не через symlink — Streamlit's build_safe_abspath() резолвит realpath и
+# отклоняет (400) любой путь, уходящий symlink'ом за пределы app_static_root.
+RUN mkdir -p /app/ui/static/data
+
 EXPOSE 8501
 CMD ["streamlit", "run", "ui/app.py", "--server.address=0.0.0.0", "--server.port=8501"]
