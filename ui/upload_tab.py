@@ -1,9 +1,8 @@
 """Загрузка — очередь одобренных + ручная: файл или ссылка (issue #20 п.1-2, #67, ADR-002).
 
-Полное скачивание — src/discovery/download.py (не SourceCrawler.run(), см. ADR).
-Ручная ссылка идёт "стандартным пайпом" — создаётся как approved находка
-(license-check выполнится при скачивании в download_single), ручной файл
-сохраняется напрямую с обязательными метаданными (URL/скачивание не нужны).
+Скачивание URL — через add_manual_document (единое ядро #313/#314/#315) с dedup
+и catalog-фильтром. Ручной файл сохраняется напрямую с обязательными метаданными
+(URL/скачивание не нужны).
 """
 from __future__ import annotations
 
@@ -14,10 +13,10 @@ from pathlib import Path
 import streamlit as st
 
 from src.discovery.config import load_settings
-from src.discovery.download import DownloadError, download_single
 from src.discovery.gar_client import GarDiscoveryClient
 from src.metadata.schema import label_of, load_dictionaries
 from src.metadata.profile import build_ingestion_metadata
+from src.crawler.manual_add import add_manual_document
 
 DATA_ROOT = Path(__file__).resolve().parents[1] / "data" / "raw"
 
@@ -44,14 +43,21 @@ def _render_queue() -> None:
         cols[2].write(source.get("status", ""))
         if cols[3].button("Скачать", key=f"dl_{source['id']}"):
             with GarDiscoveryClient(settings) as client:
-                try:
-                    client.update_discovered_source(source["id"], status="downloading")
-                    asyncio.run(download_single(source))
+                client.update_discovered_source(source["id"], status="downloading")
+                result = asyncio.run(add_manual_document(
+                    source["url"],
+                    direction=source.get("suggested_direction"),
+                    category=source.get("suggested_category") or source.get("category"),
+                ))
+                if result["status"] == "added":
                     client.update_discovered_source(source["id"], status="downloaded")
                     st.success("Скачано")
-                except DownloadError as exc:
+                elif result["status"] == "duplicate":
+                    client.update_discovered_source(source["id"], status="downloaded")
+                    st.warning(f"Документ уже был скачан ранее: {result['doc_id']}")
+                else:
                     client.update_discovered_source(source["id"], status="error")
-                    st.error(f"Ошибка: {exc}")
+                    st.error(result.get("reason", result["status"]))
             st.rerun()
         if cols[4].button("Удалить", key=f"del_{source['id']}"):
             with GarDiscoveryClient(settings) as client:
@@ -123,15 +129,20 @@ def _render_link(dictionaries: dict, directions: list) -> None:
             key="link_name",
         )
         if st.button("Скачать сейчас", disabled=not url.strip()):
-            try:
-                meta = asyncio.run(download_single(
-                    {"url": url.strip(), "suggested_direction": direction},
-                    dest_dir=dest_dir.strip() or None,
-                    filename=filename.strip() or None,
-                ))
-                st.success(f"Скачано: {meta['content_path']}")
-            except DownloadError as exc:
-                st.error(f"Ошибка: {exc}")
+            result = asyncio.run(add_manual_document(
+                url.strip(),
+                dest_dir=dest_dir.strip() or None,
+                filename=filename.strip() or None,
+                direction=direction,
+            ))
+            if result["status"] == "added":
+                st.success(f"Скачано: {result['meta']['content_path']}")
+            elif result["status"] == "duplicate":
+                st.warning(f"Документ с этим URL уже есть: {result['doc_id']}")
+            elif result["status"] in ("license_pending", "license_denied"):
+                st.warning(result["reason"])
+            else:
+                st.error(result.get("reason", result["status"]))
     elif st.button("Добавить как одобренную находку", disabled=not url.strip()):
         try:
             _add_manual_link(url.strip(), direction)
