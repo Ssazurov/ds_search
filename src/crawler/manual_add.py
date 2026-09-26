@@ -42,7 +42,15 @@ def _resolve_source(domain: str, data_root: Path) -> tuple[SourceConfig, Path]:
     return manual_cfg, data_root / MANUAL_SOURCE_NAME
 
 
-async def add_manual_document(url: str, data_root: Path = DATA_ROOT) -> dict:
+async def add_manual_document(
+    url: str,
+    data_root: Path = DATA_ROOT,
+    *,
+    dest_dir: str | None = None,
+    filename: str | None = None,
+    direction: str | None = None,
+    category: str | None = None,
+) -> dict:
     """Возвращает dict со статусом:
     - 'added' — sidecar сохранён; 'doc_id', 'meta', 'source' в результате.
     - 'duplicate' — canonical_url уже есть в корпусе; 'doc_id', 'path'.
@@ -68,7 +76,9 @@ async def add_manual_document(url: str, data_root: Path = DATA_ROOT) -> dict:
         return {"status": status, "reason": license_result.reason}
 
     crawler = SourceCrawler(cfg, out_dir)
-    meta = await crawler.recrawl_url(url)
+    meta = await crawler.recrawl_url(
+        url, dest_dir=dest_dir, filename=filename, direction=direction, category=category,
+    )
     if meta is None:
         return {
             "status": "failed",

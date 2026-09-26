@@ -70,3 +70,45 @@ def test_add_manual_document_duplicate_blocked(tmp_path, monkeypatch):
     assert result["status"] == "duplicate"
     assert result["doc_id"] == doc_id
     assert not called
+
+
+def test_add_manual_document_with_overrides(tmp_path, monkeypatch):
+    """issue #315: dest_dir/filename/direction/category проксируются в recrawl_url."""
+    _patch_license(monkeypatch, LicenseStatus.ALLOW)
+
+    captured_kwargs = {}
+
+    async def fake_recrawl(self, url, **kwargs):
+        nonlocal captured_kwargs
+        captured_kwargs = kwargs
+        doc_id = manual_add.hashlib.sha256(
+            manual_add.canonicalize_url(url).encode()
+        ).hexdigest()[:16]
+        meta = {
+            "source_url": url,
+            "title": "Test Override",
+            "content_path": str(self.out_dir / f"{doc_id}.md"),
+            "direction": kwargs.get("direction"),
+            "category": kwargs.get("category"),
+        }
+        (self.out_dir / f"{doc_id}.json").write_text(json.dumps(meta), encoding="utf-8")
+        return meta
+
+    monkeypatch.setattr(SourceCrawler, "recrawl_url", fake_recrawl)
+
+    result = asyncio.run(manual_add.add_manual_document(
+        "https://newdomain.example/article",
+        data_root=tmp_path,
+        dest_dir="custom_dir",
+        filename="custom_name",
+        direction="health",
+        category="nutrition",
+    ))
+
+    assert result["status"] == "added"
+    assert captured_kwargs["dest_dir"] == "custom_dir"
+    assert captured_kwargs["filename"] == "custom_name"
+    assert captured_kwargs["direction"] == "health"
+    assert captured_kwargs["category"] == "nutrition"
+    assert result["meta"]["direction"] == "health"
+    assert result["meta"]["category"] == "nutrition"
