@@ -76,6 +76,7 @@ def _apply_filters(rows: list[dict]) -> list[dict]:
     dictionaries = load_dictionaries()
     directions = sorted({r["direction"] for r in rows if r["direction"]})
     domain_counts = Counter(r["domain"] for r in rows if r["domain"])
+    total_count = len(rows)
     c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
     text = c1.text_input("Поиск (название/домен)", key="doc_filter_text").strip().lower()
     status = c2.selectbox(
@@ -83,7 +84,7 @@ def _apply_filters(rows: list[dict]) -> list[dict]:
         format_func=lambda v: _STATUS_FILTER.get(v, _ALL))
     domain = c3.selectbox(
         "Домен", [_ALL, *sorted(domain_counts)], key="doc_filter_domain",
-        format_func=lambda d: f"Все ({len(rows)})" if d == _ALL else f"{d} ({domain_counts[d]})")
+        format_func=lambda d: f"Все ({total_count})" if d == _ALL else f"{d} ({domain_counts[d]})")
     direction = c4.selectbox(
         "Направление", [_ALL, *directions], key="doc_filter_direction",
         format_func=lambda v: v if v == _ALL else label_of(dictionaries, "direction", v))
