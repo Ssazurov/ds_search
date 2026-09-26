@@ -19,6 +19,8 @@
 | 2026-09-24 | ADR-013 | GAR — единственный источник справочников (direction/category и др.); вкладка «Справочники» read-only + «Обновить из GAR»; `load_dictionaries` берёт данные из gar_schema (labels сохраняются), `categories.yaml` — офлайн-фолбэк; во всех вкладках отображаются русские labels через `label_of`/`format_func`, в данных хранится slug. |
 | 2026-09-25 | ADR-0022 (root, амендмент ADR-0002) | `lifecycle_stage` удалён из обязательных ingestion-метаданных, `categories.yaml`, UI (search/upload/documents_tab) и retrieval-фильтра `patient_profile`/`SessionTopic` (мёртвый код, RAG-чат не запущен); `category` — единственный дискриминатор темы/категории. В GAR поле удаляется вручную. См. `ds/docs/adr/0022-remove-lifecycle-stage.md`, issue #290. |
 
+| 2026-09-26 | ADR-014 | Объединить «Материалы» (чтение GAR API) и «Документы» (скан ФС) в одну вкладку: local rows + GAR-документы без локального файла (MD/JSON пустые); перенести фильтр по статусу GAR, архивацию, полное удаление из GAR, «Перезагрузить из источника», PATCH title/summary; добавить фильтр «Локально» и кнопку «Сбросить»; «Материалы» удалить. |
+
 ## 2026-09-08 — ADR-052 (gar-core-api): публичный шлюз для сайта
 Не автономное ADR ds_search (репозиторий gar-core-api ведёт свою нумерацию
 ADR). Решение: Cloudflare Tunnel с path-based ingress (только /public/*,
