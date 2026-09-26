@@ -6,14 +6,17 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
 
+import httpx
 import pandas as pd
 import streamlit as st
 
 from src.crawler.manual_add import add_manual_document
+from src.gar_ingest.client import GarPublishError
 from src.gar_ingest.documents import ingest_document
 from src.metadata.schema import label_of, load_dictionaries
 from ui.table_utils import COLUMN_LABELS, column_settings, datetime_column, link_column, localize
@@ -26,6 +29,7 @@ _ALL = "Все"
 _STATUS_ORDER = {"error": 0, "pending": 1, "loaded": 2}  # ошибки сверху
 _STATUS_CELL = {"loaded": "✅ загружен", "error": "⚠️ ошибка", "pending": "— не загружен"}
 _STATUS_FILTER = {"pending": "Не загружены", "error": "Ошибка", "loaded": "Загружены"}
+_DS_INGESTION_URL = os.environ.get("DS_INGESTION_URL", "http://127.0.0.1:8200")
 
 
 def _scan_raw() -> list[dict]:
@@ -252,6 +256,23 @@ def _patch_gar_metadata(gar_document_id: str, updates: dict) -> None:
     settings = load_settings()
     with GarIngestClient(settings) as client:
         client.patch_document_metadata(gar_document_id, updates)
+
+
+def _reload_from_source(document_id: str) -> dict:
+    """POST /reload_by_gar_id на ds_ingestion (issue ds_search#145 /
+    ADR-0007): полная перезагрузка metadata+content из локального источника.
+    Auth: X-Ingestion-Key, см. ADR-0008."""
+    headers = {}
+    api_key = os.environ.get("DS_INGESTION_API_KEY")
+    if api_key:
+        headers["X-Ingestion-Key"] = api_key
+    resp = httpx.post(
+        f"{_DS_INGESTION_URL}/reload_by_gar_id",
+        json={"gar_document_id": document_id}, headers=headers, timeout=120,
+    )
+    if resp.status_code != 200:
+        raise GarPublishError(f"reload {document_id} failed: {resp.status_code} {resp.text}")
+    return resp.json()
 
 
 def _render_metadata_form(selected_rows: list[dict]) -> None:
@@ -515,6 +536,22 @@ def render() -> None:
     if selected_rows:
         st.divider()
         _render_metadata_form(selected_rows)
+
+        # issue #300: кнопка перезагрузки из источника для одного документа с gar_document_id
+        if len(selected_rows) == 1 and selected_rows[0]["gar_document_id"]:
+            if st.button("🔄 Перезагрузить из источника", key="doc_reload_btn"):
+                try:
+                    report = _reload_from_source(selected_rows[0]["gar_document_id"])
+                    st.success(
+                        f"Перезагружено. changed={report['changed_fields']} "
+                        f"preserved={report['preserved_fields']} "
+                        f"content_replaced={report['content_replaced']}"
+                    )
+                    st.session_state.pop("gar_docs_cache", None)
+                    st.rerun()
+                except GarPublishError as exc:
+                    st.error(str(exc))
+
         st.divider()
 
     not_loaded = [r for r in selected_rows if not r["gar_document_id"]]
