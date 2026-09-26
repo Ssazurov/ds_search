@@ -469,3 +469,13 @@ local rows + GAR-документы без соответствия по gar_doc
 - Проверка: `git diff --check` — чисто, `python3 -m py_compile` — синтаксис OK, сигнатура в runtime: `(self, url: str, *, dest_dir: str | None = None, filename: str | None = None, direction: str | None = None, category: str | None = None) -> dict | None`, `_resolve_dest_dir` работает корректно (валидирует относительные пути, отклоняет абсолютные/escape).
 - Коммит 93e71c6, PR #319 merged в main (7186e6d).
 - Пересборка ds-search: `~/build.log` — нет `failed to solve`, все шаги (pip/apt/chromium/node) `CACHED`, chromium не перекачивался.
+
+## 2026-09-26 -- issue #315: integrate add_manual_document into upload tab
+
+- **Problem**: Upload tab called `recrawl_url` directly, bypassing deduplication and license checking logic in `add_manual_document`.
+- **Solution**: 
+  - Extended `add_manual_document` to accept `dest_dir`, `filename`, `direction`, `category` override params (proxied to `recrawl_url` for unified crawl pipeline).
+  - Updated `upload_tab.py` to use `add_manual_document` instead of direct `recrawl_url` call — now all URL downloads go through dedup/catalog filtering.
+- **Files changed**: `src/crawler/manual_add.py`, `ui/upload_tab.py`, `tests/test_manual_add.py` (+test for override params).
+- **Verification**: `pytest tests/test_manual_add.py` — all tests passed. Merged via PR #320.
+- **Rebuild**: Container `ds-search` rebuilt via `rebuild.sh`, all layers cached (no network downloads), service up.
