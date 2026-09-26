@@ -88,9 +88,55 @@ def _apply_filters(rows: list[dict]) -> list[dict]:
     return sorted(filtered, key=lambda r: (_STATUS_ORDER[r["status"]], r["title"].lower()))
 
 
+def _fetch_gar_documents() -> dict[str, dict]:
+    """Все документы из GAR (issue #295). Вызывается только по кнопке
+    «Обновить список GAR», не на каждый рендер вкладки (ADR-014, риск 1) —
+    результат кладётся в session_state и живёт до следующего нажатия."""
+    from src.gar_ingest.client import GarIngestClient, load_settings
+    settings = load_settings()
+    with GarIngestClient(settings) as client:
+        dataset_id = client.ensure_dataset(settings.dataset_name)
+        docs = client.list_documents(dataset_id, status=None)
+    return {d["document_id"]: d for d in docs}
+
+
+def _gar_only_rows(rows: list[dict]) -> list[dict]:
+    """Строки для документов из GAR-кэша, у которых нет локального
+    raw-файла (issue #295, ADR-014, решение п.1-2). doc_json_path/
+    content_path=None -> колонки MD/JSON останутся пустыми (_file_uri)."""
+    cache: dict[str, dict] = st.session_state.get("gar_docs_cache") or {}
+    local_gar_ids = {r["gar_document_id"] for r in rows if r["gar_document_id"]}
+    extra = []
+    for doc_id, doc in cache.items():
+        if doc_id in local_gar_ids:
+            continue
+        meta = doc.get("metadata") or {}
+        extra.append({
+            "doc_id": doc_id,
+            "doc_json_path": None,
+            "title": meta.get("title") or doc.get("doc_name", doc_id),
+            "url": meta.get("source_url") or None,
+            "domain": meta.get("source_domain", ""),
+            "direction": meta.get("direction", ""),
+            "category": meta.get("category", ""),
+            "doc_type": doc.get("doc_type", ""),
+            "content_path": None,
+            "clean": False,
+            "gar_document_id": doc_id,
+            "ingest_error": None,
+            "status": "loaded",
+            "added": None,
+        })
+    return extra
+
+
 def _delete_files(row: dict) -> None:
     """Удаляет локальные файлы документа: raw meta + content + clean sidecar.
-    GAR не трогаем (вариант "а"): если ingested, запись в GAR остаётся."""
+    GAR не трогаем (вариант "а"): если ingested, запись в GAR остаётся.
+    Для строк без локального файла (GAR-only, issue #295) удаление из GAR —
+    отдельная задача #299, здесь только пропускаем с явной ошибкой."""
+    if row["doc_json_path"] is None:
+        raise ValueError("нет локального файла — удаление из GAR см. #299")
     meta = json.loads(row["doc_json_path"].read_text(encoding="utf-8"))
     content_path = meta.get("content_path")
     if content_path and Path(content_path).exists():
@@ -217,7 +263,8 @@ def _render_metadata_form(selected_rows: list[dict]) -> None:
                 errors = []
                 for row in selected_rows:
                     try:
-                        _update_document_metadata(row["doc_json_path"], updates)
+                        if row["doc_json_path"] is not None:
+                            _update_document_metadata(row["doc_json_path"], updates)
                         if row["gar_document_id"]:
                             _patch_gar_metadata(row["gar_document_id"], updates)
                     except Exception as exc:  # noqa: BLE001
@@ -291,7 +338,25 @@ def render() -> None:
         getattr(st, level)(msg)
 
     st.divider()
+    c_btn, c_info = st.columns([1, 3])
+    if c_btn.button("Обновить список GAR", key="gar_docs_refresh_btn"):
+        try:
+            st.session_state["gar_docs_cache"] = _fetch_gar_documents()
+        except Exception as exc:  # noqa: BLE001 — сеть/GAR недоступны, не роняем вкладку
+            st.error(f"Не удалось получить список из GAR: {exc}")
+        else:
+            st.rerun()
+    if "gar_docs_cache" in st.session_state:
+        c_info.caption(
+            f"GAR-документов в кэше: {len(st.session_state['gar_docs_cache'])} "
+            "(обновляется по кнопке, issue #295)"
+        )
+    else:
+        c_info.caption("Список GAR ещё не загружен — нажмите «Обновить список GAR», "
+                        "чтобы увидеть документы без локального файла")
+
     rows = _scan_raw()
+    rows = rows + _gar_only_rows(rows)
     if not rows:
         st.info("Нет сохранённых документов в data/raw")
         return
