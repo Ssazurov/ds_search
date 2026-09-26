@@ -57,15 +57,24 @@ def _scan_raw() -> list[dict]:
             "ingest_error": error,
             "status": "loaded" if gar_id else ("error" if error else "pending"),
             "added": datetime.fromtimestamp(meta_path.stat().st_mtime),
+            "local": True,
         })
     return rows
+
+
+_FILTER_KEYS = ("doc_filter_text", "doc_filter_status", "doc_filter_domain",
+                "doc_filter_direction", "doc_filter_local")
 
 
 def _apply_filters(rows: list[dict]) -> list[dict]:
     dictionaries = load_dictionaries()
     directions = sorted({r["direction"] for r in rows if r["direction"]})
     domain_counts = Counter(r["domain"] for r in rows if r["domain"])
-    c1, c2, c3, c4 = st.columns(4)
+    if st.button("Сбросить", key="doc_filters_reset_btn"):
+        for k in _FILTER_KEYS:
+            st.session_state.pop(k, None)
+        st.rerun()
+    c1, c2, c3, c4, c5 = st.columns(5)
     text = c1.text_input("Поиск (название/домен)", key="doc_filter_text").strip().lower()
     status = c2.selectbox(
         "В GAR", [_ALL, *_STATUS_FILTER], key="doc_filter_status",
@@ -76,6 +85,7 @@ def _apply_filters(rows: list[dict]) -> list[dict]:
     direction = c4.selectbox(
         "Направление", [_ALL, *directions], key="doc_filter_direction",
         format_func=lambda v: v if v == _ALL else label_of(dictionaries, "direction", v))
+    local = c5.selectbox("Локально", [_ALL, "Да", "Нет"], key="doc_filter_local")
     filtered = rows
     if text:
         filtered = [r for r in filtered if text in r["title"].lower() or text in r["domain"].lower()]
@@ -85,6 +95,10 @@ def _apply_filters(rows: list[dict]) -> list[dict]:
         filtered = [r for r in filtered if r["domain"] == domain]
     if direction != _ALL:
         filtered = [r for r in filtered if r["direction"] == direction]
+    if local == "Да":
+        filtered = [r for r in filtered if r["local"]]
+    elif local == "Нет":
+        filtered = [r for r in filtered if not r["local"]]
     return sorted(filtered, key=lambda r: (_STATUS_ORDER[r["status"]], r["title"].lower()))
 
 
@@ -126,6 +140,7 @@ def _gar_only_rows(rows: list[dict]) -> list[dict]:
             "ingest_error": None,
             "status": "loaded",
             "added": None,
+            "local": False,
         })
     return extra
 
