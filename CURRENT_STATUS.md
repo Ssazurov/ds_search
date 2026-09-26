@@ -446,3 +446,12 @@ local rows + GAR-документы без соответствия по gar_doc
   \doc_json_path is None\ (PATCH в GAR всё равно уходит).
 - py_compile OK, git diff --check OK. Тестов на ui/documents_tab.py нет
   (не менялись). Живая проверка — после пересборки ds-search.
+
+## 2026-09-26 -- issue #296: фильтр Локально + кнопка Сбросить в таблице Документов
+
+- Добавлено поле `local: bool` в строки таблицы: `True` для локальных документов (`_scan_raw()`), `False` для GAR-only документов без локального файла (`_gar_only_rows()`).
+- Фильтр «Локально» (Все/Да/Нет) добавлен в пятой колонке фильтров (`_apply_filters()`).
+- Кнопка «Сбросить» очищает все пять фильтров таблицы Документов (`doc_filter_text`, `doc_filter_status`, `doc_filter_domain`, `doc_filter_direction`, `doc_filter_local`) через `st.session_state.pop()` и `st.rerun()`.
+- Проверка: `py_compile` OK, `git diff --check` чисто, коммит 396db3b.
+- ADR не требуется (UI-правка, продолжение ADR-014 из эпика #294).
+- Пересборка: UI-правка Streamlit требует пересборки контейнера ds-search для применения изменений в проде.
