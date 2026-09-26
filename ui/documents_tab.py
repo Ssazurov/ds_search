@@ -63,7 +63,10 @@ def _scan_raw() -> list[dict]:
 
 
 _FILTER_KEYS = ("doc_filter_text", "doc_filter_status", "doc_filter_domain",
-                "doc_filter_direction", "doc_filter_local")
+                "doc_filter_direction", "doc_filter_local", "doc_filter_gar_status")
+
+
+_GAR_STATUS_FILTER = {"indexed": "Активные", "archived": "Архив"}
 
 
 def _apply_filters(rows: list[dict]) -> list[dict]:
@@ -74,7 +77,7 @@ def _apply_filters(rows: list[dict]) -> list[dict]:
         for k in _FILTER_KEYS:
             st.session_state.pop(k, None)
         st.rerun()
-    c1, c2, c3, c4, c5 = st.columns(5)
+    c1, c2, c3, c4, c5, c6 = st.columns(6)
     text = c1.text_input("Поиск (название/домен)", key="doc_filter_text").strip().lower()
     status = c2.selectbox(
         "В GAR", [_ALL, *_STATUS_FILTER], key="doc_filter_status",
@@ -86,6 +89,9 @@ def _apply_filters(rows: list[dict]) -> list[dict]:
         "Направление", [_ALL, *directions], key="doc_filter_direction",
         format_func=lambda v: v if v == _ALL else label_of(dictionaries, "direction", v))
     local = c5.selectbox("Локально", [_ALL, "Да", "Нет"], key="doc_filter_local")
+    gar_status = c6.selectbox(
+        "Статус GAR", [_ALL, *_GAR_STATUS_FILTER], key="doc_filter_gar_status",
+        format_func=lambda v: _GAR_STATUS_FILTER.get(v, _ALL))
     filtered = rows
     if text:
         filtered = [r for r in filtered if text in r["title"].lower() or text in r["domain"].lower()]
@@ -99,6 +105,11 @@ def _apply_filters(rows: list[dict]) -> list[dict]:
         filtered = [r for r in filtered if r["local"]]
     elif local == "Нет":
         filtered = [r for r in filtered if not r["local"]]
+    # Фильтр «Статус GAR» работает точно только после нажатия «Обновить список GAR» —
+    # до этого gar_status у всех строк с gar_document_id будет None и под
+    # «Активные»/«Архив» они не попадут (ожидаемо, не баг).
+    if gar_status != _ALL:
+        filtered = [r for r in filtered if r.get("gar_status") == gar_status]
     return sorted(filtered, key=lambda r: (_STATUS_ORDER[r["status"]], r["title"].lower()))
 
 
@@ -141,6 +152,7 @@ def _gar_only_rows(rows: list[dict]) -> list[dict]:
             "status": "loaded",
             "added": None,
             "local": False,
+            "gar_status": doc.get("status"),
         })
     return extra
 
@@ -371,6 +383,10 @@ def render() -> None:
                         "чтобы увидеть документы без локального файла")
 
     rows = _scan_raw()
+    # Добавляем gar_status из кэша GAR к локальным строкам (issue #297)
+    cache = st.session_state.get("gar_docs_cache") or {}
+    for r in rows:
+        r["gar_status"] = cache.get(r["gar_document_id"] or "", {}).get("status")
     rows = rows + _gar_only_rows(rows)
     if not rows:
         st.info("Нет сохранённых документов в data/raw")
