@@ -78,11 +78,7 @@ def _apply_filters(rows: list[dict]) -> list[dict]:
     dictionaries = load_dictionaries()
     directions = sorted({r["direction"] for r in rows if r["direction"]})
     domain_counts = Counter(r["domain"] for r in rows if r["domain"])
-    if st.button("Сбросить", key="doc_filters_reset_btn"):
-        for k in _FILTER_KEYS:
-            st.session_state.pop(k, None)
-        st.rerun()
-    c1, c2, c3, c4, c5, c6 = st.columns(6)
+    c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
     text = c1.text_input("Поиск (название/домен)", key="doc_filter_text").strip().lower()
     status = c2.selectbox(
         "В GAR", [_ALL, *_STATUS_FILTER], key="doc_filter_status",
@@ -97,6 +93,11 @@ def _apply_filters(rows: list[dict]) -> list[dict]:
     gar_status = c6.selectbox(
         "Статус GAR", [_ALL, *_GAR_STATUS_FILTER], key="doc_filter_gar_status",
         format_func=lambda v: _GAR_STATUS_FILTER.get(v, _ALL))
+    c7.write("")  # выравнивание по высоте с лейблами фильтров слева
+    if c7.button("Сбросить", key="doc_filters_reset_btn"):
+        for k in _FILTER_KEYS:
+            st.session_state.pop(k, None)
+        st.rerun()
     filtered = rows
     if text:
         filtered = [r for r in filtered if text in r["title"].lower() or text in r["domain"].lower()]
@@ -481,7 +482,7 @@ def render() -> None:
 
     st.divider()
     c_btn, c_info = st.columns([1, 3])
-    if c_btn.button("Обновить список GAR", key="gar_docs_refresh_btn"):
+    if c_btn.button("Обновить список из GAR", key="gar_docs_refresh_btn"):
         try:
             st.session_state["gar_docs_cache"] = _fetch_gar_documents()
         except Exception as exc:  # noqa: BLE001 — сеть/GAR недоступны, не роняем вкладку
@@ -494,7 +495,7 @@ def render() -> None:
             "(обновляется по кнопке, issue #295)"
         )
     else:
-        c_info.caption("Список GAR ещё не загружен — нажмите «Обновить список GAR», "
+        c_info.caption("Список GAR ещё не загружен — нажмите «Обновить список из GAR», "
                         "чтобы увидеть документы без локального файла")
 
     rows = _scan_raw()
@@ -580,24 +581,30 @@ def render() -> None:
 
         st.divider()
 
+    # issue #299: кнопки удаления с явной семантикой и подтверждением
     not_loaded = [r for r in selected_rows if not r["gar_document_id"]]
-    b1, b2 = st.columns(2)
+    gar_only = [r for r in selected_rows if r["gar_document_id"]]
+    all_have_gar = len(gar_only) == len(selected_rows) and selected_rows
+    archivable = [r for r in selected_rows if r["gar_document_id"]]
+
+    b1, b2, b3, b4, b5 = st.columns(5)
     if b1.button(f"Загрузить в GAR выбранные ({len(not_loaded)})", disabled=not not_loaded,
                  key="ingest_selected_btn"):
         _ingest_batch(not_loaded)
-
-    # issue #299: кнопки удаления с явной семантикой и подтверждением
-    gar_only = [r for r in selected_rows if r["gar_document_id"]]
-    all_have_gar = len(gar_only) == len(selected_rows) and selected_rows
-    b3, b4 = st.columns(2)
-    if b3.button(f"Удалить из GAR ({len(gar_only)})", disabled=not all_have_gar,
+    if b2.button(f"Удалить из GAR ({len(gar_only)})", disabled=not all_have_gar,
                  key="delete_from_gar_btn"):
         st.session_state["confirm_delete_from_gar"] = True
         st.rerun()
-    if b4.button(f"Удалить везде ({len(selected_rows)})", disabled=not selected_rows,
+    if b3.button(f"Удалить везде ({len(selected_rows)})", disabled=not selected_rows,
                  key="delete_everywhere_btn"):
         st.session_state["confirm_delete_everywhere"] = True
         st.rerun()
+    if b4.button(f"Архивировать выбранные ({len(archivable)})",
+                 disabled=not archivable, key="doc_archive_btn"):
+        _archive_batch(archivable, archive=True)
+    if b5.button(f"Вернуть из архива ({len(archivable)})",
+                 disabled=not archivable, key="doc_unarchive_btn"):
+        _archive_batch(archivable, archive=False)
 
     _confirm_and_run(
         "confirm_delete_from_gar",
@@ -607,12 +614,3 @@ def render() -> None:
         "confirm_delete_everywhere",
         f"⚠️ Будет удалено {len(selected_rows)} документов везде (из GAR и локально). Операция необратима.",
         lambda: _delete_everywhere_batch(selected_rows))
-
-    archivable = [r for r in selected_rows if r["gar_document_id"]]
-    b3, b4 = st.columns(2)
-    if b3.button(f"Архивировать выбранные ({len(archivable)})",
-                 disabled=not archivable, key="doc_archive_btn"):
-        _archive_batch(archivable, archive=True)
-    if b4.button(f"Вернуть из архива ({len(archivable)})",
-                 disabled=not archivable, key="doc_unarchive_btn"):
-        _archive_batch(archivable, archive=False)
