@@ -34,6 +34,7 @@ from pathlib import Path
 from crawl4ai import AsyncWebCrawler, CrawlerRunConfig
 from crawl4ai.deep_crawling import BestFirstCrawlingStrategy
 
+from ..discovery.download import _sanitize_filename
 from ..license.checker import LicenseCheckResult, LicenseStatus, check_license
 from ..metadata import classify as classify_mod
 from ..metadata import gar_schema
@@ -76,6 +77,23 @@ class SourceCrawler:
             filter_chain=build_filter_chain(self.cfg.domain, self.cfg.exclude_slugs),
             url_scorer=build_relevance_scorer(self.cfg.keywords),
         )
+
+    def _resolve_dest_dir(self, dest_dir: str | None) -> Path | None:
+        """issue #314: dest_dir относителен self.out_dir (не data_root — у
+        SourceCrawler своя out_dir на источник). None при абсолютном пути
+        или escape за пределы self.out_dir — вызывающая сторона логирует
+        и возвращает None вместо исключения (контракт recrawl_url)."""
+        if dest_dir is None:
+            return self.out_dir
+        p = Path(dest_dir)
+        if p.is_absolute():
+            return None
+        resolved = (self.out_dir / p).resolve()
+        out_dir_resolved = self.out_dir.resolve()
+        if resolved != out_dir_resolved and out_dir_resolved not in resolved.parents:
+            return None
+        resolved.mkdir(parents=True, exist_ok=True)
+        return resolved
 
     async def run(self) -> list[dict]:
         self.license_result = check_license(self.cfg.domain, self.cfg.seed_urls[0])
@@ -194,19 +212,39 @@ class SourceCrawler:
             meta["needs_review"] = True
         return meta
 
-    async def recrawl_url(self, url: str) -> dict | None:
+    async def recrawl_url(
+        self,
+        url: str,
+        *,
+        dest_dir: str | None = None,
+        filename: str | None = None,
+        direction: str | None = None,
+        category: str | None = None,
+    ) -> dict | None:
         """issue #141 (ADR-0007 п.5): точечный re-crawl одной страницы по URL,
         без full-scan источника. doc_id детерминирован от canon_url (sha256),
         поэтому повторный краул той же страницы перезаписывает те же .md/.json
         файлы — используется reload-пайплайном ds_ingestion (issue #8) для
         обновления "битого" контента. Возвращает None при отказе лицензии,
-        thin content, catalog listing или ошибке загрузки."""
+        thin content, catalog listing или ошибке загрузки.
+
+        issue #314: dest_dir/filename/direction/category — override-параметры
+        из download_single (единая точка входа для скачивания по URL, #313).
+        dest_dir относителен self.out_dir, невалидный (абсолютный/escape) —
+        None + logger.warning, без исключения. filename санитизируется через
+        discovery.download._sanitize_filename и используется как basename
+        вместо sha256(canon_url)[:16]. direction/category перекрывают
+        self.cfg.* только для этого вызова, self.cfg не мутируется."""
         self.license_result = check_license(self.cfg.domain, url)
         if not self.license_result.downloadable:
             logger.warning(
                 "recrawl %s: источник %s требует ручного сбора: %s",
                 url, self.cfg.domain, self.license_result.reason,
             )
+            return None
+
+        if dest_dir is not None and self._resolve_dest_dir(dest_dir) is None:
+            logger.warning("recrawl %s: dest_dir %r вне self.out_dir", url, dest_dir)
             return None
 
         run_cfg = CrawlerRunConfig(
@@ -226,7 +264,10 @@ class SourceCrawler:
             if is_pdf_teaser_page(r.html or ""):
                 pdf_url = find_pdf_teaser_link(r.html or "")
                 if pdf_url:
-                    return await self._download_pdf(pdf_url, canon)
+                    return await self._download_pdf(
+                        pdf_url, canon, dest_dir=dest_dir, filename=filename,
+                        direction=direction, category=category,
+                    )
                 logger.warning("recrawl %s: тизер без ссылки на PDF", url)
                 return None
 
@@ -241,15 +282,27 @@ class SourceCrawler:
                 self._save_rejected(r, canon, fit_md, "rejected_catalog_listing", ltr=ltr)
                 return None
 
-            return self._save(r, canon, fit_md)
+            return self._save(
+                r, canon, fit_md, dest_dir=dest_dir, filename=filename,
+                direction=direction, category=category,
+            )
 
-    async def _download_pdf(self, pdf_url: str, teaser_url: str) -> dict | None:
+    async def _download_pdf(
+        self, pdf_url: str, teaser_url: str,
+        dest_dir: str | None = None, filename: str | None = None,
+        direction: str | None = None, category: str | None = None,
+    ) -> dict | None:
         """issue #11: скачивает сам PDF-отчёт прямым http-запросом (не
         browser.goto — известная проблема issue #2, Playwright трактует
-        переход на файл как "Download is starting" и роняет страницу)."""
+        переход на файл как "Download is starting" и роняет страницу).
+        issue #314: dest_dir/filename/direction/category — см. recrawl_url."""
+        base_dir = self._resolve_dest_dir(dest_dir)
+        if base_dir is None:
+            logger.warning("_download_pdf %s: dest_dir %r вне self.out_dir", pdf_url, dest_dir)
+            return None
         pdf_url = urljoin(teaser_url, pdf_url)
-        doc_id = hashlib.sha256(pdf_url.encode()).hexdigest()[:16]
-        pdf_path = self.out_dir / f"{doc_id}.pdf"
+        doc_id = _sanitize_filename(filename) if filename else hashlib.sha256(pdf_url.encode()).hexdigest()[:16]
+        pdf_path = base_dir / f"{doc_id}.pdf"
         try:
             async with httpx.AsyncClient(follow_redirects=True, timeout=30) as client:
                 resp = await client.get(pdf_url)
@@ -264,28 +317,38 @@ class SourceCrawler:
         )
         meta = build_ingestion_metadata(
             source_url=teaser_url, source_domain=self.cfg.domain, title="",
-            license=self.license_result.status.value, category=self.cfg.category,
+            license=self.license_result.status.value, category=category or self.cfg.category,
             pdf_url=pdf_url,
-            direction=self.cfg.direction, attribution=attribution,
+            direction=direction or self.cfg.direction, attribution=attribution,
             content_path=str(pdf_path), content_status="saved",
             doc_type="article",  # issue: doc_type не проставлялся веб-статьям (0 из 107)
             publish_permission=self.license_result.publish_permission.value,  # issue #286: наследование от домена
         )
         meta = self._apply_classification(meta, title="", text="")
-        (self.out_dir / f"{doc_id}.json").write_text(
+        (base_dir / f"{doc_id}.json").write_text(
             json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
         )
         return meta
 
-    def _save(self, result, canon_url: str, fit_markdown: str) -> dict:
+    def _save(
+        self, result, canon_url: str, fit_markdown: str,
+        dest_dir: str | None = None, filename: str | None = None,
+        direction: str | None = None, category: str | None = None,
+    ) -> dict:
+        """issue #314: dest_dir/filename/direction/category — см. recrawl_url.
+        Вызов из run() (full-scan) без этих аргументов не меняет поведение."""
         header_meta: dict = {}
         if self.cfg.domain == "downsideup.org":
             # шапка статьи (дата/описание/автор) — текст, не HTML og:*-теги,
             # extract_page_meta её не видит; вырезаем перед сохранением .md.
             header_meta, fit_markdown = parse_header(fit_markdown)
 
-        doc_id = hashlib.sha256(canon_url.encode()).hexdigest()[:16]
-        md_path = self.out_dir / f"{doc_id}.md"
+        base_dir = self._resolve_dest_dir(dest_dir)
+        if base_dir is None:
+            logger.warning("_save %s: dest_dir %r вне self.out_dir", canon_url, dest_dir)
+            base_dir = self.out_dir
+        doc_id = _sanitize_filename(filename) if filename else hashlib.sha256(canon_url.encode()).hexdigest()[:16]
+        md_path = base_dir / f"{doc_id}.md"
         md_path.write_text(fit_markdown, encoding="utf-8")
 
         title = (result.metadata or {}).get("title", "")
@@ -298,15 +361,15 @@ class SourceCrawler:
         )
         meta = build_ingestion_metadata(
             source_url=canon_url, source_domain=self.cfg.domain, title=title,
-            license=self.license_result.status.value, category=self.cfg.category,
-            direction=self.cfg.direction,
+            license=self.license_result.status.value, category=category or self.cfg.category,
+            direction=direction or self.cfg.direction,
             attribution=attribution, content_path=str(md_path), content_status="saved",
             doc_type="article",  # issue: doc_type не проставлялся веб-статьям (0 из 107)
             publish_permission=self.license_result.publish_permission.value,  # issue #286: наследование от домена
             **page_meta,
         )
         meta = self._apply_classification(meta, title, fit_markdown)
-        (self.out_dir / f"{doc_id}.json").write_text(
+        (base_dir / f"{doc_id}.json").write_text(
             json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
         )
         return meta
