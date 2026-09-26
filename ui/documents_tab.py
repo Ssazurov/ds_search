@@ -303,6 +303,30 @@ def _render_metadata_form(selected_rows: list[dict]) -> None:
                 st.rerun()
 
 
+def _archive_batch(rows: list[dict], archive: bool) -> None:
+    from src.gar_ingest.client import GarIngestClient, GarPublishError, load_settings
+    errors: list[str] = []
+    settings = load_settings()
+    with GarIngestClient(settings) as client:
+        for row in rows:
+            try:
+                (client.archive_document if archive else client.unarchive_document)(
+                    row["gar_document_id"])
+            except GarPublishError as exc:
+                errors.append(f"{row['doc_id']}: {exc}")
+    for err in errors:
+        st.error(err)
+    verb = "Архивировано" if archive else "Возвращено из архива"
+    st.success(f"{verb}: {len(rows) - len(errors)}/{len(rows)}")
+    # обновить кэш GAR, чтобы фильтр «Статус GAR» (#297) сразу отражал
+    # новое состояние без повторного ручного «Обновить список GAR»
+    try:
+        st.session_state["gar_docs_cache"] = _fetch_gar_documents()
+    except Exception:  # noqa: BLE001 — не роняем успешный архив из-за ошибки рефреша
+        st.session_state.pop("gar_docs_cache", None)
+    st.rerun()
+
+
 def _ingest_batch(rows: list[dict]) -> None:
     pending = [r for r in rows if not r["gar_document_id"]]
     if not pending:
@@ -453,3 +477,12 @@ def render() -> None:
         _ingest_batch(not_loaded)
     if b2.button("Удалить выбранные", disabled=not selected_rows, key="delete_selected_btn"):
         _delete_batch(selected_rows)
+
+    archivable = [r for r in selected_rows if r["gar_document_id"]]
+    b3, b4 = st.columns(2)
+    if b3.button(f"Архивировать выбранные ({len(archivable)})",
+                 disabled=not archivable, key="doc_archive_btn"):
+        _archive_batch(archivable, archive=True)
+    if b4.button(f"Вернуть из архива ({len(archivable)})",
+                 disabled=not archivable, key="doc_unarchive_btn"):
+        _archive_batch(archivable, archive=False)
