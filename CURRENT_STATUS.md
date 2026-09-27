@@ -480,6 +480,21 @@ local rows + GAR-документы без соответствия по gar_doc
 - Коммит 93e71c6, PR #319 merged в main (7186e6d).
 - Пересборка ds-search: `~/build.log` — нет `failed to solve`, все шаги (pip/apt/chromium/node) `CACHED`, chromium не перекачивался.
 
+## 2026-09-27 -- issue #111: «Удалить из GAR» не снимает галочку «В GAR»
+- `_delete_from_gar_batch` (`ui/documents_tab.py`) теперь после успешного
+  `client.delete_document()` сбрасывает `gar_document_id` и `ingest_error` в
+  локальном sidecar `.json` через `_update_document_metadata`. Раньше документ
+  удалялся из GAR, но локальный метафайл продолжал помечать его как
+  загруженный, и `_scan_raw()` возвращал `status="loaded"` — галочка «В GAR»
+  оставалась на месте без ручного обновления.
+- Ошибка сброса локального статуса добавляется в общий `errors` — не роняем
+  успешное удаление из GAR, но пользователь видит причину.
+- Регрессионный тест `test_delete_from_gar_batch_clears_local_gar_flag`
+  (`tests/test_documents_tab.py`): проверяет, что после удаления
+  `gar_document_id` == None в sidecar и `_scan_raw()` возвращает
+  `status="pending"`.
+- Проверка: `pytest tests/test_documents_tab.py` — 13 passed.
+
 ## 2026-09-26 -- issue #315: integrate add_manual_document into upload tab
 
 - **Problem**: Upload tab called `recrawl_url` directly, bypassing deduplication and license checking logic in `add_manual_document`.

@@ -182,7 +182,10 @@ def _delete_local_only(row: dict) -> None:
 
 
 def _delete_from_gar_batch(rows: list[dict]) -> None:
-    """Удаляет документы из GAR, не трогая локальные файлы (issue #299)."""
+    """Удаляет документы из GAR, не трогая локальные файлы (issue #299).
+    После успешного удаления сбрасывает gar_document_id в локальном
+    sidecar .json, иначе _scan_raw() продолжает считать документ
+    загруженным (галочка «В GAR» остаётся — issue #111)."""
     from src.gar_ingest.client import GarIngestClient, GarPublishError, load_settings
     errors: list[str] = []
     settings = load_settings()
@@ -192,6 +195,15 @@ def _delete_from_gar_batch(rows: list[dict]) -> None:
                 client.delete_document(row["gar_document_id"])
             except GarPublishError as exc:
                 errors.append(f"{row['doc_id']}: {exc}")
+            else:
+                # документ успешно удалён из GAR — сбрасываем локальный
+                # признак, чтобы список отражал реальное состояние
+                if row["doc_json_path"] is not None:
+                    try:
+                        _update_document_metadata(
+                            row["doc_json_path"], {"gar_document_id": None, "ingest_error": None})
+                    except (OSError, json.JSONDecodeError) as exc:
+                        errors.append(f"{row['doc_id']}: не удалось сбросить локальный статус: {exc}")
     for err in errors:
         st.error(err)
     st.success(f"Удалено из GAR: {len(rows) - len(errors)}/{len(rows)}")
