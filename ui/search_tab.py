@@ -7,7 +7,7 @@ from datetime import datetime, time
 import streamlit as st
 
 from src.license.registry_store import load_registry
-from src.license.checker import _CONFIG_PATH, LicenseStatus, normalize_domain
+from src.license.checker import LicenseStatus, normalize_domain
 from src.discovery.config import load_settings
 from src.discovery.gar_client import GarDiscoveryClient
 from src.discovery.presets import delete_preset, load_presets, save_preset
@@ -34,9 +34,9 @@ def _found_counts() -> Counter:
 
 
 def _known_domains() -> dict[str, int]:
-    """Домены вкладки «Источники» (licenses.yaml ∪ discovered_sources без rejected),
+    """Домены вкладки «Источники» (реестр GAR ∪ discovered_sources без rejected),
     кроме status=deny -> число находок."""
-    registry = load_registry(_CONFIG_PATH)
+    registry = load_registry()
     counts = _found_counts()
     domains = {d: counts.get(d, 0) for d in set(registry) | set(counts)
                if (registry.get(d) or {}).get("status") != LicenseStatus.DENY.value}

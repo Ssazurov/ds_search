@@ -3,7 +3,7 @@
 Использование: python -m scripts.add_news_by_url <url>
 
 Переиспользует пайплайн автосбора (src/news/collect.py, issue #61):
-license-гейт (config/licenses.yaml, issue #3), краулер и LLM-классификацию
+license-гейт (реестр источников GAR, issue #3), краулер и LLM-классификацию
 по категориям СД. Результат попадает в news_items со статусом draft — тем
 же потоком needs_review, что и автосбор/RSS (issue #159).
 """
@@ -22,7 +22,7 @@ _MESSAGES = {
     "skipped_duplicate": "Пропущено: такой source_url уже есть в news_items",
     "license_denied": (
         "Отклонено: домен не прошёл проверку лицензии "
-        "(config/licenses.yaml, issue #3) — добавьте домен в реестре, если нужно продолжить"
+        "(реестр источников, issue #3) — добавьте домен в реестре, если нужно продолжить"
     ),
     "download_failed": "Ошибка: не удалось скачать/распарсить страницу (или это PDF без текста)",
     "llm_failed": "Ошибка: LLM не смог собрать черновик по этому тексту",

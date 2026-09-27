@@ -6,8 +6,8 @@
 недоступности GAR читается кэш. Домена нет ни в GAR, ни в кэше — вызывающий
 трактует это как pending_manual_review (безопасный дефолт "не скачивать").
 
-Флаг SOURCE_REGISTRY_BACKEND: gar (по умолчанию; после #265) или yaml (legacy, config/licenses.yaml)
-или gar. Переключение на gar — после миграции реестра (ds_search#265)."""
+Legacy yaml-backend (config/licenses.yaml, SOURCE_REGISTRY_BACKEND=yaml)
+удалён в #329 — миграция в GAR (#265) окончательная."""
 from __future__ import annotations
 
 import json
@@ -15,7 +15,6 @@ import logging
 import os
 import tempfile
 
-import yaml
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -25,10 +24,6 @@ from src.discovery.gar_client import GarDiscoveryClient, GarDiscoveryClientError
 logger = logging.getLogger(__name__)
 
 _DEFAULT_CACHE = Path(__file__).resolve().parents[2] / "data" / "source_registry_cache.json"
-
-
-def registry_backend() -> str:
-    return os.environ.get("SOURCE_REGISTRY_BACKEND", "gar").strip().lower()
 
 
 def cache_path() -> Path:
@@ -115,41 +110,14 @@ class GarRegistryStore:
         self._cache_put(domain, None)
 
 
-# --- фасад для потребителей (UI, скрипты): yaml или GAR по SOURCE_REGISTRY_BACKEND ---
-YAML_PATH = Path(__file__).resolve().parents[2] / "config" / "licenses.yaml"
-_YAML_HEADER = "# Реестр лицензий/ToS источников (issue #3, ADR-001 п.3).\n"
+# --- фасад для потребителей (UI, скрипты) ---
+def load_registry() -> dict[str, dict]:
+    return GarRegistryStore().load_all()
 
 
-def _use_gar(path: Path | None) -> bool:
-    return (path is None or Path(path) == YAML_PATH) and registry_backend() == "gar"
+def save_entry(domain: str, entry: dict) -> None:
+    GarRegistryStore().put(domain, entry)
 
 
-def load_registry(path: Path | None = None) -> dict[str, dict]:
-    if _use_gar(path):
-        return GarRegistryStore().load_all()
-    p = Path(path) if path else YAML_PATH
-    return (yaml.safe_load(p.read_text(encoding="utf-8")) or {}) if p.exists() else {}
-
-
-def _yaml_save(registry: dict, p: Path) -> None:
-    p.write_text(_YAML_HEADER + yaml.safe_dump(registry, allow_unicode=True, sort_keys=True), encoding="utf-8")
-
-
-def save_entry(domain: str, entry: dict, path: Path | None = None) -> None:
-    if _use_gar(path):
-        GarRegistryStore().put(domain, entry)
-        return
-    p = Path(path) if path else YAML_PATH
-    registry = load_registry(p)
-    registry[domain] = entry
-    _yaml_save(registry, p)
-
-
-def delete_entry(domain: str, path: Path | None = None) -> None:
-    if _use_gar(path):
-        GarRegistryStore().delete(domain)
-        return
-    p = Path(path) if path else YAML_PATH
-    registry = load_registry(p)
-    registry.pop(domain, None)
-    _yaml_save(registry, p)
+def delete_entry(domain: str) -> None:
+    GarRegistryStore().delete(domain)

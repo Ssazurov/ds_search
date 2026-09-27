@@ -11,7 +11,7 @@ news_items (UNIQUE source_url, issue #47) — смешивать очереди 
 Переиспользует discovery.download.download_single для получения полного
 текста источника: та же crawl4ai-конфигурация (fit_markdown/PDF-тизер) и,
 что важно, тот же license-гейт (check_license) — домен, не прошедший
-ручную проверку ToS в config/licenses.yaml, автосбором новостей не
+ручную проверку ToS в реестре источников (GAR, ADR-0021), автосбором новостей не
 скачивается (issue #3, ADR-001 п.3), это тот же safety-барьер, что и для
 основного корпуса.
 """
@@ -161,7 +161,7 @@ async def add_single_url(
 ) -> str:
     """Штатная загрузка одной новости по ссылке пользователя (issue #183).
 
-    Переиспользует _collect_one — тот же license-гейт (config/licenses.yaml,
+    Переиспользует _collect_one — тот же license-гейт (реестр источников GAR,
     issue #3) и дедуп по news_items.source_url, что и автосбор (issue #61)
     и RSS-прогон (issue #157/#159). Возвращает тот же набор статусов, что и
     _collect_one, плюс 'skipped_duplicate' при попадании в дедуп до скачивания."""

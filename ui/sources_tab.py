@@ -1,5 +1,5 @@
-"""Источники/домены — CRUD config/licenses.yaml + агрегация discovered_sources
-по домену (issue #20 п.4, ADR-002: "это config/licenses.yaml, не новая таблица").
+"""Источники/домены — CRUD реестра источников в GAR (ds ADR-0021) + агрегация
+discovered_sources по домену (issue #20 п.4, ADR-002).
 
 UI: список доменов слева (фильтры, поиск, пагинация 10/20/50), форма выбранного
 домена справа (master-detail)."""
@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import asyncio
 from collections import Counter
-from pathlib import Path
 
 import streamlit as st
 
@@ -16,13 +15,13 @@ from src.discovery.gar_client import GarDiscoveryClient
 from src.license.registry_store import delete_entry, load_registry, save_entry
 from src.license.checker import (
     default_attribution_template,
-    PUBLISH_PERMISSION_LABELS, LicenseStatus, PublishPermission, _CONFIG_PATH,
+    PUBLISH_PERMISSION_LABELS, LicenseStatus, PublishPermission,
     normalize_domain, parse_publish_permission,
 )
 
 _STATUSES = [s.value for s in LicenseStatus if s != LicenseStatus.PENDING_MANUAL_REVIEW]
 _PERMISSIONS = [p.value for p in PublishPermission]
-# Значения в licenses.yaml остаются английскими (контракт с checker), русские — только для UI.
+# Значения статуса в GAR остаются английскими (контракт с checker), русские — только для UI.
 STATUS_LABELS = {
     "allow": "Разрешено",
     "attribution_required": "Разрешено со ссылкой на источник",
@@ -34,7 +33,7 @@ _ATTR_EXAMPLE = "Источник: {title} ({source_url}), Агентство с
 
 
 def _load_registry() -> dict:
-    return load_registry(_CONFIG_PATH)
+    return load_registry()
 
 
 def _domain_counts() -> Counter:
@@ -155,7 +154,7 @@ def _render_detail(domain: str, registry: dict, row: dict) -> None:
             "is_aggregator": is_aggregator,
             "publish_permission": permission,
         }
-        save_entry(domain, registry[domain], _CONFIG_PATH)
+        save_entry(domain, registry[domain])
         st.rerun()
     if c2.button("Отменить", key=f"cancel_{domain}", width="stretch"):
         for p in ("status", "perm", "attr", "notes", "agg"):
@@ -168,7 +167,7 @@ def _render_detail(domain: str, registry: dict, row: dict) -> None:
             st.error(f"Не удалось убрать находки домена в GAR: {exc}")
             return
         registry.pop(domain, None)
-        delete_entry(domain, _CONFIG_PATH)
+        delete_entry(domain)
         st.session_state.pop("dom_sel", None)
         st.rerun()
 
@@ -177,7 +176,7 @@ def render() -> None:
     st.header("Источники / домены")
     with st.expander("Добавить новость по ссылке"):
         _render_add_news()
-    st.caption("Реестр ToS-статусов — config/licenses.yaml (issue #3). "
+    st.caption("Реестр ToS-статусов — источники в GAR (issue #3, ADR-0021). "
                "Новые домены попадают сюда автоматически со статусом «не проверен».")
     registry = _load_registry()
     rows = build_rows(registry, _domain_counts())
@@ -218,6 +217,6 @@ def render() -> None:
             registry[nd] = {"status": "pending_manual_review", "notes": "",
                             "attribution_template": default_attribution_template(nd),
                             "publish_permission": PublishPermission.NOT_SET.value}
-            save_entry(nd, registry[nd], _CONFIG_PATH)
+            save_entry(nd, registry[nd])
             st.session_state["dom_sel"] = nd
             st.rerun()
