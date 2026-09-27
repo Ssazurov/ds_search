@@ -76,6 +76,7 @@ def _apply_filters(rows: list[dict]) -> list[dict]:
     dictionaries = load_dictionaries()
     directions = sorted({r["direction"] for r in rows if r["direction"]})
     domain_counts = Counter(r["domain"] for r in rows if r["domain"])
+    total_count = len(rows)
     c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
     text = c1.text_input("Поиск (название/домен)", key="doc_filter_text").strip().lower()
     status = c2.selectbox(
@@ -83,7 +84,7 @@ def _apply_filters(rows: list[dict]) -> list[dict]:
         format_func=lambda v: _STATUS_FILTER.get(v, _ALL))
     domain = c3.selectbox(
         "Домен", [_ALL, *sorted(domain_counts)], key="doc_filter_domain",
-        format_func=lambda d: f"Все ({len(rows)})" if d == _ALL else f"{d} ({domain_counts[d]})")
+        format_func=lambda d: f"Все ({total_count})" if d == _ALL else f"{d} ({domain_counts[d]})")
     direction = c4.selectbox(
         "Направление", [_ALL, *directions], key="doc_filter_direction",
         format_func=lambda v: v if v == _ALL else label_of(dictionaries, "direction", v))
@@ -439,20 +440,33 @@ def render() -> None:
         "md": "MD", "json": "JSON",
     }
 
+    _HOST_DATA_ROOT = os.environ.get("HOST_DATA_ROOT", "/home/vector/projects/ds/ds_search/data")
+    _WSL_DISTRO = os.environ.get("HOST_WSL_DISTRO", "Ubuntu")
+
     def _file_uri(p) -> str | None:
-        # issue #292: ссылка на локальный файл черновика (было: file:// —
-        # открывается ОС в приложении по умолчанию).
-        # issue #325: ds-search работает в контейнере (data — volume-mount),
-        # поэтому file:// либо ведёт на путь ВНУТРИ контейнера, либо (даже с
-        # хостовым UNC-путём) браузер блокирует переход с http-страницы на
-        # file:// ("Not allowed to load local resource"). Решение: отдавать
-        # файл через встроенную статику Streamlit (enableStaticServing,
-        # см. .streamlit/config.toml) — data смонтирован volume'ом ещё раз
-        # в /app/ui/static/data (docker-compose.yml), НЕ через symlink: у
-        # symlink'а realpath уходит за пределы app_static_root, и Streamlit
-        # отвечает 400 Bad Request на любой файл (issue #325 фикс v2).
-        # LinkColumn требует полный URL с протоколом, иначе браузер делает
-        # file:// (issue #325 фикс v3).
+        # issue #292/#327: vscode://vscode-remote/wsl+<distro>/... — ненадёжно
+        # (переоткрытие уже открытого remote-окна фокусирует его, файл не
+        # открывается). file://wsl.localhost/... — браузер блокирует
+        # ("Not allowed to load local resource"), это подтвердилось.
+        # Решение: свой протокол dsdoc:// (зарегистрирован в реестре хоста,
+        # HKCU\Software\Classes\dsdoc -> открывает файл по default handler'у
+        # расширения через \\wsl.localhost\<distro>\<path> — у автора это
+        # Notepad++). Требует host path, см. HOST_DATA_ROOT.
+        # Статика Streamlit (issue #325) оставлена как fallback ниже.
+        if not p:
+            return None
+        resolved = Path(p).resolve()
+        try:
+            rel = resolved.relative_to(ROOT)
+        except ValueError:
+            return None
+        return f"dsdoc://{_WSL_DISTRO}{_HOST_DATA_ROOT}/{rel.as_posix()}"
+
+    def _static_uri(p) -> str | None:
+        # Fallback для тех, у кого нет VS Code/Remote-WSL — статика Streamlit
+        # (data смонтирован ещё раз в /app/ui/static/data, НЕ symlink'ом:
+        # у symlink'а realpath уходит за пределы app_static_root, и Streamlit
+        # отвечает 400 Bad Request на любой файл — issue #325).
         if not p:
             return None
         resolved = Path(p).resolve()
