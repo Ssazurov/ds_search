@@ -451,7 +451,8 @@ def render() -> None:
         # в /app/ui/static/data (docker-compose.yml), НЕ через symlink: у
         # symlink'а realpath уходит за пределы app_static_root, и Streamlit
         # отвечает 400 Bad Request на любой файл (issue #325 фикс v2).
-        # Ссылка относительная — работает независимо от хоста/порта.
+        # LinkColumn требует полный URL с протоколом, иначе браузер делает
+        # file:// (issue #325 фикс v3).
         if not p:
             return None
         resolved = Path(p).resolve()
@@ -459,7 +460,7 @@ def render() -> None:
             rel = resolved.relative_to(ROOT)
         except ValueError:
             return None
-        return f"app/static/data/{rel.as_posix()}"
+        return f"http://localhost:8503/app/static/data/{rel.as_posix()}"
 
     df = pd.DataFrame([
         {
