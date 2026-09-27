@@ -15,7 +15,7 @@ import streamlit as st
 
 from ui import (
     agents_status_tab, dashboard_tab, dictionaries_tab, documents_tab,
-    materials_tab, news_tab, results_tab, search_tab, site_publish_tab, sources_tab,
+    news_tab, results_tab, search_tab, site_publish_tab, sources_tab,
     upload_tab,
 )
 
@@ -37,7 +37,7 @@ st.markdown(
 
 TABS = [
     "Справочники", "Поиск", "Результаты", "Загрузка", "Документы", "Источники",
-    "Дашборд", "Новости", "Материалы", "Статус агентов", "Внешний сайт",
+    "Дашборд", "Новости", "Статус агентов", "Внешний сайт",
 ]
 
 _RENDER = {
@@ -49,7 +49,6 @@ _RENDER = {
     "Источники": sources_tab.render,
     "Дашборд": dashboard_tab.render,
     "Новости": news_tab.render,
-    "Материалы": materials_tab.render,
     "Статус агентов": agents_status_tab.render,
     "Внешний сайт": site_publish_tab.render,
 }
