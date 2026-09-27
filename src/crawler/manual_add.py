@@ -6,8 +6,8 @@ doc_id = sha256(canonical_url)[:16].
 
 Дубликат по canonical_url отклоняется — нужно использовать reload-flow
 (ADR-0007/0009) для обновления уже существующего документа, новый sidecar
-не создаётся. Неизвестный домен получает pending_manual_review в
-config/licenses.yaml (license gate, ADR-0013) — сохранение sidecar
+не создаётся. Неизвестный домен получает pending_manual_review в реестре
+источников (license gate, ADR-0013/0021) — сохранение sidecar
 блокируется до ручного статуса.
 
 Если домен относится к уже сконфигурированному источнику (SOURCES) —

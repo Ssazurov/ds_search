@@ -1,5 +1,5 @@
 """Бэкфилл license/attribution в уже собранных data/raw/<source>/*.json
-по текущему состоянию config/licenses.yaml (follow-up issue, вне scope #5).
+по текущему состоянию реестра источников в GAR (ds ADR-0021).
 Разовый скрипт, не часть постоянного пайплайна.
 
 Использование: python3 scripts/backfill_license.py <source>

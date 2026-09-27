@@ -3,8 +3,8 @@
 Работает в две ступени:
 1. Автоматическая — robots.txt источника (если явно запрещает обход
    нашим user-agent, статус deny без обращения к реестру).
-2. Реестр `config/licenses.yaml` — результат ручного юридического анализа
-   ToS/подвала сайта по каждому домену (allow / attribution_required / deny).
+2. Реестр источников (БД GAR, ds ADR-0021) — результат ручного юридического
+   анализа ToS/подвала сайта по каждому домену (allow / attribution_required / deny).
    Автоматический парсинг произвольного текста ToS ненадёжен для MVP,
    поэтому это ручной, но обязательный шаг (см. ADR-001 п.3).
 
@@ -17,16 +17,15 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from enum import Enum
-from pathlib import Path
 from urllib.parse import urljoin, urlsplit
 from urllib.robotparser import RobotFileParser
 
 import httpx
-import yaml
+
+from .registry_store import GarRegistryStore
 
 logger = logging.getLogger(__name__)
 
-_CONFIG_PATH = Path(__file__).resolve().parents[2] / "config" / "licenses.yaml"
 _DEFAULT_USER_AGENT = "ds-search-bot"
 
 
@@ -94,51 +93,9 @@ def normalize_domain(domain: str) -> str:
     return d[4:] if d.startswith("www.") else d
 
 
-def _load_registry(path: Path = _CONFIG_PATH) -> dict:
-    if not path.exists():
-        logger.warning("licenses.yaml не найден (%s) — реестр пуст", path)
-        return {}
-    with path.open(encoding="utf-8") as f:
-        return yaml.safe_load(f) or {}
-
-
 def default_attribution_template(domain: str) -> str:
     """Шаблон атрибуции по умолчанию для нового источника."""
     return f"Источник: {{title}} ({{source_url}}), {domain}"
-
-
-def _register_pending(domain: str, path: Path) -> None:
-    """Автосоздание записи pending_manual_review при первой встрече домена
-    (issue #184, ADR-013): без этого домен не появлялся в UI "Источники" и
-    требовал ручного повторного ввода вместо простого выбора статуса."""
-    registry = _load_registry(path)
-    if domain in registry:
-        return
-    registry[domain] = {
-        "status": LicenseStatus.PENDING_MANUAL_REVIEW.value,
-        "attribution_template": default_attribution_template(domain),
-        "notes": "",
-        "checked_date": None,
-        "publish_permission": PublishPermission.NOT_SET.value,
-    }
-    path.write_text(
-        "# Реестр лицензий/ToS источников (issue #3, ADR-001 п.3).\n"
-        + yaml.safe_dump(registry, allow_unicode=True, sort_keys=True),
-        encoding="utf-8",
-    )
-
-
-def _resolve_store(registry_path: Path, registry_store):
-    """Хранилище реестра GAR или None (тогда — yaml). Явный registry_store приоритетнее;
-    иначе GAR только при SOURCE_REGISTRY_BACKEND=gar и стандартном registry_path
-    (тесты и скрипты с собственным yaml-файлом остаются на yaml)."""
-    if registry_store is not None:
-        return registry_store
-    if registry_path == _CONFIG_PATH:
-        from .registry_store import GarRegistryStore, registry_backend
-        if registry_backend() == "gar":
-            return GarRegistryStore()
-    return None
 
 
 def _check_robots(base_url: str, user_agent: str) -> bool | None:
@@ -160,9 +117,11 @@ def check_license(
     domain: str,
     base_url: str,
     user_agent: str = _DEFAULT_USER_AGENT,
-    registry_path: Path = _CONFIG_PATH,
     registry_store=None,
 ) -> LicenseCheckResult:
+    """Реестр источников — в GAR (+ кэш при недоступности), ds ADR-0021 (#263).
+    `registry_store` для тестов (см. tests/test_registry_store.py,
+    tests/test_license_checker.py); в проде всегда GarRegistryStore()."""
     robots_ok = _check_robots(base_url, user_agent)
     if robots_ok is False:
         return LicenseCheckResult(
@@ -171,35 +130,20 @@ def check_license(
         )
 
     domain = normalize_domain(domain)
-    store = _resolve_store(registry_path, registry_store)
-    if store is not None:
-        # реестр в GAR (+ кэш при недоступности), ds ADR-0021
-        entry = store.get(domain)
-        if entry is None:
-            store.ensure(domain, default_attribution_template(domain))
-            return LicenseCheckResult(
-                status=LicenseStatus.PENDING_MANUAL_REVIEW,
-                reason=(
-                    f"домен {domain} отсутствует в реестре источников (или реестр GAR недоступен) — "
-                    "требуется ручная проверка ToS перед автосбором"
-                ),
-            )
-    else:
-        registry = _load_registry(registry_path)
-        # запасной поиск по старому ключу "www.<домен>" — реестры, не приведённые к канону
-        entry = registry.get(domain) or registry.get(f"www.{domain}")
-        if entry is None:
-            _register_pending(domain, registry_path)
-            return LicenseCheckResult(
-                status=LicenseStatus.PENDING_MANUAL_REVIEW,
-                reason=(
-                    f"домен {domain} отсутствует в config/licenses.yaml — "
-                    "требуется ручная проверка ToS перед автосбором"
-                ),
-            )
+    store = registry_store if registry_store is not None else GarRegistryStore()
+    entry = store.get(domain)
+    if entry is None:
+        store.ensure(domain, default_attribution_template(domain))
+        return LicenseCheckResult(
+            status=LicenseStatus.PENDING_MANUAL_REVIEW,
+            reason=(
+                f"домен {domain} отсутствует в реестре источников (или реестр GAR недоступен) — "
+                "требуется ручная проверка ToS перед автосбором"
+            ),
+        )
 
     status = LicenseStatus(entry["status"])
-    reason = entry.get("notes", "статус из config/licenses.yaml")
+    reason = entry.get("notes", "статус из реестра источников")
     return LicenseCheckResult(
         status=status,
         reason=reason,
