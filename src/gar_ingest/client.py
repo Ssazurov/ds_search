@@ -3,6 +3,12 @@
 Вынесен из src/news/publish.py (GarNewsClient -> GarIngestClient), чтобы
 переиспользовать в src/gar_ingest/documents.py без дублирования HTTP-логики.
 Поведение news/publish.py не меняется — оно импортирует эти же классы.
+
+Есть родственный клиент ds_ingestion/src/gar_client/client.py (GarClient) —
+тот же /ingestion/* в gar-core-api, но для автоматического pipeline
+ingestion. Раздельны намеренно (ds ADR-0023): разная ответственность и
+деплой, но пересечение (ensure_dataset/ingest_document) должно одинаково
+обрабатывать сетевые ошибки.
 """
 from __future__ import annotations
 
@@ -83,7 +89,10 @@ class GarIngestClient:
                 "dataset_id": dataset_id, "doc_name": doc_name,
                 "metadata": _json.dumps(metadata, ensure_ascii=False),
             }
-            resp = self._client.post("/ingestion/documents", data=data, files=files)
+            try:
+                resp = self._client.post("/ingestion/documents", data=data, files=files)
+            except httpx.RequestError as exc:
+                raise GarPublishError(f"ingest {file_path.name} request failed: {exc}") from exc
         if resp.status_code != 200:
             raise GarPublishError(f"ingest {file_path.name} failed: {resp.status_code} {resp.text}")
         return resp.json()
