@@ -169,6 +169,27 @@ def test_delete_from_gar_batch_does_not_touch_local_files(tmp_path, fake_gar_cli
     assert doc_json_path.exists()  # локальный файл не тронут
 
 
+def test_delete_from_gar_batch_clears_local_gar_flag(tmp_path, monkeypatch, fake_gar_client):
+    """Регрессия issue #111: после «Удалить из GAR» локальный sidecar
+    больше не помечает документ как загруженный — иначе _scan_raw()
+    продолжал возвращать status="loaded" (галочка «В GAR» остаётся)."""
+    raw_root = tmp_path / "raw"
+    monkeypatch.setattr(documents_tab, "RAW_ROOT", raw_root)
+    monkeypatch.setattr(documents_tab, "CLEAN_ROOT", tmp_path / "clean")
+
+    doc_json_path = _write_meta(raw_root, "a.org", "doc1", gar_document_id="gid-1")
+    row = {"doc_id": "doc1", "gar_document_id": "gid-1", "doc_json_path": doc_json_path}
+
+    documents_tab._delete_from_gar_batch([row])
+
+    meta = json.loads(doc_json_path.read_text(encoding="utf-8"))
+    assert meta.get("gar_document_id") is None
+    assert meta.get("ingest_error") is None
+    scanned = {r["doc_id"]: r for r in documents_tab._scan_raw()}
+    assert scanned["doc1"]["status"] == "pending"
+    assert scanned["doc1"]["gar_document_id"] is None
+
+
 def test_delete_everywhere_batch_removes_local_and_gar(tmp_path, fake_gar_client):
     doc_json_path = tmp_path / "doc1.json"
     doc_json_path.write_text(json.dumps({}), encoding="utf-8")
