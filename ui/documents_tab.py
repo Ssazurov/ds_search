@@ -54,6 +54,8 @@ def _scan_raw() -> list[dict]:
             "direction": meta.get("direction", ""),
             "category": meta.get("category", ""),
             "doc_type": meta.get("doc_type", ""),
+            "age": meta.get("age", ""),
+            "needs_review": meta.get("needs_review"),
             "content_path": meta.get("content_path"),
             "clean": clean_exists,
             "gar_document_id": gar_id,
@@ -156,6 +158,8 @@ def _gar_only_rows(rows: list[dict]) -> list[dict]:
             "direction": meta.get("direction", ""),
             "category": meta.get("category", ""),
             "doc_type": doc.get("doc_type", ""),
+            "age": meta.get("age", ""),
+            "needs_review": meta.get("needs_review"),
             "content_path": None,
             "clean": False,
             "gar_document_id": doc_id,
@@ -325,19 +329,46 @@ def _render_metadata_form(selected_rows: list[dict]) -> None:
     loaded_count = sum(1 for r in selected_rows if r["gar_document_id"])
     st.caption(f"Выбрано: {len(selected_rows)}, из них уже в GAR: {loaded_count} (для них уйдёт PATCH в GAR)")
 
-    # автоподстановка direction/category при смене состава выбора: общее
-    # значение — если оно одно на всех выбранных и валидно в живой схеме GAR,
-    # иначе пусто ("не выбрано"), чтобы не перезаписать разные документы одним
-    # значением по ошибке
+    # автоподстановка direction/category/age/needs_review при смене состава выбора
+    # (issue #336): для единичного выбора — всегда брать значения документа,
+    # для множественного — общее значение (если валидно) или пусто
     sel_key = tuple(sorted(r["doc_id"] for r in selected_rows))
     if st.session_state.get("_batch_meta_sel_key") != sel_key:
-        dirs = {r["direction"] for r in selected_rows}
-        common_dir = next(iter(dirs)) if len(dirs) == 1 else ""
-        st.session_state["batch_direction"] = common_dir if common_dir in directions else ""
-        cats = {r["category"] for r in selected_rows}
-        common_cat = next(iter(cats)) if len(cats) == 1 else ""
-        valid_cats = category_options_for_direction(gar_fields, common_dir) if common_dir and gar_fields else []
-        st.session_state["batch_category"] = common_cat if common_cat in valid_cats else ""
+        # Инициализация ключей, если их нет
+        if "batch_age" not in st.session_state:
+            st.session_state["batch_age"] = ""
+        if "batch_needs_review" not in st.session_state:
+            st.session_state["batch_needs_review"] = "не менять"
+        
+        if len(selected_rows) == 1:
+            # Единичный выбор: всегда брать значения документа
+            doc = selected_rows[0]
+            st.session_state["batch_direction"] = doc.get("direction", "")
+            st.session_state["batch_category"] = doc.get("category", "")
+            st.session_state["batch_age"] = doc.get("age", "")
+            
+            # needs_review — bool в метаданных, но selectbox работает с текстом
+            needs_review = doc.get("needs_review")
+            if needs_review is True:
+                st.session_state["batch_needs_review"] = "да"
+            elif needs_review is False:
+                st.session_state["batch_needs_review"] = "нет"
+            else:
+                st.session_state["batch_needs_review"] = "не менять"
+        else:
+            # Множественный выбор: общее значение (если валидно) или пусто
+            dirs = {r["direction"] for r in selected_rows}
+            common_dir = next(iter(dirs)) if len(dirs) == 1 else ""
+            st.session_state["batch_direction"] = common_dir if common_dir in directions else ""
+            
+            cats = {r["category"] for r in selected_rows}
+            common_cat = next(iter(cats)) if len(cats) == 1 else ""
+            valid_cats = category_options_for_direction(gar_fields, common_dir) if common_dir and gar_fields else []
+            st.session_state["batch_category"] = common_cat if common_cat in valid_cats else ""
+            
+            st.session_state["batch_age"] = ""
+            st.session_state["batch_needs_review"] = "не менять"
+        
         st.session_state["_batch_meta_sel_key"] = sel_key
 
     # Без st.form: внутри st.form виджеты не вызывают rerun при изменении
