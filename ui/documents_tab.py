@@ -65,8 +65,15 @@ def _scan_raw() -> list[dict]:
     return rows
 
 
-_FILTER_KEYS = ("doc_filter_text", "doc_filter_status", "doc_filter_domain",
+_FILTER_KEYS = ("doc_filter_text", "doc_filter_status",
                 "doc_filter_direction", "doc_filter_local", "doc_filter_gar_status")
+
+
+def _reset_filters() -> None:
+    for k in _FILTER_KEYS:
+        st.session_state.pop(k, None)
+    version = st.session_state.get("doc_filter_domain_version", 0)
+    st.session_state.pop(f"doc_filter_domain_v{version}", None)
 
 
 _GAR_STATUS_FILTER = {"indexed": "Активные", "archived": "Архив"}
@@ -82,8 +89,9 @@ def _apply_filters(rows: list[dict]) -> list[dict]:
     status = c2.selectbox(
         "В GAR", [_ALL, *_STATUS_FILTER], key="doc_filter_status",
         format_func=lambda v: _STATUS_FILTER.get(v, _ALL))
+    domain_key = f"doc_filter_domain_v{st.session_state.get('doc_filter_domain_version', 0)}"
     domain = c3.selectbox(
-        "Домен", [_ALL, *sorted(domain_counts)], key="doc_filter_domain",
+        "Домен", [_ALL, *sorted(domain_counts)], key=domain_key,
         format_func=lambda d: f"Все ({total_count})" if d == _ALL else f"{d} ({domain_counts[d]})")
     direction = c4.selectbox(
         "Направление", [_ALL, *directions], key="doc_filter_direction",
@@ -93,7 +101,7 @@ def _apply_filters(rows: list[dict]) -> list[dict]:
         "Статус GAR", [_ALL, *_GAR_STATUS_FILTER], key="doc_filter_gar_status",
         format_func=lambda v: _GAR_STATUS_FILTER.get(v, _ALL))
     c7.write("")  # пустой label для выравнивания
-    c7.button("Сбросить", key="doc_filters_reset_btn", on_click=lambda: [st.session_state.pop(k, None) for k in _FILTER_KEYS])
+    c7.button("Сбросить", key="doc_filters_reset_btn", on_click=_reset_filters)
     filtered = rows
     if text:
         filtered = [r for r in filtered if text in r["title"].lower() or text in r["domain"].lower()]
@@ -505,6 +513,12 @@ def render() -> None:
         except Exception as exc:  # noqa: BLE001 — сеть/GAR недоступны, не роняем вкладку
             st.error(f"Не удалось получить список из GAR: {exc}")
         else:
+            # Форсируем remount selectbox'а "Домен" новым key, иначе Streamlit
+            # не обновляет отображаемый текст закрытого списка (только после
+            # открытия dropdown) — см. отчёт пользователя от 2026-09-27.
+            st.session_state["doc_filter_domain_version"] = (
+                st.session_state.get("doc_filter_domain_version", 0) + 1
+            )
             st.rerun()
     if "gar_docs_cache" in st.session_state:
         col_gar_info.caption(
