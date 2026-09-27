@@ -25,7 +25,9 @@ CREATE TABLE IF NOT EXISTS news_items (
     title TEXT NOT NULL,
     summary TEXT,
     body_md TEXT,
-    direction TEXT NOT NULL DEFAULT 'news',
+    -- issue #303: 'news' был deactivated-слаг таксономии direction, уходил
+    -- в GAR как валидное значение. NULL безопасен (direction не required).
+    direction TEXT,
     tags TEXT NOT NULL DEFAULT '[]',
     requires_review INTEGER NOT NULL DEFAULT 0,
     status TEXT NOT NULL DEFAULT 'draft'

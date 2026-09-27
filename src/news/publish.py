@@ -83,14 +83,27 @@ def build_metadata(item: dict) -> dict:
     doc_type=news (issue #49), license=own_generated (ADR-003). Поля
     age/target_audience/category довязаны через metadata/classify.classify()
     (issue #181); doc_type всегда "news" (ADR-003), явные значения item
-    (item["category"]/item["direction"]) имеют приоритет над LLM."""
+    (item["category"]/item["direction"]) имеют приоритет над LLM.
+
+    issue #303: item.get("direction") валидируется против активных опций
+    схемы GAR — раньше устаревший слаг "news" (DB-дефолт db.py/дефолт
+    драфта llm_draft.py) уходил в GAR как есть, т.к. был truthy и перебивал
+    classify(). direction не required (см. gar_schema) — None здесь
+    безопасен и просто уводит документ в needs_review."""
     source_url = effective_source_url(item)
     classified = classify_item(item)
+    try:
+        valid_directions = set(gar_schema.field_options(gar_schema.load_gar_schema(), "direction"))
+    except Exception:
+        valid_directions = set()
+    item_direction = item.get("direction")
+    if valid_directions and item_direction not in valid_directions:
+        item_direction = None
     metadata = build_ingestion_metadata(
         source_url=source_url, source_domain=urlparse(source_url).netloc or MANUAL_SOURCE_DOMAIN,
         title=item["title"], license="own_generated",
         category=item.get("category") or classified.get("category"),
-        direction=item.get("direction") or classified.get("direction") or "news",
+        direction=item_direction or classified.get("direction"),
         doc_type="news",
         description=item.get("summary"),
         publish_date=item.get("published_at") or item.get("source_published_at"),

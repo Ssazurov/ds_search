@@ -173,7 +173,10 @@ def generate_draft(source: dict, config: LlmConfig | None = None) -> dict:
         "title": parsed["title"],
         "summary": parsed.get("summary"),
         "body_md": parsed.get("body_md"),
-        "direction": "news",
+        # issue #303: не хардкодить "news" — это deactivated-слаг таксономии
+        # direction (не путать с doc_type=news, ADR-003). None здесь ->
+        # publish.py.build_metadata() положится на classify()/needs_review.
+        "direction": None,
         "tags": parsed.get("tags", []),
         "requires_review": True,
         "status": "draft",
