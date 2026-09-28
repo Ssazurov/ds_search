@@ -520,3 +520,7 @@ local rows + GAR-документы без соответствия по gar_doc
 - **Files changed**: `src/crawler/manual_add.py`, `ui/upload_tab.py`, `tests/test_manual_add.py` (+test for override params).
 - **Verification**: `pytest tests/test_manual_add.py` — all tests passed. Merged via PR #320.
 - **Rebuild**: Container `ds-search` rebuilt via `rebuild.sh`, all layers cached (no network downloads), service up.
+- 2026-09-28: issue #343 — добавлены регрессионные тесты для извлечения автора
+  и `_refresh_local_content`: приоритет автора из тела, URL/отсутствующие
+  данные, не-200 resolve, отсутствующий sidecar/source_url, timeout,
+  смена расширения и атомарная замена контента. Проверка: 25 тестов.

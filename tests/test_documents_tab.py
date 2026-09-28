@@ -262,3 +262,83 @@ def test_ingest_batch_all_loaded_is_noop(monkeypatch):
     monkeypatch.setattr(documents_tab, "ingest_document", lambda p: calls.append(p))
     documents_tab._ingest_batch([{"doc_id": "d1", "gar_document_id": "gid-1", "doc_json_path": "d1.json"}])
     assert calls == []
+
+
+def test_refresh_local_content_resolves_and_atomically_replaces(tmp_path, monkeypatch):
+    raw = tmp_path / "raw"
+    monkeypatch.setattr(documents_tab, "_DS_INGESTION_URL", "http://ingestion")
+    monkeypatch.setattr("src.discovery.download.DEFAULT_DATA_ROOT", raw)
+    sidecar = raw / "site" / "doc.json"
+    sidecar.parent.mkdir(parents=True)
+    sidecar.write_text(json.dumps({"source_url": "https://example.test"}), encoding="utf-8")
+    content = sidecar.with_suffix(".md")
+    content.write_text("old", encoding="utf-8")
+
+    class Response:
+        status_code = 200
+        def json(self):
+            return {"source": "site", "doc_id": "doc"}
+
+    monkeypatch.setattr(documents_tab.httpx, "post", lambda *a, **k: Response())
+
+    async def download(*args, **kwargs):
+        out = tmp_path / "new.md"
+        out.write_text("fresh", encoding="utf-8")
+        return {"content_path": str(out)}
+
+    monkeypatch.setattr("src.discovery.download.download_single", download)
+    documents_tab._refresh_local_content("gid")
+    assert content.read_text(encoding="utf-8") == "fresh"
+    assert not content.with_name("doc.md.tmp").exists()
+
+
+@pytest.mark.parametrize("case", ["http", "sidecar", "url", "extension"])
+def test_refresh_local_content_rejects_invalid_source(tmp_path, monkeypatch, case):
+    raw = tmp_path / "raw"
+    monkeypatch.setattr(documents_tab, "_DS_INGESTION_URL", "http://ingestion")
+    monkeypatch.setattr("src.discovery.download.DEFAULT_DATA_ROOT", raw)
+
+    class Response:
+        status_code = 500 if case == "http" else 200
+        def json(self):
+            return {"source": "site", "doc_id": "missing" if case == "sidecar" else "doc"}
+
+    monkeypatch.setattr(documents_tab.httpx, "post", lambda *a, **k: Response())
+    sidecar = raw / "site" / "doc.json"
+    sidecar.parent.mkdir(parents=True)
+    sidecar.write_text(json.dumps({} if case == "url" else {"source_url": "https://example.test"}), encoding="utf-8")
+
+    async def download(*args, **kwargs):
+        out = tmp_path / "new.pdf"
+        out.write_text("fresh", encoding="utf-8")
+        return {"content_path": str(out)}
+
+    monkeypatch.setattr("src.discovery.download.download_single", download)
+    if case == "http":
+        documents_tab._refresh_local_content("gid")
+    else:
+        with pytest.raises(GarPublishError):
+            documents_tab._refresh_local_content("gid")
+
+
+def test_refresh_local_content_times_out(tmp_path, monkeypatch):
+    raw = tmp_path / "raw"
+    monkeypatch.setattr(documents_tab, "_DS_INGESTION_URL", "http://ingestion")
+    monkeypatch.setattr("src.discovery.download.DEFAULT_DATA_ROOT", raw)
+    sidecar = raw / "site" / "doc.json"
+    sidecar.parent.mkdir(parents=True)
+    sidecar.write_text(json.dumps({"source_url": "https://example.test"}), encoding="utf-8")
+
+    class Response:
+        status_code = 200
+        def json(self):
+            return {"source": "site", "doc_id": "doc"}
+
+    monkeypatch.setattr(documents_tab.httpx, "post", lambda *a, **k: Response())
+    async def timeout(*args, **kwargs):
+        raise asyncio.TimeoutError()
+    import asyncio
+    monkeypatch.setattr("src.discovery.download.download_single", timeout)
+    monkeypatch.setattr(documents_tab, "_RECRAWL_POLL_S", 0.01)
+    with pytest.raises(GarPublishError, match="30 с"):
+        documents_tab._refresh_local_content("gid")
