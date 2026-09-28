@@ -397,7 +397,10 @@ def _render_metadata_form(selected_rows: list[dict]) -> None:
     # (issue #336): для единичного выбора — всегда брать значения документа,
     # для множественного — общее значение (если валидно) или пусто
     sel_key = tuple(sorted(r["doc_id"] for r in selected_rows))
-    if st.session_state.get("_batch_meta_sel_key") != sel_key:
+    # #345: ключи batch_* удаляются Streamlit, если форма не рисовалась в прогоне
+    # (например, после удаления из GAR) — тогда автоподстановку надо повторить
+    if (st.session_state.get("_batch_meta_sel_key") != sel_key
+            or "batch_direction" not in st.session_state):
         # Инициализация ключей, если их нет
         if "batch_age" not in st.session_state:
             st.session_state["batch_age"] = ""
