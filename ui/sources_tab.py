@@ -99,15 +99,9 @@ def _render_add_news() -> None:
         from src.news.collect import add_single_url
 
         result = asyncio.run(add_single_url(news_url.strip()))
-        level, msg = {
-            "drafted": ("success", "Добавлено черновиком в news_items (needs_review)"),
-            "skipped_duplicate": ("info", "Такая ссылка уже есть в news_items"),
-            "license_denied": ("warning", "Домен не прошёл проверку лицензии (issue #3) — проставьте статус выше"),
-            "download_failed": ("error", "Не удалось скачать/распарсить страницу"),
-            "llm_failed": ("error", "LLM не смог собрать черновик по этому тексту (детали — в логе ds-search)"),
-            "llm_unavailable": ("error", "LLM недоступен (endpoint/таймаут) — проверьте Ollama и NEWS_LLM_ENDPOINT"),
-            "not_relevant": ("info", "LLM счёл новость нерелевантной теме — не добавлено"),
-        }.get(result, ("error", result))
+        from ui.news_add import describe
+
+        level, msg = describe(result)
         getattr(st, level)(msg)
 
 

@@ -10,6 +10,7 @@ import streamlit as st
 from src.discovery.config import load_settings
 from src.discovery.gar_client import GarDiscoveryClient
 from src.license.checker import check_license
+from ui.news_add import add_articles_as_news, describe
 from ui.table_utils import COLUMN_LABELS, column_settings, datetime_column, link_column, localize
 
 _STATUS_OPTIONS = ["new", "approved", "rejected", "queued", "downloaded"]
@@ -106,8 +107,17 @@ def render() -> None:
     selected_ids = df.loc[selected_mask, "id"].tolist() if "id" in df.columns else []
     st.caption(f"Выбрано: {len(selected_ids)}")
 
-    b1, b2, b3, b4 = st.columns(4)
+    b1, b2, b3, b4, b5 = st.columns(5)
     settings = load_settings()
+    if b5.button("В новости", disabled=not selected_ids, key="results_to_news",
+                 help="LLM-черновик новости по выбранным статьям → вкладка «Новости»"):
+        chosen = [r for r in rows if r["id"] in selected_ids]
+        with st.spinner(f"Генерация черновиков: {len(chosen)}…"):
+            results = add_articles_as_news(
+                [{"url": r["url"], "title": r.get("title") or ""} for r in chosen])
+        for label, status in results:
+            level, msg = describe(status)
+            getattr(st, level)(f"{label}: {msg}")
     if b1.button("Одобрить выбранные", disabled=not selected_ids):
         with GarDiscoveryClient(settings) as client:
             for row_id in selected_ids:

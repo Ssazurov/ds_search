@@ -50,6 +50,7 @@ def _render_item(item: dict) -> None:
     pub_options = ["Сейчас"] + (["Дата источника"] if source_dt_raw else []) + ["Вручную"]
     pub_mode = st.radio(
         "Дата публикации", pub_options, horizontal=True, key=f"pubmode_{item['id']}",
+        index=pub_options.index("Дата источника") if source_dt_raw else 0,
     )
     if pub_mode == "Сейчас":
         new_published_at = datetime.now().isoformat(sep=" ", timespec="seconds")
