@@ -1,3 +1,12 @@
+## 2026-09-28 -- author link in document reload metadata
+
+- `extract_author_from_markdown` теперь сохраняет markdown-ссылку автора целиком,
+  например `[КАПЛАН Виталий](https://foma.ru/authors/kaplan-vitalij)`, вместо
+  удаления URL и сохранения только ФИО.
+- Добавлен регрессионный тест для строки `Автор:` с ссылкой и fallback
+  `article:author`.
+- Проверка: `pytest tests/test_meta_extract.py`.
+
 ## 2026-09-25 -- issue #292: ссылки на локальные md/json черновики в таблице Документов
 
 - Добавлены колонки «MD» и «JSON» с `file://` ссылками на `content_path` (md/pdf) и `doc_json_path` (sidecar) через `st.column_config.LinkColumn` с material-иконками.

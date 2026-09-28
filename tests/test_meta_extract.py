@@ -26,3 +26,9 @@ def test_falls_back_to_plain_meta_tags():
 def test_empty_or_missing_metadata():
     assert extract_page_meta(None) == {'author': '', 'publish_date': '', 'description': ''}
     assert extract_page_meta({}) == {'author': '', 'publish_date': '', 'description': ''}
+
+
+def test_author_from_markdown_preserves_link():
+    markdown = "Автор: [КАПЛАН Виталий](https://foma.ru/authors/kaplan-vitalij)Журнал: Фома"
+    result = extract_page_meta({'article:author': 'https://facebook.com/foma.ru'}, markdown)
+    assert result['author'] == '[КАПЛАН Виталий](https://foma.ru/authors/kaplan-vitalij)'

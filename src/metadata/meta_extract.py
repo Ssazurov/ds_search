@@ -9,17 +9,15 @@ from __future__ import annotations
 import re
 
 _AUTHOR_LINE_RE = re.compile(r"^\s*Авторы?:\s*(.+)$", re.MULTILINE)
-_MD_LINK_RE = re.compile(r"\[([^\]]+)\]\([^)]*\)")
 
 
 def extract_author_from_markdown(markdown: str) -> str:
-    """Строка вида 'Автор: [КАПЛАН Виталий](url)Журнал: [...](...)' в теле
-    статьи (foma.ru и т.п.) -> 'КАПЛАН Виталий'. Пусто, если строки нет."""
+    """Извлечь автора вместе с markdown-ссылкой из строки ``Автор:``."""
     m = _AUTHOR_LINE_RE.search(markdown or "")
     if not m:
         return ""
     line = m.group(1).split("Журнал:")[0]
-    return _MD_LINK_RE.sub(r"\1", line).strip(" ,;")
+    return line.strip(" ,;")
 
 
 def extract_page_meta(metadata: dict | None, markdown: str = "") -> dict:
