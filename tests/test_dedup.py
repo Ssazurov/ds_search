@@ -39,17 +39,24 @@ def test_past_findings_urls_covers_all_dup_statuses():
     class FakeClient:
         def list_discovered_sources(self, status=None, domain=None):
             return {
+                "new": [{"url": "https://example.org/new"}],
                 "approved": [{"url": "https://example.org/appr"}],
+                "queued": [{"url": "https://example.org/q"}],
+                "downloading": [{"url": "https://example.org/dling"}],
                 "rejected": [{"url": "https://example.org/rej"}],
                 "downloaded": [{"url": "https://example.org/dl"}],
-            }[status]
+                "error": [{"url": "https://example.org/err"}],
+            }.get(status, [])
 
     urls = past_findings_urls(FakeClient())
     assert urls == {
+        "https://example.org/new",
         "https://example.org/appr",
+        "https://example.org/q",
+        "https://example.org/dling",
         "https://example.org/rej",
         "https://example.org/dl",
-    }
+    }  # error не входит: такие находки можно перекачать
 
 
 def test_dedup_candidates_combines_local_and_remote_sources(tmp_path):
