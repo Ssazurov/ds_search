@@ -54,3 +54,15 @@ def extract_page_meta(metadata: dict | None, markdown: str = "") -> dict:
     ).strip()
 
     return {'author': author, 'publish_date': publish_date, 'description': description}
+
+
+def strip_site_suffix(title: str | None, site_name: str | None) -> str:
+    """Срезает с конца <title> «<разделитель> <site_name>» (напр. « - Православный
+    журнал «Фома»»). site_name задаётся в реестре домена (issue #347); пусто —
+    title не меняется."""
+    title = (title or "").strip()
+    name = (site_name or "").strip()
+    if not name:
+        return title
+    m = re.match(r"^(.*?)\s*[-–—|:·•]\s*" + re.escape(name) + r"\s*$", title, re.IGNORECASE | re.DOTALL)
+    return m.group(1).strip() if m and m.group(1).strip() else title

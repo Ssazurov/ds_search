@@ -32,6 +32,7 @@ from ..crawler.filters import (
 )
 from ..license.checker import check_license
 from ..metadata.downsideup_header import parse_header
+from ..metadata.meta_extract import extract_page_meta, strip_site_suffix
 from ..metadata.profile import build_ingestion_metadata
 
 logger = logging.getLogger(__name__)
@@ -100,7 +101,7 @@ async def _save_pdf(pdf_url: str, teaser_url: str, domain: str, direction: str,
         source_url=teaser_url, source_domain=domain, title="",
         license=license_result.status.value, category=category,
         pdf_url=pdf_url, direction=direction,
-        attribution=license_result.build_attribution(title="", source_url=teaser_url),
+        attribution=license_result.build_attribution(title="", source_url=teaser_url, domain=domain),
         content_path=str(pdf_path), content_status="saved",
         doc_type="article",  # issue: doc_type не проставлялся веб-статьям (0 из 107)
         is_aggregator=license_result.is_aggregator,
@@ -188,18 +189,22 @@ async def download_single(
         doc_id = base_name or doc_id_for(canon)
         md_path = out_dir / f"{doc_id}.md"
         md_path.write_text(fit_md, encoding="utf-8")
-        title = (result.metadata or {}).get("title", source.get("title", ""))
+        title = strip_site_suffix((result.metadata or {}).get("title") or source.get("title", ""), license_result.site_name)  # issue #347
+        page_meta = extract_page_meta(result.metadata, fit_md)  # issue #92: author/publish_date/description
+        for key, value in header_meta.items():
+            if value:
+                page_meta[key] = value
         meta = build_ingestion_metadata(
             source_url=canon, source_domain=domain, title=title,
             license=license_result.status.value, category=category,
             direction=direction,
-            attribution=license_result.build_attribution(title=title, source_url=canon),
+            attribution=license_result.build_attribution(title=title, source_url=canon, domain=domain),
             content_path=str(md_path), content_status="saved",
             doc_type="article",  # issue: doc_type не проставлялся веб-статьям (0 из 107)
             is_aggregator=license_result.is_aggregator,
             publish_permission=license_result.publish_permission.value,  # issue #286: наследование от домена
+            **page_meta,
         )
-        meta.update(header_meta)
         (out_dir / f"{doc_id}.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
 
         # Automatic classification after download (integrate classifier into pipeline).
