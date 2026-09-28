@@ -24,8 +24,10 @@ from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
 
 from ..crawler.filters import (
     AdaptiveMarkdownGenerator,
-    build_content_filter,
+    EXCLUDED_SELECTOR,
+    EXCLUDED_TAGS,
     canonicalize_url,
+    fix_missing_newlines,
     find_pdf_teaser_link,
     is_pdf_teaser_page,
 )
@@ -47,6 +49,7 @@ except Exception:  # noqa: BLE001
 
 MIN_FIT_MARKDOWN_CHARS = 200
 DEFAULT_DATA_ROOT = Path(__file__).resolve().parents[2] / "data" / "raw"
+
 
 
 class DownloadError(RuntimeError):
@@ -144,7 +147,16 @@ async def download_single(
     canon = canonicalize_url(url)
     base_name = _sanitize_filename(filename) if filename else None
 
-    run_cfg = CrawlerRunConfig(markdown_generator=AdaptiveMarkdownGenerator(content_filter=build_content_filter()))
+    # issue #338: PruningContentFilter+fit_markdown режет DOM по плотности
+    # перед генерацией markdown -> соседние текстовые узлы слипаются, html2text
+    # не видит границ <p>, переносы строк теряются. Вместо резки DOM чистим
+    # мусор через excluded_tags/excluded_selector (структура <p> сохраняется),
+    # порог качества считаем по итоговому raw_markdown, не по content_filter.
+    run_cfg = CrawlerRunConfig(
+        markdown_generator=AdaptiveMarkdownGenerator(),
+        excluded_tags=EXCLUDED_TAGS,
+        excluded_selector=EXCLUDED_SELECTOR,
+    )
     async with AsyncWebCrawler() as crawler:
         result = await crawler.arun(url=url, config=run_cfg)
         result = result[0] if isinstance(result, list) else result
@@ -160,8 +172,9 @@ async def download_single(
                     return meta
             raise DownloadError("PDF-тизер без доступной прямой ссылки")
 
-        fit_md = getattr(result.markdown, "fit_markdown", None) or result.markdown or ""
+        fit_md = getattr(result.markdown, "raw_markdown", None) or result.markdown or ""
         fit_md = fit_md if isinstance(fit_md, str) else str(fit_md)
+        fit_md = fix_missing_newlines(fit_md)
         if len(fit_md.strip()) < MIN_FIT_MARKDOWN_CHARS:
             pdf_url = find_pdf_teaser_link(html)
             if pdf_url:

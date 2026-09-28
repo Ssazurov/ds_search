@@ -281,6 +281,44 @@ def _patch_gar_metadata(gar_document_id: str, updates: dict) -> None:
         client.patch_document_metadata(gar_document_id, updates)
 
 
+def _refresh_local_content(document_id: str) -> None:
+    """ds_ingestion#40: краулера нет в контейнере ds-ingestion, поэтому
+    перекачиваем источник здесь (ds-search имеет crawl4ai) во временную папку
+    и подменяем только контент рядом с sidecar .json; метаданные не трогаем."""
+    import asyncio
+    import json as _json
+    import shutil
+    import tempfile
+    from pathlib import Path
+
+    from src.discovery.download import DEFAULT_DATA_ROOT, download_single
+
+    headers = {}
+    api_key = os.environ.get("DS_INGESTION_API_KEY")
+    if api_key:
+        headers["X-Ingestion-Key"] = api_key
+    r = httpx.post(f"{_DS_INGESTION_URL}/resolve_by_gar_id",
+                   json={"gar_document_id": document_id}, headers=headers, timeout=60)
+    if r.status_code != 200:
+        return  # reload ниже вернёт понятную ошибку
+    ref = r.json()
+    jp = Path(DEFAULT_DATA_ROOT) / ref["source"] / f"{ref['doc_id']}.json"
+    try:
+        meta = _json.loads(jp.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return
+    url = meta.get("source_url") or meta.get("canonical_url")
+    if not url:
+        return
+    with tempfile.TemporaryDirectory() as tmp:
+        new = asyncio.run(download_single({"url": url}, data_root=Path(tmp), dest_dir="r", filename="r"))
+        src = Path(new["content_path"])
+        dst = jp.with_suffix(src.suffix)
+        if not dst.is_file():
+            raise GarPublishError(f"reload {document_id}: тип контента источника изменился ({src.suffix})")
+        shutil.copyfile(src, dst)
+
+
 def _reload_from_source(document_id: str) -> dict:
     """POST /reload_by_gar_id на ds_ingestion (issue ds_search#145 /
     ADR-0007): полная перезагрузка metadata+content из локального источника.
@@ -289,9 +327,10 @@ def _reload_from_source(document_id: str) -> dict:
     api_key = os.environ.get("DS_INGESTION_API_KEY")
     if api_key:
         headers["X-Ingestion-Key"] = api_key
+    _refresh_local_content(document_id)
     resp = httpx.post(
         f"{_DS_INGESTION_URL}/reload_by_gar_id",
-        json={"gar_document_id": document_id}, headers=headers, timeout=120,
+        json={"gar_document_id": document_id, "recrawl": False}, headers=headers, timeout=120,
     )
     if resp.status_code != 200:
         raise GarPublishError(f"reload {document_id} failed: {resp.status_code} {resp.text}")

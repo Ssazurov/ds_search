@@ -156,3 +156,28 @@ def is_pdf_teaser_page(html: str) -> bool:
     реального текста статьи нет."""
     html = html or ""
     return bool(_PDF_LINK_RE.search(html) and _TEASER_MARKER_RE.search(html))
+
+
+# issue #338: единые настройки очистки/постобработки markdown (download_single
+# и Crawler.recrawl_url). Вместо PruningContentFilter, режущего DOM и слипающего <p>.
+EXCLUDED_TAGS = ["nav", "footer", "header", "aside", "form", "script", "style"]
+EXCLUDED_SELECTOR = (
+    "nav, footer, header, aside, form, .menu, .nav, .navigation, "
+    ".breadcrumbs, .share, .social, .comments, .sidebar, .related, "
+    ".widget, .advert, .ads, "
+    '[class*="cookie"], [class*="mobile-menu"], [class*="mobile-sidebar"], '
+    '[class*="main-sidebar"], [class*="reading-buttons"], [class*="after-content"], '
+    '[class*="posts-slider"], [class*="related-posts"], [class*="post-social"], '
+    '[class*="spu-"], [class*="wppopups"], [class*="scroll-up"], '
+    '[class*="audio"], [class*="player"]'
+)
+
+
+def fix_missing_newlines(text: str) -> str:
+    """<br> в стихах теряется ('весну,Забилась', 'конуруИ'). Нет пробела после
+    точки/запятой и дальше заглавная -> перенос строки (две строчные перед
+    знаком — инициалы А.С.Пушкин не трогаем); строчная кириллица + заглавная
+    подряд -> перенос."""
+    import re as _re
+    text = _re.sub(r"(?<=[а-яёa-z]{2}[.,])(?=[А-ЯЁA-Z])", "\n", text)
+    return _re.sub(r"(?<=[а-яё])(?=[А-ЯЁ])", "\n", text)
