@@ -87,9 +87,15 @@ class AdaptiveMarkdownGenerator(DefaultMarkdownGenerator):
     """Default Crawl4AI generator with source-specific heading normalization."""
 
     def generate_markdown(self, input_html: str, base_url: str = "", **kwargs):
+        # issue #340: crawl4ai по умолчанию ставит html2text single_line_break=True,
+        # из-за чего абзацы (<p>) разделяются одиночным \n и склеиваются при рендере.
+        # html2text_options имеет наивысший приоритет в DefaultMarkdownGenerator.
+        html2text_options = {"single_line_break": False}
+        html2text_options.update(kwargs.pop("html2text_options", None) or {})
         return super().generate_markdown(
             input_html=normalize_headings_for_url(input_html, base_url),
             base_url=base_url,
+            html2text_options=html2text_options,
             **kwargs,
         )
 
@@ -156,3 +162,18 @@ def is_pdf_teaser_page(html: str) -> bool:
     реального текста статьи нет."""
     html = html or ""
     return bool(_PDF_LINK_RE.search(html) and _TEASER_MARKER_RE.search(html))
+
+
+# issue #338: единые настройки очистки/постобработки markdown (download_single
+# и Crawler.recrawl_url). Вместо PruningContentFilter, режущего DOM и слипающего <p>.
+EXCLUDED_TAGS = ["nav", "footer", "header", "aside", "form", "script", "style"]
+EXCLUDED_SELECTOR = (
+    "nav, footer, header, aside, form, .menu, .nav, .navigation, "
+    ".breadcrumbs, .share, .social, .comments, .sidebar, .related, "
+    ".widget, .advert, .ads, "
+    '[class*="cookie"], [class*="mobile-menu"], [class*="mobile-sidebar"], '
+    '[class*="main-sidebar"], [class*="reading-buttons"], [class*="after-content"], '
+    '[class*="posts-slider"], [class*="related-posts"], [class*="post-social"], '
+    '[class*="spu-"], [class*="wppopups"], [class*="scroll-up"], '
+    '[class*="audio"], [class*="player"]'
+)

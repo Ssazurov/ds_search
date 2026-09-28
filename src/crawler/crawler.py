@@ -43,6 +43,7 @@ from ..metadata.downsideup_header import parse_header
 from ..metadata.profile import build_ingestion_metadata
 from .config import SourceConfig
 from .filters import (
+    EXCLUDED_SELECTOR, EXCLUDED_TAGS,
     build_filter_chain,
     build_relevance_scorer,
     build_content_filter,
@@ -247,10 +248,11 @@ class SourceCrawler:
             logger.warning("recrawl %s: dest_dir %r вне self.out_dir", url, dest_dir)
             return None
 
+        # issue #338: без PruningContentFilter (слипает <p>) — чистка через excluded_*
         run_cfg = CrawlerRunConfig(
-            markdown_generator=AdaptiveMarkdownGenerator(
-                content_filter=build_content_filter(),
-            ),
+            markdown_generator=AdaptiveMarkdownGenerator(),
+            excluded_tags=EXCLUDED_TAGS,
+            excluded_selector=EXCLUDED_SELECTOR,
         )
         async with AsyncWebCrawler() as crawler:
             r = await crawler.arun(url=url, config=run_cfg)
@@ -271,7 +273,7 @@ class SourceCrawler:
                 logger.warning("recrawl %s: тизер без ссылки на PDF", url)
                 return None
 
-            fit_md = getattr(r.markdown, "fit_markdown", None) or r.markdown or ""
+            fit_md = getattr(r.markdown, "raw_markdown", None) or r.markdown or ""
             fit_md = fit_md if isinstance(fit_md, str) else str(fit_md)
             if len(fit_md.strip()) < self.cfg.min_fit_markdown_chars:
                 self._save_rejected(r, canon, fit_md, "rejected_thin_content")
@@ -352,7 +354,7 @@ class SourceCrawler:
         md_path.write_text(fit_markdown, encoding="utf-8")
 
         title = (result.metadata or {}).get("title", "")
-        page_meta = extract_page_meta(result.metadata)  # issue #92
+        page_meta = extract_page_meta(result.metadata, fit_markdown)  # issue #92
         for key, value in header_meta.items():
             if value:
                 page_meta[key] = value

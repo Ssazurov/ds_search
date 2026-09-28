@@ -1,3 +1,19 @@
+## 2026-09-28 -- issue #340: paragraph breaks (single_line_break=False)
+
+- `AdaptiveMarkdownGenerator` передаёт html2text `single_line_break=False` (crawl4ai по умолчанию True -> абзацы `<p>` склеивались одиночным `\n`). Явные `html2text_options` вызывающего имеют приоритет.
+- `fix_missing_newlines` удалена (regex-костыль давал +2 переноса на статью и ломал юниты: "кВт" -> "к\nВт").
+- Проверка: `pytest tests/test_crawler_filters.py`; foma.ru/v-ozhidanii-dauna.html: 151 разрыв абзацев. Ранее скачанные документы нужно перекачать (reload на вкладке Документы).
+- reload: перекачка источника с таймаутом 30 с (опрос 5 с), ошибки sidecar/source_url поднимаются как GarPublishError, контент подменяется атомарно.
+
+## 2026-09-28 -- author link in document reload metadata
+
+- `extract_author_from_markdown` теперь сохраняет markdown-ссылку автора целиком,
+  например `[КАПЛАН Виталий](https://foma.ru/authors/kaplan-vitalij)`, вместо
+  удаления URL и сохранения только ФИО.
+- Добавлен регрессионный тест для строки `Автор:` с ссылкой и fallback
+  `article:author`.
+- Проверка: `pytest tests/test_meta_extract.py`.
+
 ## 2026-09-25 -- issue #292: ссылки на локальные md/json черновики в таблице Документов
 
 - Добавлены колонки «MD» и «JSON» с `file://` ссылками на `content_path` (md/pdf) и `doc_json_path` (sidecar) через `st.column_config.LinkColumn` с material-иконками.
