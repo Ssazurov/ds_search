@@ -305,18 +305,20 @@ def _refresh_local_content(document_id: str) -> None:
     jp = Path(DEFAULT_DATA_ROOT) / ref["source"] / f"{ref['doc_id']}.json"
     try:
         meta = _json.loads(jp.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return
+    except (OSError, ValueError) as exc:
+        raise GarPublishError(f"reload {document_id}: не прочитан sidecar {jp.name}: {exc}") from exc
     url = meta.get("source_url") or meta.get("canonical_url")
     if not url:
-        return
+        raise GarPublishError(f"reload {document_id}: в sidecar нет source_url")
     with tempfile.TemporaryDirectory() as tmp:
         new = asyncio.run(download_single({"url": url}, data_root=Path(tmp), dest_dir="r", filename="r"))
         src = Path(new["content_path"])
         dst = jp.with_suffix(src.suffix)
         if not dst.is_file():
             raise GarPublishError(f"reload {document_id}: тип контента источника изменился ({src.suffix})")
-        shutil.copyfile(src, dst)
+        tmp_dst = dst.with_name(dst.name + ".tmp")
+        shutil.copyfile(src, tmp_dst)
+        os.replace(tmp_dst, dst)
 
 
 def _reload_from_source(document_id: str) -> dict:
