@@ -15,8 +15,10 @@ from ..crawler.filters import canonicalize_url
 from .config import load_settings
 from .gar_client import GarDiscoveryClient
 
-# issue #18: статусы прошлых находок, дублирующие которые не нужно искать заново.
-DUPLICATE_STATUSES = ("approved", "rejected", "downloaded")
+# issue #18, #349: статусы прошлых находок, дублирующие которые не нужно искать
+# заново. Включая new/queued/downloading: иначе тот же URL из нового прогона
+# создаёт вторую активную запись. "error" не включаем — её можно перекачать.
+DUPLICATE_STATUSES = ("new", "approved", "queued", "downloading", "downloaded", "rejected")
 
 DEFAULT_DATA_ROOT = Path(__file__).resolve().parents[2] / "data" / "raw"
 
