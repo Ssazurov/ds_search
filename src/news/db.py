@@ -69,7 +69,32 @@ def init_db(db_path: Path = DB_PATH) -> None:
                 conn.execute(stmt)
             except sqlite3.OperationalError:
                 pass  # колонка уже существует
+        _relax_direction_not_null(conn)
         conn.commit()
+
+
+def _relax_direction_not_null(conn: sqlite3.Connection) -> None:
+    """Легаси-БД: direction TEXT NOT NULL DEFAULT 'news' → INSERT c direction=NULL
+    (issue #303) падал IntegrityError и маскировался под «дубликат» (issue #351).
+    SQLite не умеет DROP NOT NULL — пересоздаём таблицу."""
+    info = {r[1]: r for r in conn.execute("PRAGMA table_info(news_items)")}
+    if "direction" not in info or not info["direction"][3]:
+        return
+    cols = ", ".join(info)
+    conn.executescript(
+        "DROP INDEX IF EXISTS idx_news_items_status;"
+        "ALTER TABLE news_items RENAME TO news_items_old;"
+        + SCHEMA_SQL
+    )
+    for stmt in _MIGRATIONS:
+        try:
+            conn.execute(stmt)
+        except sqlite3.OperationalError:
+            pass
+    conn.executescript(
+        f"INSERT INTO news_items ({cols}) SELECT {cols} FROM news_items_old;"
+        "DROP TABLE news_items_old;"
+    )
 
 
 def _row_to_dict(row: sqlite3.Row) -> dict:
@@ -149,7 +174,7 @@ def update_status(item_id: int, status: str, db_path: Path = DB_PATH) -> None:
     # дату публикации вручную в черновике (issue #198) — автозаполнение
     # только если поле ещё пустое.
     published_at_clause = (
-        ", published_at = COALESCE(published_at, datetime('now'))" if status == "published" else ""
+        ", published_at = COALESCE(published_at, source_published_at, datetime('now'))" if status == "published" else ""
     )
     with get_connection(db_path) as conn:
         conn.execute(

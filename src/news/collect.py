@@ -18,6 +18,7 @@ news_items (UNIQUE source_url, issue #47) — смешивать очереди 
 from __future__ import annotations
 
 import logging
+import sqlite3
 from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -128,7 +129,7 @@ async def _collect_one(
     llm_source = {
         "source_url": resolved_source_url,
         "source_name": resolved_source_name,
-        "source_published_at": source_published_at,
+        "source_published_at": source_published_at or meta.get("publish_date") or None,
         "title": meta.get("title") or hit.title,
         "text": text,
     }
@@ -146,9 +147,12 @@ async def _collect_one(
 
     try:
         db.insert_news_item(draft, db_path)
-    except Exception as exc:  # noqa: BLE001 — гонка дедупа (source_url_exists прошёл, но UNIQUE сработал)
-        logger.info("news_item для %s не вставлен (дубликат?): %s", hit.url, exc)
+    except sqlite3.IntegrityError as exc:  # гонка дедупа / первоисточник агрегатора уже в базе
+        logger.info("news_item для %s не вставлен (дубликат): %s", hit.url, exc)
         return "skipped_duplicate"
+    except Exception as exc:  # noqa: BLE001 — не маскировать сбой вставки под дубликат
+        logger.exception("news_item для %s не вставлен: %s", hit.url, exc)
+        return f"insert_failed: {type(exc).__name__}: {exc}"
     return "drafted"
 
 
