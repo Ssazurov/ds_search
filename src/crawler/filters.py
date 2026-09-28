@@ -87,9 +87,15 @@ class AdaptiveMarkdownGenerator(DefaultMarkdownGenerator):
     """Default Crawl4AI generator with source-specific heading normalization."""
 
     def generate_markdown(self, input_html: str, base_url: str = "", **kwargs):
+        # issue #340: crawl4ai по умолчанию ставит html2text single_line_break=True,
+        # из-за чего абзацы (<p>) разделяются одиночным \n и склеиваются при рендере.
+        # html2text_options имеет наивысший приоритет в DefaultMarkdownGenerator.
+        html2text_options = {"single_line_break": False}
+        html2text_options.update(kwargs.pop("html2text_options", None) or {})
         return super().generate_markdown(
             input_html=normalize_headings_for_url(input_html, base_url),
             base_url=base_url,
+            html2text_options=html2text_options,
             **kwargs,
         )
 
@@ -171,13 +177,3 @@ EXCLUDED_SELECTOR = (
     '[class*="spu-"], [class*="wppopups"], [class*="scroll-up"], '
     '[class*="audio"], [class*="player"]'
 )
-
-
-def fix_missing_newlines(text: str) -> str:
-    """<br> в стихах теряется ('весну,Забилась', 'конуруИ'). Нет пробела после
-    точки/запятой и дальше заглавная -> перенос строки (две строчные перед
-    знаком — инициалы А.С.Пушкин не трогаем); строчная кириллица + заглавная
-    подряд -> перенос."""
-    import re as _re
-    text = _re.sub(r"(?<=[а-яёa-z]{2}[.,])(?=[А-ЯЁA-Z])", "\n", text)
-    return _re.sub(r"(?<=[а-яё])(?=[А-ЯЁ])", "\n", text)

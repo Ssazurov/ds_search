@@ -27,7 +27,6 @@ from ..crawler.filters import (
     EXCLUDED_SELECTOR,
     EXCLUDED_TAGS,
     canonicalize_url,
-    fix_missing_newlines,
     find_pdf_teaser_link,
     is_pdf_teaser_page,
 )
@@ -174,7 +173,6 @@ async def download_single(
 
         fit_md = getattr(result.markdown, "raw_markdown", None) or result.markdown or ""
         fit_md = fit_md if isinstance(fit_md, str) else str(fit_md)
-        fit_md = fix_missing_newlines(fit_md)
         if len(fit_md.strip()) < MIN_FIT_MARKDOWN_CHARS:
             pdf_url = find_pdf_teaser_link(html)
             if pdf_url:

@@ -43,7 +43,7 @@ from ..metadata.downsideup_header import parse_header
 from ..metadata.profile import build_ingestion_metadata
 from .config import SourceConfig
 from .filters import (
-    EXCLUDED_SELECTOR, EXCLUDED_TAGS, fix_missing_newlines,
+    EXCLUDED_SELECTOR, EXCLUDED_TAGS,
     build_filter_chain,
     build_relevance_scorer,
     build_content_filter,
@@ -275,7 +275,6 @@ class SourceCrawler:
 
             fit_md = getattr(r.markdown, "raw_markdown", None) or r.markdown or ""
             fit_md = fit_md if isinstance(fit_md, str) else str(fit_md)
-            fit_md = fix_missing_newlines(fit_md)
             if len(fit_md.strip()) < self.cfg.min_fit_markdown_chars:
                 self._save_rejected(r, canon, fit_md, "rejected_thin_content")
                 return None

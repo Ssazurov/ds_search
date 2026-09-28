@@ -20,3 +20,23 @@ def test_catalog_above_threshold():
 def test_empty_markdown_is_zero():
     assert link_to_text_ratio("") == 0.0
     assert link_to_text_ratio("   ") == 0.0
+
+
+def test_adaptive_generator_separates_paragraphs_with_blank_line():
+    # issue #340: single_line_break=False -> абзацы через пустую строку
+    from src.crawler.filters import AdaptiveMarkdownGenerator
+
+    md = AdaptiveMarkdownGenerator().generate_markdown(
+        "<p>Первый абзац.</p><p>Второй абзац.</p>", base_url="https://example.ru/"
+    )
+    assert "Первый абзац.\n\nВторой абзац." in md.raw_markdown
+
+
+def test_adaptive_generator_respects_explicit_html2text_options():
+    from src.crawler.filters import AdaptiveMarkdownGenerator
+
+    md = AdaptiveMarkdownGenerator().generate_markdown(
+        "<p>Первый.</p><p>Второй.</p>", base_url="https://example.ru/",
+        html2text_options={"single_line_break": True},
+    )
+    assert "Первый.\n\nВторой." not in md.raw_markdown

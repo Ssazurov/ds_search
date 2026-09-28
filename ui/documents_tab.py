@@ -281,6 +281,10 @@ def _patch_gar_metadata(gar_document_id: str, updates: dict) -> None:
         client.patch_document_metadata(gar_document_id, updates)
 
 
+_RECRAWL_TIMEOUT_S = 30  # общий лимит перекачки источника при reload
+_RECRAWL_POLL_S = 5      # период обновления статуса в UI
+
+
 def _refresh_local_content(document_id: str) -> None:
     """ds_ingestion#40: краулера нет в контейнере ds-ingestion, поэтому
     перекачиваем источник здесь (ds-search имеет crawl4ai) во временную папку
@@ -310,8 +314,27 @@ def _refresh_local_content(document_id: str) -> None:
     url = meta.get("source_url") or meta.get("canonical_url")
     if not url:
         raise GarPublishError(f"reload {document_id}: в sidecar нет source_url")
-    with tempfile.TemporaryDirectory() as tmp:
-        new = asyncio.run(download_single({"url": url}, data_root=Path(tmp), dest_dir="r", filename="r"))
+    import concurrent.futures as _cf
+
+    async def _dl(tmp_root):
+        return await asyncio.wait_for(
+            download_single({"url": url}, data_root=tmp_root, dest_dir="r", filename="r"),
+            timeout=_RECRAWL_TIMEOUT_S,
+        )
+
+    with tempfile.TemporaryDirectory() as tmp, _cf.ThreadPoolExecutor(max_workers=1) as ex:
+        fut = ex.submit(asyncio.run, _dl(Path(tmp)))
+        status = st.empty()
+        waited = 0
+        while not _cf.wait([fut], timeout=_RECRAWL_POLL_S)[0]:
+            waited += _RECRAWL_POLL_S
+            status.caption(f"Скачивание источника… {waited} с из {_RECRAWL_TIMEOUT_S}")
+        status.empty()
+        try:
+            new = fut.result()
+        except asyncio.TimeoutError as exc:
+            raise GarPublishError(
+                f"reload {document_id}: источник не ответил за {_RECRAWL_TIMEOUT_S} с") from exc
         src = Path(new["content_path"])
         dst = jp.with_suffix(src.suffix)
         if not dst.is_file():
