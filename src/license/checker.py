@@ -69,6 +69,7 @@ class LicenseCheckResult:
     status: LicenseStatus
     reason: str
     attribution_template: str | None = None
+    site_name: str = ""
     is_aggregator: bool = False
     publish_permission: PublishPermission = PublishPermission.NOT_SET
 
@@ -76,10 +77,11 @@ class LicenseCheckResult:
     def downloadable(self) -> bool:
         return self.status in (LicenseStatus.ALLOW, LicenseStatus.ATTRIBUTION_REQUIRED)
 
-    def build_attribution(self, *, title: str, source_url: str) -> str | None:
+    def build_attribution(self, *, title: str = "", source_url: str, domain: str = "") -> str | None:
+        """Плейсхолдеры шаблона: {title}, {source_url}, {domain}."""
         if not self.attribution_template:
             return None
-        return self.attribution_template.format(title=title, source_url=source_url)
+        return self.attribution_template.format(title=title, source_url=source_url, domain=domain)
 
 
 def normalize_domain(domain: str) -> str:
@@ -148,6 +150,7 @@ def check_license(
         status=status,
         reason=reason,
         attribution_template=entry.get("attribution_template"),
+        site_name=entry.get("site_name") or "",
         is_aggregator=bool(entry.get("is_aggregator", False)),
         publish_permission=parse_publish_permission(entry.get("publish_permission")),
     )

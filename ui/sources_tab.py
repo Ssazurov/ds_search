@@ -137,8 +137,14 @@ def _render_detail(domain: str, registry: dict, row: dict) -> None:
     attribution = st.text_input(
         "Шаблон атрибуции",
         value=entry.get("attribution_template") or default_attribution_template(domain),
-        help=f"Доступно: {{title}}, {{source_url}}. Пример: {_ATTR_EXAMPLE}",
+        help=f"Доступно: {{title}}, {{source_url}}, {{domain}}. Пример: {_ATTR_EXAMPLE}",
         key=f"attr_{domain}",
+    )
+    site_name = st.text_input(
+        "Название сайта (срезается с конца title)",
+        value=entry.get("site_name") or "",
+        help="Например: Православный журнал «Фома». Пусто — title не меняется.",
+        key=f"site_{domain}",
     )
     notes = st.text_area("Заметки", value=entry.get("notes", ""), key=f"notes_{domain}")
     is_aggregator = st.checkbox(
@@ -149,6 +155,7 @@ def _render_detail(domain: str, registry: dict, row: dict) -> None:
         registry[domain] = {
             "status": status,
             "attribution_template": attribution or default_attribution_template(domain),
+            "site_name": site_name.strip(),
             "notes": notes,
             "checked_date": entry.get("checked_date"),
             "is_aggregator": is_aggregator,
@@ -157,7 +164,7 @@ def _render_detail(domain: str, registry: dict, row: dict) -> None:
         save_entry(domain, registry[domain])
         st.rerun()
     if c2.button("Отменить", key=f"cancel_{domain}", width="stretch"):
-        for p in ("status", "perm", "attr", "notes", "agg"):
+        for p in ("status", "perm", "attr", "site", "notes", "agg"):
             st.session_state.pop(f"{p}_{domain}", None)
         st.rerun()
     if c3.button("Удалить", key=f"del_{domain}", width="stretch"):

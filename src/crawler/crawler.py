@@ -38,7 +38,7 @@ from ..discovery.download import _sanitize_filename
 from ..license.checker import LicenseCheckResult, LicenseStatus, check_license
 from ..metadata import classify as classify_mod
 from ..metadata import gar_schema
-from ..metadata.meta_extract import extract_page_meta
+from ..metadata.meta_extract import extract_page_meta, strip_site_suffix
 from ..metadata.downsideup_header import parse_header
 from ..metadata.profile import build_ingestion_metadata
 from .config import SourceConfig
@@ -315,7 +315,7 @@ class SourceCrawler:
             return None
 
         attribution = self.license_result.build_attribution(
-            title="", source_url=teaser_url,
+            title="", source_url=teaser_url, domain=self.cfg.domain,
         )
         meta = build_ingestion_metadata(
             source_url=teaser_url, source_domain=self.cfg.domain, title="",
@@ -353,13 +353,13 @@ class SourceCrawler:
         md_path = base_dir / f"{doc_id}.md"
         md_path.write_text(fit_markdown, encoding="utf-8")
 
-        title = (result.metadata or {}).get("title", "")
+        title = strip_site_suffix((result.metadata or {}).get("title", ""), self.license_result.site_name)  # issue #347
         page_meta = extract_page_meta(result.metadata, fit_markdown)  # issue #92
         for key, value in header_meta.items():
             if value:
                 page_meta[key] = value
         attribution = self.license_result.build_attribution(
-            title=title, source_url=result.url,
+            title=title, source_url=result.url, domain=self.cfg.domain,
         )
         meta = build_ingestion_metadata(
             source_url=canon_url, source_domain=self.cfg.domain, title=title,
