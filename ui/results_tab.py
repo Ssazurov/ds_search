@@ -13,7 +13,7 @@ from src.license.checker import check_license
 from ui.news_add import add_articles_as_news, describe
 from ui.table_utils import COLUMN_LABELS, column_settings, datetime_column, link_column, localize
 
-_STATUS_OPTIONS = ["new", "approved", "rejected", "queued", "downloaded"]
+_STATUS_OPTIONS = ["new", "approved", "rejected", "queued", "downloaded", "in_news"]
 _NONE = "— не выбрано —"
 
 
@@ -115,9 +115,17 @@ def render() -> None:
         with st.spinner(f"Генерация черновиков: {len(chosen)}…"):
             results = add_articles_as_news(
                 [{"url": r["url"], "title": r.get("title") or ""} for r in chosen])
-        for label, status in results:
+        finalized_ids = []
+        for (label, status), row in zip(results, chosen):
             level, msg = describe(status)
             getattr(st, level)(f"{label}: {msg}")
+            if status in ("drafted", "skipped_duplicate"):
+                finalized_ids.append(row["id"])
+        if finalized_ids:
+            with GarDiscoveryClient(settings) as client:
+                for row_id in finalized_ids:
+                    client.update_discovered_source(row_id, status="in_news")
+            st.rerun()
     if b1.button("Одобрить выбранные", disabled=not selected_ids):
         with GarDiscoveryClient(settings) as client:
             for row_id in selected_ids:
