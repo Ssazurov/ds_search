@@ -1,4 +1,4 @@
-from src.metadata.meta_extract import extract_page_meta
+from src.metadata.meta_extract import extract_author_from_markdown, extract_page_meta
 
 
 def test_prefers_og_and_article_tags():
@@ -32,3 +32,13 @@ def test_author_from_markdown_preserves_link():
     markdown = "Автор: [КАПЛАН Виталий](https://foma.ru/authors/kaplan-vitalij)Журнал: Фома"
     result = extract_page_meta({'article:author': 'https://facebook.com/foma.ru'}, markdown)
     assert result['author'] == '[КАПЛАН Виталий](https://foma.ru/authors/kaplan-vitalij)'
+
+
+def test_body_author_wins_over_metadata_and_url_author_is_ignored():
+    assert extract_page_meta({'author': 'https://example.test/team'}, 'Автор: Мария Иванова')['author'] == 'Мария Иванова'
+    assert extract_page_meta({'author': 'https://example.test/team'})['author'] == ''
+
+
+def test_author_extraction_handles_absent_or_non_author_lines():
+    assert extract_author_from_markdown('Текст без автора\nЖурнал: X') == ''
+    assert extract_author_from_markdown('Автор: Иванов\nЖурнал: Журнал') == 'Иванов'
