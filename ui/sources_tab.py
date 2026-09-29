@@ -18,6 +18,7 @@ from src.license.checker import (
     PUBLISH_PERMISSION_LABELS, LicenseStatus, PublishPermission,
     normalize_domain, parse_publish_permission,
 )
+from ui import notify
 
 _STATUSES = [s.value for s in LicenseStatus if s != LicenseStatus.PENDING_MANUAL_REVIEW]
 _PERMISSIONS = [p.value for p in PublishPermission]
@@ -165,7 +166,7 @@ def _render_detail(domain: str, registry: dict, row: dict) -> None:
         try:
             _dismiss_domain(domain)
         except Exception as exc:  # noqa: BLE001
-            st.error(f"Не удалось убрать находки домена в GAR: {exc}")
+            notify.report("sources", "error", "Не удалось убрать находки домена в GAR", details=[str(exc)])
             return
         registry.pop(domain, None)
         delete_entry(domain)

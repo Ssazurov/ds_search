@@ -10,6 +10,7 @@ import streamlit as st
 from src.discovery.config import load_settings
 from src.discovery.gar_client import GarDiscoveryClient
 from src.news.db import list_news_items
+from ui import notify
 
 
 def render() -> None:
@@ -21,7 +22,7 @@ def render() -> None:
             runs = client.list_search_runs(limit=20)
             sources = client.list_discovered_sources()
     except Exception as exc:  # noqa: BLE001
-        st.error(f"gar-core-api недоступен: {exc}")
+        notify.report("agents_status", "error", "gar-core-api недоступен", details=[str(exc)])
         return
 
     st.subheader("Последние search-runs")
@@ -52,7 +53,7 @@ def render() -> None:
     try:
         news_items = list_news_items()
     except Exception as exc:  # noqa: BLE001
-        st.error(f"news.db недоступна: {exc}")
+        notify.report("agents_status", "error", "news.db недоступна", details=[str(exc)])
         return
 
     today = date.today().isoformat()

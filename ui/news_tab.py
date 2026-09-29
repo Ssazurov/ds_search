@@ -17,6 +17,7 @@ import streamlit as st
 
 from src.news import db, publish
 from src.news.manual import DEFAULT_SOURCE_NAME, create_manual_draft
+from ui import notify
 from ui.table_utils import column_settings, link_column
 
 CHANNEL_OPTIONS = ["telegram"]
@@ -78,7 +79,7 @@ def _render_item(item: dict) -> None:
             "channels": new_channels,
             "published_at": new_published_at,
         })
-        st.success("Сохранено")
+        notify.report("news", "success", "Сохранено")
         st.rerun()
     if item["status"] != "published" and cols[1].button("Опубликовать", key=f"pub_{item['id']}"):
         # issue: status не должен фиксироваться как published, если
@@ -89,20 +90,21 @@ def _render_item(item: dict) -> None:
         db.update_status(item["id"], "published")
         try:
             publish.publish_news_item(item["id"])
-            st.success("Опубликовано и загружено в GAR")
+            notify.report("news", "success", "Опубликовано и загружено в GAR")
         except publish.GarPublishError as exc:
             db.update_status(item["id"], "draft")
-            st.warning(f"Публикация не удалась, статус возвращён в черновик: {exc}")
+            notify.report("news", "warning", "Публикация не удалась",
+                         details=[f"Статус возвращён в черновик: {exc}"])
         st.rerun()
     if item.get("gar_document_id") and cols[1].button("Переотправить в GAR", key=f"repub_{item['id']}"):
         try:
             publish.publish_news_item(item["id"], force=True)
-            st.success("Переотправлено в GAR")
+            notify.report("news", "success", "Переотправлено в GAR")
         except publish.GarPublishError as exc:
-            st.warning(f"Ingestion в GAR не удался: {exc}")
+            notify.report("news", "warning", "Ingestion в GAR не удался", details=[str(exc)])
         st.rerun()
     elif item["status"] == "published" and item.get("publish_error"):
-        st.error(f"GAR ingestion не удался: {item['publish_error']}")
+        notify.report("news", "error", "GAR ingestion не удался", details=[item['publish_error']])
     if item["status"] != "rejected" and cols[2].button("Отклонить", key=f"rej_{item['id']}"):
         db.update_status(item["id"], "rejected")
         st.rerun()
@@ -111,7 +113,8 @@ def _render_item(item: dict) -> None:
             try:
                 publish.revoke_news_item(item["id"])
             except publish.GarPublishError as exc:
-                st.error(f"Не удалось отозвать документ из GAR, запись не удалена: {exc}")
+                notify.report("news", "error", "Не удалось отозвать документ из GAR",
+                             details=["Запись не удалена", str(exc)])
                 st.stop()
         db.delete_news_item(item["id"])
         st.rerun()
@@ -129,16 +132,15 @@ def _publish_batch(items: list[dict]) -> None:
         except publish.GarPublishError as exc:
             db.update_status(item["id"], "draft")
             errors.append(f"{item['title']}: {exc}")
-    for err in errors:
-        st.warning(err)
-    st.success(f"Опубликовано: {ok}/{len(items)}")
+    level = notify.outcome_level(ok, len(items))
+    notify.report("news", level, "Опубликовано", stats={"успешно": ok, "всего": len(items)}, details=errors)
     st.rerun()
 
 
 def _reject_batch(items: list[dict]) -> None:
     for item in items:
         db.update_status(item["id"], "rejected")
-    st.success(f"Отклонено: {len(items)}")
+    notify.report("news", "success", "Отклонено", stats={"записей": len(items)})
     st.rerun()
 
 
@@ -152,9 +154,9 @@ def _delete_batch(items: list[dict]) -> None:
                 errors.append(f"{item['title']}: {exc}")
                 continue
         db.delete_news_item(item["id"])
-    for err in errors:
-        st.error(err)
-    st.success(f"Удалено: {len(items) - len(errors)}/{len(items)}")
+    ok = len(items) - len(errors)
+    level = notify.outcome_level(ok, len(items))
+    notify.report("news", level, "Удалено", stats={"успешно": ok, "всего": len(items)}, details=errors)
     st.rerun()
 
 
@@ -178,9 +180,10 @@ def _render_manual_form() -> None:
                     tags=tags.split(","), requires_review=not reviewed,
                 )
             except ValueError as exc:
-                st.error(str(exc))
+                notify.report("news", "error", "Ошибка создания черновика", details=[str(exc)])
             else:
-                st.success(f"Черновик создан (id={new_id}) — виден в списке ниже")
+                notify.report("news", "success", "Черновик создан", details=[f"id={new_id}"])
+                st.rerun()
 
 
 def render() -> None:
