@@ -39,8 +39,12 @@ def test_build_content_md_falls_back_to_summary():
     assert "Кратко о новости" in content
 
 
-def test_build_metadata_mapping():
-    item = _item(published_at="2026-09-08 10:00:00")
+def test_build_metadata_mapping(monkeypatch):
+    # issue #303: direction валидируется по схеме GAR; фиксируем схему (без сети)
+    monkeypatch.setattr(publish.gar_schema, "load_gar_schema", lambda: {})
+    monkeypatch.setattr(publish.gar_schema, "field_options", lambda schema, name: ["news"])
+    monkeypatch.setattr(publish, "classify_item", lambda item: {})  # без LLM/сети
+    item = _item(published_at="2026-09-08 10:00:00", direction="news")
     meta = publish.build_metadata(item)
     assert meta["doc_type"] == "news"
     assert meta["license"] == "own_generated"

@@ -21,7 +21,7 @@ def _patch_license(monkeypatch, status: LicenseStatus, reason: str = "test"):
 def test_add_manual_document_success(tmp_path, monkeypatch):
     _patch_license(monkeypatch, LicenseStatus.ALLOW)
 
-    async def fake_recrawl(self, url):
+    async def fake_recrawl(self, url, **kwargs):
         doc_id = manual_add.hashlib.sha256(
             manual_add.canonicalize_url(url).encode()
         ).hexdigest()[:16]
