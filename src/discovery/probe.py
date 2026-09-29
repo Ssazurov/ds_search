@@ -22,6 +22,8 @@ import httpx
 from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
 
 from ..crawler.filters import build_content_filter, link_to_text_ratio, LTR_THRESHOLD
+from ..metadata.meta_extract import extract_meta_tags, extract_page_meta
+from ..search.dates import parse_published
 from .config import Settings, load_settings
 from .gar_client import GarDiscoveryClient
 
@@ -76,7 +78,10 @@ async def probe_source(url: str, settings: Settings) -> dict:
     для логирования/диагностики вызывающей стороной."""
     html = await _fetch_capped(url, settings.probe_max_bytes, settings.probe_timeout_s)
     if html is None:
-        return {"relevance_score": None, "probe_status": "error"}
+        return {"relevance_score": None, "probe_status": "error", "source_published_at": None}
+
+    # #355: дата публикации из og/article meta-тегов (fallback к дате провайдера)
+    published = parse_published(extract_page_meta(extract_meta_tags(html))["publish_date"])
 
     generator = DefaultMarkdownGenerator()
     result = generator.generate_markdown(input_html=html, base_url=url, content_filter=build_content_filter())
@@ -84,8 +89,8 @@ async def probe_source(url: str, settings: Settings) -> dict:
 
     score = _score_from_content(fit_markdown)
     if score is None:
-        return {"relevance_score": None, "probe_status": "thin"}
-    return {"relevance_score": score, "probe_status": "scored"}
+        return {"relevance_score": None, "probe_status": "thin", "source_published_at": published}
+    return {"relevance_score": score, "probe_status": "scored", "source_published_at": published}
 
 
 async def run_probe_stage(status: str = "new", settings: Settings | None = None) -> dict:
@@ -101,8 +106,15 @@ async def run_probe_stage(status: str = "new", settings: Settings | None = None)
         for src in sources:
             outcome = await probe_source(src["url"], settings)
             counts[outcome["probe_status"]] += 1
+            fields = {}
             if outcome["relevance_score"] is not None:
-                client.update_discovered_source(src["id"], relevance_score=outcome["relevance_score"])
+                fields["relevance_score"] = outcome["relevance_score"]
+            # #355: дату источника не перезаписываем — только заполняем пустую
+            published = outcome.get("source_published_at")
+            if published and not src.get("source_published_at"):
+                fields["source_published_at"] = published.isoformat()
+            if fields:
+                client.update_discovered_source(src["id"], **fields)
             logger.info("probe %s: %s (%s)", src["url"], outcome["probe_status"], outcome["relevance_score"])
     logger.info("probe stage done: %s", counts)
     return counts

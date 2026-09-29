@@ -7,8 +7,42 @@ article:*, name=description/author) — здесь только приорите
 from __future__ import annotations
 
 import re
+from html.parser import HTMLParser
 
 _AUTHOR_LINE_RE = re.compile(r"^\s*Авторы?:\s*(.+)$", re.MULTILINE)
+
+_META_KEYS = {
+    "article:published_time", "og:published_time", "article:modified_time",
+    "og:description", "description", "twitter:description", "author",
+    "article:author", "twitter:creator",
+}
+
+
+class _MetaParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.meta: dict[str, str] = {}
+
+    def handle_starttag(self, tag, attrs):
+        if tag != "meta":
+            return
+        a = {k.lower(): (v or "") for k, v in attrs}
+        key = (a.get("property") or a.get("name") or "").strip().lower()
+        content = a.get("content", "").strip()
+        if key in _META_KEYS and content and key not in self.meta:
+            self.meta[key] = content
+
+
+def extract_meta_tags(html: str) -> dict:
+    """issue #355: <meta property|name=... content=...> из сырого HTML -> dict
+    для extract_page_meta (probe не получает crawl4ai result.metadata).
+    Ключи регистронезависимы, берётся первое вхождение."""
+    parser = _MetaParser()
+    try:
+        parser.feed(html or "")
+    except Exception:  # noqa: BLE001 — битый HTML не должен ронять probe
+        pass
+    return parser.meta
 
 
 def extract_author_from_markdown(markdown: str) -> str:
