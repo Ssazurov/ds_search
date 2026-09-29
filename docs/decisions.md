@@ -20,6 +20,7 @@
 | 2026-09-25 | ADR-0022 (root, амендмент ADR-0002) | `lifecycle_stage` удалён из обязательных ingestion-метаданных, `categories.yaml`, UI (search/upload/documents_tab) и retrieval-фильтра `patient_profile`/`SessionTopic` (мёртвый код, RAG-чат не запущен); `category` — единственный дискриминатор темы/категории. В GAR поле удаляется вручную. См. `ds/docs/adr/0022-remove-lifecycle-stage.md`, issue #290. |
 
 | 2026-09-26 | ADR-014 | Объединить «Материалы» (чтение GAR API) и «Документы» (скан ФС) в одну вкладку: local rows + GAR-документы без локального файла (MD/JSON пустые); перенести фильтр по статусу GAR, архивацию, полное удаление из GAR, «Перезагрузить из источника», PATCH title/summary; добавить фильтр «Локально» и кнопку «Сбросить»; «Материалы» удалить. |
+| 2026-09-29 | ADR-002 (доп. #355/#360) | Дата источника (`source_published_at`): провайдер (Search API) → probe fallback (og/article meta-теги), не перезаписываем. Backfill старых записей: `python -m src.discovery.probe --only-missing-date --status new` (пропуск находок с датой, пауза 0.5с, без обновления relevance_score). |
 
 ## 2026-09-08 — ADR-052 (gar-core-api): публичный шлюз для сайта
 Не автономное ADR ds_search (репозиторий gar-core-api ведёт свою нумерацию
