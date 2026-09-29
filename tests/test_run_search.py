@@ -58,7 +58,15 @@ def test_run_search_creates_and_upserts_hits(monkeypatch):
         SearchHit(url="https://example.org/a?utm_source=x", title="A", snippet="snippet a"),
     ]))
     result = run_search("синдром дауна", chain, settings=_settings())
-    assert result == {"run_id": "run-1", "status": "completed", "result_count": 1}
+    assert result["run_id"] == "run-1"
+    assert result["status"] == "completed"
+    assert result["result_count"] == 1
+    assert result["found"] == 1
+    assert result["duplicates"] == 0
+    assert result["new"] == 1
+    assert result["with_date"] == 0
+    assert result["provider"] == "fake"
+    assert result["error"] is None
     assert fake_client.runs["run-1"]["status"] == "completed"
     run_id, items = fake_client.upserted[0]
     assert items[0]["url"] == "https://example.org/a"
@@ -72,6 +80,11 @@ def test_run_search_marks_quota_exceeded_as_failed(monkeypatch):
     chain = FakeChain(FakeProvider(raise_quota=True))
     result = run_search("тема", chain, settings=_settings())
     assert result["status"] == "failed"
+    assert result["found"] == 0
+    assert result["duplicates"] == 0
+    assert result["new"] == 0
+    assert result["with_date"] == 0
+    assert result["error"] == "исчерпана квота"
     assert fake_client.runs["run-1"]["status"] == "failed"
     assert fake_client.upserted == []
 
@@ -81,7 +94,11 @@ def test_run_search_no_hits_completes_with_zero_count(monkeypatch):
     monkeypatch.setattr("src.discovery.run_search.GarDiscoveryClient", lambda settings: fake_client)
     chain = FakeChain(FakeProvider(hits=[]))
     result = run_search("пустая тема", chain, settings=_settings())
-    assert result == {"run_id": "run-1", "status": "completed", "result_count": 0}
+    assert result["run_id"] == "run-1"
+    assert result["status"] == "completed"
+    assert result["result_count"] == 0
+    assert result["found"] == 0
+    assert result["new"] == 0
     assert fake_client.upserted == []
 
 
@@ -94,7 +111,34 @@ def test_run_search_passes_source_published_at(monkeypatch):
                   published_at=datetime(2026, 9, 1, tzinfo=timezone.utc)),
         SearchHit(url="https://example.org/b", title="B", snippet="s"),
     ]))
-    run_search("тема", chain, settings=_settings())
+    result = run_search("тема", chain, settings=_settings())
     _, items = fake_client.upserted[0]
     assert items[0]["source_published_at"] == "2026-09-01T00:00:00+00:00"
     assert "source_published_at" not in items[1]
+    assert result["with_date"] == 1
+
+
+def test_run_search_counts_duplicates(monkeypatch):
+    """Проверяет подсчёт найденных, дублей и новых находок."""
+    fake_client = FakeClient()
+    monkeypatch.setattr("src.discovery.run_search.GarDiscoveryClient", lambda settings: fake_client)
+    chain = FakeChain(FakeProvider(hits=[
+        SearchHit(url="https://example.org/a", title="A", snippet="s"),
+        SearchHit(url="https://example.org/b", title="B", snippet="s"),
+        SearchHit(url="https://example.org/c", title="C", snippet="s"),
+    ]))
+    result = run_search("тема", chain, settings=_settings())
+    assert result["found"] == 3
+    assert result["new"] == 3
+    assert result["duplicates"] == 0
+
+
+def test_run_search_failed_returns_error_details(monkeypatch):
+    """Проверяет, что при сбое возвращается error в результате."""
+    fake_client = FakeClient()
+    monkeypatch.setattr("src.discovery.run_search.GarDiscoveryClient", lambda settings: fake_client)
+    chain = FakeChain(FakeProvider(raise_quota=True))
+    result = run_search("тема", chain, settings=_settings())
+    assert result["status"] == "failed"
+    assert result["error"] == "исчерпана квота"
+    assert result["provider"] == "fake"

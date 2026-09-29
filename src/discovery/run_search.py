@@ -110,23 +110,64 @@ def run_search(
     suggested_direction/suggested_category/suggested_doc_type/
     suggested_target_audience из параметров поиска (issue #19 п.2),
     проставляются на все находки этого запуска. Возвращает
-    {"run_id", "status", "result_count"}."""
+    {"run_id", "status", "result_count", "found", "duplicates", "new",
+    "with_date", "provider", "error"}."""
     settings = settings or load_settings()
     doms = normalize_domains(domains)
     with GarDiscoveryClient(settings) as client:
         run = client.create_search_run(query=query, provider=chain.providers[0].name)
         run_id = run["id"]
+        provider_name = chain.providers[0].name
         try:
             hits = _search(chain, query, doms, max_results, date_from, date_to)
         except QuotaExceeded as exc:
             logger.warning("search run %s failed: %s", run_id, exc)
             client.update_search_run(run_id, status="failed", error=str(exc))
-            return {"run_id": run_id, "status": "failed", "result_count": 0}
+            return {
+                "run_id": run_id,
+                "status": "failed",
+                "result_count": 0,
+                "found": 0,
+                "duplicates": 0,
+                "new": 0,
+                "with_date": 0,
+                "provider": provider_name,
+                "error": str(exc),
+            }
+        except Exception as exc:
+            logger.exception("search run %s failed", run_id)
+            client.update_search_run(run_id, status="failed", error=str(exc))
+            return {
+                "run_id": run_id,
+                "status": "failed",
+                "result_count": 0,
+                "found": 0,
+                "duplicates": 0,
+                "new": 0,
+                "with_date": 0,
+                "provider": provider_name,
+                "error": str(exc),
+            }
 
         candidates = [_hit_to_candidate(h, metadata) for h in hits]
+        found = len(candidates)
         candidates = dedup_candidates(candidates, client=client)
+        duplicates = sum(1 for c in candidates if c.get("is_duplicate"))
+        new = found - duplicates
+        with_date = sum(1 for c in candidates if "source_published_at" in c)
+
         if candidates:
             client.upsert_discovered_sources(run_id, candidates)
         client.update_search_run(run_id, status="completed", result_count=len(candidates))
         logger.info("search run %s: %d находок (query=%r)", run_id, len(candidates), query)
-        return {"run_id": run_id, "status": "completed", "result_count": len(candidates)}
+        return {
+            "run_id": run_id,
+            "status": "completed",
+            "result_count": len(candidates),
+            "found": found,
+            "duplicates": duplicates,
+            "new": new,
+            "with_date": with_date,
+            "provider": provider_name,
+            "error": None,
+        }
