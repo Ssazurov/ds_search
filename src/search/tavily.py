@@ -11,6 +11,7 @@ from pathlib import Path
 import httpx
 
 from .base import QuotaExceeded, SearchHit, SearchProvider
+from .dates import parse_published
 from .quota import QuotaState
 
 TAVILY_API_URL = "https://api.tavily.com/search"
@@ -64,6 +65,7 @@ class TavilyProvider(SearchProvider):
                 url=item["url"],
                 title=item.get("title", ""),
                 snippet=item.get("content", ""),
+                published_at=parse_published(item.get("published_date")),
             )
             for item in data.get("results", [])
         ]

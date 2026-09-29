@@ -11,6 +11,7 @@ from pathlib import Path
 import httpx
 
 from .base import QuotaExceeded, SearchHit, SearchProvider
+from .dates import parse_published
 from .quota import QuotaState
 
 BRAVE_API_URL = "https://api.search.brave.com/res/v1/web/search"
@@ -65,6 +66,7 @@ class BraveProvider(SearchProvider):
                 url=item["url"],
                 title=item.get("title", ""),
                 snippet=item.get("description", ""),
+                published_at=parse_published(item.get("page_age") or item.get("age")),
             )
             for item in results[:max_results]
         ]

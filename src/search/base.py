@@ -19,6 +19,7 @@ class SearchHit:
     url: str
     title: str
     snippet: str
+    published_at: datetime | None = None  # дата публикации из ответа провайдера (#355)
 
 
 class SearchProvider(ABC):
