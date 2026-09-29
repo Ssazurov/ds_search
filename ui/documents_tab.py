@@ -17,6 +17,7 @@ import streamlit as st
 from src.gar_ingest.client import GarPublishError
 from src.gar_ingest.documents import ingest_document
 from src.metadata.schema import label_of, load_dictionaries
+from ui import notify
 from ui.table_utils import COLUMN_LABELS, column_settings, datetime_column, link_column, localize
 
 ROOT = Path(__file__).resolve().parents[1] / "data"
@@ -172,6 +173,11 @@ def _gar_only_rows(rows: list[dict]) -> list[dict]:
     return extra
 
 
+def _row_label(row: dict) -> str:
+    """Название документа для сообщений (не технический id)."""
+    return row.get("title") or row["doc_id"]
+
+
 def _delete_local_only(row: dict) -> None:
     """Удаляет локальные файлы документа: raw meta + content + clean sidecar.
     Вызывать только когда doc_json_path is not None (issue #299)."""
@@ -198,7 +204,7 @@ def _delete_from_gar_batch(rows: list[dict]) -> None:
             try:
                 client.delete_document(row["gar_document_id"])
             except GarPublishError as exc:
-                errors.append(f"{row['doc_id']}: {exc}")
+                errors.append(f"{_row_label(row)}: {exc}")
             else:
                 # документ успешно удалён из GAR — сбрасываем локальный
                 # признак, чтобы список отражал реальное состояние
@@ -207,10 +213,8 @@ def _delete_from_gar_batch(rows: list[dict]) -> None:
                         _update_document_metadata(
                             row["doc_json_path"], {"gar_document_id": None, "ingest_error": None})
                     except (OSError, json.JSONDecodeError) as exc:
-                        errors.append(f"{row['doc_id']}: не удалось сбросить локальный статус: {exc}")
-    for err in errors:
-        st.error(err)
-    st.success(f"Удалено из GAR: {len(rows) - len(errors)}/{len(rows)}")
+                        errors.append(f"{_row_label(row)}: не удалось сбросить локальный статус: {exc}")
+    notify.report_batch("Удалено из GAR", len(rows) - len(errors), len(rows), errors)
     try:
         st.session_state["gar_docs_cache"] = _fetch_gar_documents()
     except Exception:  # noqa: BLE001
@@ -237,10 +241,8 @@ def _delete_everywhere_batch(rows: list[dict]) -> None:
                 try:
                     _delete_local_only(row)
                 except (OSError, json.JSONDecodeError) as exc:
-                    errors.append(f"{row['doc_id']}: {exc}")
-    for err in errors:
-        st.error(err)
-    st.success(f"Удалено везде: {len(rows) - len(errors)}/{len(rows)}")
+                    errors.append(f"{_row_label(row)}: {exc}")
+    notify.report_batch("Удалено везде", len(rows) - len(errors), len(rows), errors)
     try:
         st.session_state["gar_docs_cache"] = _fetch_gar_documents()
     except Exception:  # noqa: BLE001
@@ -251,7 +253,7 @@ def _delete_everywhere_batch(rows: list[dict]) -> None:
 def _confirm_and_run(flag_key: str, warning: str, on_confirm) -> None:
     """Подтверждение необратимой операции (issue #299)."""
     if st.session_state.get(flag_key):
-        st.warning(warning)
+        notify.report("warning", warning)
         cc1, cc2 = st.columns(2)
         if cc1.button("Да, удалить", key=f"{flag_key}_yes"):
             st.session_state[flag_key] = False
@@ -388,7 +390,7 @@ def _render_metadata_form(selected_rows: list[dict]) -> None:
         directions = field_options(gar_fields, "direction")
         dir_labels = option_labels(gar_fields).get("direction", {})
     except Exception as exc:  # noqa: BLE001 — деградируем, а не роняем вкладку
-        st.warning(f"Справочник направлений GAR недоступен ({exc}) — direction/category временно не редактируются.")
+        notify.report("warning", "Справочник направлений GAR недоступен", details=[f"{exc}", "direction/category временно не редактируются"])
 
     loaded_count = sum(1 for r in selected_rows if r["gar_document_id"])
     st.caption(f"Выбрано: {len(selected_rows)}, из них уже в GAR: {loaded_count} (для них уйдёт PATCH в GAR)")
@@ -474,7 +476,7 @@ def _render_metadata_form(selected_rows: list[dict]) -> None:
             updates["needs_review"] = needs_review_choice == "да"
 
         if not updates:
-            st.warning("Ничего не выбрано для изменения")
+            notify.report("info", "Ничего не выбрано для изменения")
         else:
             errors = []
             for row in selected_rows:
@@ -484,11 +486,9 @@ def _render_metadata_form(selected_rows: list[dict]) -> None:
                     if row["gar_document_id"]:
                         _patch_gar_metadata(row["gar_document_id"], updates)
                 except Exception as exc:  # noqa: BLE001
-                    errors.append(f"{row['doc_id']}: {exc}")
+                    errors.append(f"{_row_label(row)}: {exc}")
 
-            for err in errors:
-                st.error(err)
-            st.success(f"Обновлено: {len(selected_rows) - len(errors)}/{len(selected_rows)}")
+            notify.report_batch("Обновлено", len(selected_rows) - len(errors), len(selected_rows), errors)
             st.rerun()
 
 
@@ -502,11 +502,9 @@ def _archive_batch(rows: list[dict], archive: bool) -> None:
                 (client.archive_document if archive else client.unarchive_document)(
                     row["gar_document_id"])
             except GarPublishError as exc:
-                errors.append(f"{row['doc_id']}: {exc}")
-    for err in errors:
-        st.error(err)
+                errors.append(f"{_row_label(row)}: {exc}")
     verb = "Архивировано" if archive else "Возвращено из архива"
-    st.success(f"{verb}: {len(rows) - len(errors)}/{len(rows)}")
+    notify.report_batch(verb, len(rows) - len(errors), len(rows), errors)
     # обновить кэш GAR, чтобы фильтр «Статус GAR» (#297) сразу отражал
     # новое состояние без повторного ручного «Обновить список GAR»
     try:
@@ -519,7 +517,7 @@ def _archive_batch(rows: list[dict], archive: bool) -> None:
 def _ingest_batch(rows: list[dict]) -> None:
     pending = [r for r in rows if not r["gar_document_id"]]
     if not pending:
-        st.info("Все документы уже загружены в GAR")
+        notify.report("info", "Все выбранные документы уже загружены в GAR")
         return
     progress = st.progress(0.0, text=f"0/{len(pending)}")
     errors: list[str] = []
@@ -527,11 +525,9 @@ def _ingest_batch(rows: list[dict]) -> None:
         try:
             ingest_document(row["doc_json_path"])
         except Exception as exc:  # noqa: BLE001 — не роняем весь батч на одной ошибке
-            errors.append(f"{row['doc_id']}: {exc}")
+            errors.append(f"{_row_label(row)}: {exc}")
         progress.progress(i / len(pending), text=f"{i}/{len(pending)}")
-    for err in errors:
-        st.error(err)
-    st.success(f"Готово: {len(pending) - len(errors)}/{len(pending)} загружено")
+    notify.report_batch("Загружено в GAR", len(pending) - len(errors), len(pending), errors)
     st.rerun()
 
 
@@ -545,12 +541,12 @@ def render() -> None:
         r["gar_status"] = cache.get(r["gar_document_id"] or "", {}).get("status")
     rows = rows + _gar_only_rows(rows)
     if not rows:
-        st.info("Нет сохранённых документов в data/raw")
+        notify.report("info", "Нет сохранённых документов в data/raw")
         return
 
     filtered = _apply_filters(rows)
     if not filtered:
-        st.info("Ничего не найдено по текущим фильтрам")
+        notify.report("info", "Ничего не найдено по текущим фильтрам")
         return
 
     labels = {
@@ -621,7 +617,7 @@ def render() -> None:
         try:
             st.session_state["gar_docs_cache"] = _fetch_gar_documents()
         except Exception as exc:  # noqa: BLE001 — сеть/GAR недоступны, не роняем вкладку
-            st.error(f"Не удалось получить список из GAR: {exc}")
+            notify.report("error", "Не удалось обновить список из GAR", details=[str(exc)])
         else:
             # Форсируем remount selectbox'а "Домен" новым key, иначе Streamlit
             # не обновляет отображаемый текст закрытого списка (только после
@@ -661,16 +657,18 @@ def render() -> None:
         if len(selected_rows) == 1 and selected_rows[0]["gar_document_id"]:
             if st.button("🔄 Перезагрузить из источника", key="doc_reload_btn"):
                 try:
-                    report = _reload_from_source(selected_rows[0]["gar_document_id"])
-                    st.success(
-                        f"Перезагружено. changed={report['changed_fields']} "
-                        f"preserved={report['preserved_fields']} "
-                        f"content_replaced={report['content_replaced']}"
-                    )
+                    rep = _reload_from_source(selected_rows[0]["gar_document_id"])
+                    changed, preserved = rep.get("changed_fields"), rep.get("preserved_fields")
+                    notify.report(
+                        "success", f"Перезагружено из источника: {_row_label(selected_rows[0])}",
+                        {"изменено полей": len(changed or []), "сохранено полей": len(preserved or []),
+                         "контент заменён": "да" if rep.get("content_replaced") else "нет"},
+                        details=[f"Изменено: {', '.join(map(str, changed))}"] if changed else None)
                     st.session_state.pop("gar_docs_cache", None)
                     st.rerun()
                 except GarPublishError as exc:
-                    st.error(str(exc))
+                    notify.report("error", "Не удалось перезагрузить из источника",
+                                  details=[f"{_row_label(selected_rows[0])}: {exc}"])
 
     # issue #299: кнопки удаления с явной семантикой и подтверждением
     not_loaded = [r for r in selected_rows if not r["gar_document_id"]]
