@@ -1,3 +1,12 @@
+## 2026-09-29 -- issue #360: backfill даты источника для старых записей
+
+- `run_probe_stage` получил параметр `only_missing_date: bool = False` (issue #355 ветка): при `True` пропускает находки с заполненной `source_published_at`, не обновляет `relevance_score` (режим «только дата»), добавлена пауза 0.5с между запросами.
+- CLI: `python -m src.discovery.probe --only-missing-date --status new` (argparse, аргументы `--only-missing-date`/`--status`). Логи: scored/thin/error/skipped/updated.
+- Счётчики: `skipped` (пропущено с датой), `updated` (реально обновлено в БД).
+- Тест `test_run_probe_stage_only_missing_date_skips_filled`: probe_source не вызывается для находок с датой, relevance_score не записывается в backfill режиме.
+- Проверка: `pytest tests/test_probe.py -q` — 8 passed.
+- Примечание: команда для backfill старых записей без даты — `.venv/bin/python -m src.discovery.probe --only-missing-date --status new`, провайдер → probe fallback (ADR-002), дата не перезаписывается.
+
 ## 2026-09-28 -- issue #340: paragraph breaks (single_line_break=False)
 
 - `AdaptiveMarkdownGenerator` передаёт html2text `single_line_break=False` (crawl4ai по умолчанию True -> абзацы `<p>` склеивались одиночным `\n`). Явные `html2text_options` вызывающего имеют приоритет.

@@ -107,7 +107,7 @@ def test_run_probe_stage_updates_only_scored(monkeypatch):
 
     import asyncio
     counts = asyncio.run(run_probe_stage(settings=_settings()))
-    assert counts == {"scored": 1, "thin": 1, "error": 0}
+    assert counts == {"scored": 1, "thin": 1, "error": 0, "skipped": 0, "updated": 1}
     assert calls["patched"] == [("1", {"relevance_score": 0.9})]
 
 
@@ -170,3 +170,55 @@ def test_run_probe_stage_fills_only_missing_date(monkeypatch):
         ("1", {"relevance_score": 0.8, "source_published_at": d.isoformat()}),
         ("2", {"relevance_score": 0.8}),
     ]
+
+
+def test_run_probe_stage_only_missing_date_skips_filled(monkeypatch):
+    """issue #360: only_missing_date=True пропускает находки с заполненной датой
+    и не обновляет relevance_score (backfill режим 'только дата')."""
+    import asyncio
+    from datetime import datetime, timezone
+    calls = []
+    probe_calls = []
+    d = datetime(2026, 8, 15, tzinfo=timezone.utc)
+
+    class FakeClient:
+        def __init__(self, settings):
+            pass
+        def __enter__(self):
+            return self
+        def __exit__(self, *exc):
+            return False
+        def list_discovered_sources(self, status=None, domain=None):
+            return [
+                {"id": "1", "url": "https://e.org/empty", "source_published_at": None},
+                {"id": "2", "url": "https://e.org/has", "source_published_at": "2026-01-01T00:00:00+00:00"},
+                {"id": "3", "url": "https://e.org/nodate", "source_published_at": None},
+            ]
+        def update_discovered_source(self, source_id, **fields):
+            calls.append((source_id, fields))
+            return {}
+
+    import src.discovery.probe as probe_mod
+    monkeypatch.setattr(probe_mod, "GarDiscoveryClient", FakeClient)
+
+    async def fake_probe_source(url, settings):
+        probe_calls.append(url)
+        pub = None if "nodate" in url else d
+        score = 0.8
+        return {"relevance_score": score, "probe_status": "scored", "source_published_at": pub}
+
+    monkeypatch.setattr(probe_mod, "probe_source", fake_probe_source)
+    counts = asyncio.run(probe_mod.run_probe_stage(settings=_settings(), only_missing_date=True))
+    
+    # проверяем счётчики
+    assert counts["skipped"] == 1  # #2 пропущена (дата есть)
+    assert counts["updated"] == 1  # только #1 обновлена (у #3 probe не нашёл дату)
+    
+    # проверяем, что probe_source вызван только для #1 и #3 (не для #2)
+    assert len(probe_calls) == 2
+    assert "https://e.org/empty" in probe_calls
+    assert "https://e.org/nodate" in probe_calls
+    assert "https://e.org/has" not in probe_calls
+    
+    # проверяем, что relevance_score НЕ записывается в backfill режиме
+    assert calls == [("1", {"source_published_at": d.isoformat()})]

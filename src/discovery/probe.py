@@ -93,37 +93,83 @@ async def probe_source(url: str, settings: Settings) -> dict:
     return {"relevance_score": score, "probe_status": "scored", "source_published_at": published}
 
 
-async def run_probe_stage(status: str = "new", settings: Settings | None = None) -> dict:
+async def run_probe_stage(
+    status: str = "new",
+    settings: Settings | None = None,
+    only_missing_date: bool = False,
+) -> dict:
     """Прогоняет probe по всем discovered_sources с заданным статусом
     (issue #17). Обновляет relevance_score через PATCH
     /discovered-sources/{id}; статус находки не меняется — probe только
     уточняет оценку, решение approve/reject остаётся за пользователем.
-    Возвращает счётчики для лога сессии."""
+    
+    При only_missing_date=True (issue #360, backfill режим):
+    - пропускаются находки, у которых source_published_at уже заполнена
+    - relevance_score не обновляется (режим "только дата")
+    - пауза 0.5с между запросами для снижения нагрузки на сайты
+    
+    Возвращает счётчики для лога: scored/thin/error/skipped/updated."""
+    import asyncio
+    
     settings = settings or load_settings()
-    counts = {"scored": 0, "thin": 0, "error": 0}
+    counts = {"scored": 0, "thin": 0, "error": 0, "skipped": 0, "updated": 0}
     with GarDiscoveryClient(settings) as client:
         sources = client.list_discovered_sources(status=status)
         for src in sources:
+            # backfill: пропускаем, если дата уже есть
+            if only_missing_date and src.get("source_published_at"):
+                counts["skipped"] += 1
+                continue
+                
             outcome = await probe_source(src["url"], settings)
             counts[outcome["probe_status"]] += 1
             fields = {}
-            if outcome["relevance_score"] is not None:
+            
+            # в backfill режиме не трогаем relevance_score
+            if not only_missing_date and outcome["relevance_score"] is not None:
                 fields["relevance_score"] = outcome["relevance_score"]
+            
             # #355: дату источника не перезаписываем — только заполняем пустую
             published = outcome.get("source_published_at")
             if published and not src.get("source_published_at"):
                 fields["source_published_at"] = published.isoformat()
+                
             if fields:
                 client.update_discovered_source(src["id"], **fields)
+                counts["updated"] += 1
+                
             logger.info("probe %s: %s (%s)", src["url"], outcome["probe_status"], outcome["relevance_score"])
+            
+            # backfill: пауза между запросами
+            if only_missing_date:
+                await asyncio.sleep(0.5)
+                
     logger.info("probe stage done: %s", counts)
     return counts
 
 
 async def main():
-    logging.basicConfig(level=logging.INFO)
-    counts = await run_probe_stage()
-    print(f"Probe завершён: {counts}")
+    import argparse
+    parser = argparse.ArgumentParser(description="Probe discovered sources для уточнения relevance_score и даты публикации")
+    parser.add_argument("--only-missing-date", action="store_true", 
+                        help="Backfill режим: обновлять только дату у записей без source_published_at, не трогать relevance_score")
+    parser.add_argument("--status", default="new", 
+                        help="Статус находок для обработки (по умолчанию: new)")
+    args = parser.parse_args()
+    
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S"
+    )
+    
+    logger.info("Запуск probe: status=%s, only_missing_date=%s", args.status, args.only_missing_date)
+    counts = await run_probe_stage(status=args.status, only_missing_date=args.only_missing_date)
+    
+    print(f"\nProbe завершён:")
+    print(f"  Обработано: {counts['scored']} scored, {counts['thin']} thin, {counts['error']} error")
+    print(f"  Пропущено (дата есть): {counts['skipped']}")
+    print(f"  Обновлено в БД: {counts['updated']}")
 
 
 if __name__ == "__main__":
