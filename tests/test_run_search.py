@@ -83,3 +83,18 @@ def test_run_search_no_hits_completes_with_zero_count(monkeypatch):
     result = run_search("пустая тема", chain, settings=_settings())
     assert result == {"run_id": "run-1", "status": "completed", "result_count": 0}
     assert fake_client.upserted == []
+
+
+def test_run_search_passes_source_published_at(monkeypatch):
+    from datetime import datetime, timezone
+    fake_client = FakeClient()
+    monkeypatch.setattr("src.discovery.run_search.GarDiscoveryClient", lambda settings: fake_client)
+    chain = FakeChain(FakeProvider(hits=[
+        SearchHit(url="https://example.org/a", title="A", snippet="s",
+                  published_at=datetime(2026, 9, 1, tzinfo=timezone.utc)),
+        SearchHit(url="https://example.org/b", title="B", snippet="s"),
+    ]))
+    run_search("тема", chain, settings=_settings())
+    _, items = fake_client.upserted[0]
+    assert items[0]["source_published_at"] == "2026-09-01T00:00:00+00:00"
+    assert "source_published_at" not in items[1]
