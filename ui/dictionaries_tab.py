@@ -7,6 +7,7 @@ import streamlit as st
 from src.metadata.gar_schema import GarSchemaError
 from src.metadata.schema import label_of, load_dictionaries
 from src.metadata.sync_from_gar import sync_from_gar
+from ui import notify
 
 
 def render() -> None:
@@ -19,9 +20,9 @@ def render() -> None:
         try:
             sync_from_gar()
         except (GarSchemaError, OSError, ValueError) as exc:
-            st.error(f"Не удалось обновить из GAR: {exc}")
+            notify.report("dictionaries", "error", "Не удалось обновить из GAR", details=[str(exc)])
         else:
-            st.success("Справочники обновлены из GAR")
+            notify.report("dictionaries", "success", "Справочники обновлены из GAR")
             st.rerun()
 
     dictionaries = load_dictionaries()

@@ -9,6 +9,7 @@ import streamlit as st
 
 from src.discovery.config import load_settings
 from src.discovery.gar_client import GarDiscoveryClient
+from ui import notify
 from ui.documents_tab import _scan_raw
 
 _FUNNEL_STATUSES = ["new", "approved", "queued", "downloading", "downloaded", "rejected", "error"]
@@ -21,7 +22,7 @@ def render() -> None:
         with GarDiscoveryClient(settings) as client:
             rows = client.list_discovered_sources()
     except Exception as exc:  # noqa: BLE001
-        st.error(f"gar-core-api недоступен: {exc}")
+        notify.report("dashboard", "error", "gar-core-api недоступен", details=[str(exc)])
         return
 
     status_counts = Counter(r.get("status", "new") for r in rows)

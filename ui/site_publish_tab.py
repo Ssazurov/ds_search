@@ -6,6 +6,7 @@ from datetime import datetime
 import streamlit as st
 
 from src.site_publish import runner
+from ui import notify
 
 SITE_URL = "https://ssazurov.github.io/ds_site/"
 
@@ -40,14 +41,17 @@ def render() -> None:
     )
     err = runner.check_env(dry)
     if err:
-        st.error(err)
+        notify.report("site_publish", "error", "Ошибка окружения", details=[err])
     if st.button("Пересобрать внешний сайт", type="primary",
                  disabled=bool(err) or st_.running or not (dry or confirm)):
         try:
             runner.start(dry_run=dry)
         except RuntimeError as exc:
-            st.error(str(exc))
+            notify.report("site_publish", "error", "Не удалось запустить пересборку", details=[str(exc)])
         else:
+            notify.report("site_publish", "success", "Публикация на внешний сайт запущена",
+                         stats={"тип": "пробный прогон" if dry else "публикация",
+                                "старт": datetime.fromtimestamp(runner.status().started_at or 0).strftime("%Y-%m-%d %H:%M:%S")})
             st.rerun()
     if st.button("Обновить статус"):
         st.rerun()
