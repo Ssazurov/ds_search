@@ -30,3 +30,6 @@ X-Public-Api-Key на уровне приложения, т.к. текущий t
 слепо доверяет X-User-ID (admin- префикс = обход ACL) — публиковать как
 есть было небезопасно. См. gar-core-api/docs/adr/052-public-gateway-cloudflare-tunnel.md,
 gar-core-api PR #224, ds_search issue #28.
+
+## ADR-014 addendum (issue #388, 2026-09-29): ручная загрузка по URL без manual/
+Папка = домен URL (`data/raw/<domain>/`, для SOURCES — их папка); имя файла — транслит заголовка (коллизия → `_YYYYMMDD-HHMMSS`); дубликат — по `source_url` во всех `data/raw/*/*.json`. Поля «Папка назначения»/«Имя файла» убраны из UI. Загрузка файлов (без URL) остаётся в `manual/`. Старое `manual/` не мигрируется. Лицензионный gate без изменений (ADR-0013/0021).

@@ -10,15 +10,15 @@ doc_id = sha256(canonical_url)[:16].
 источников (license gate, ADR-0013/0021) — сохранение sidecar
 блокируется до ручного статуса.
 
-Если домен относится к уже сконфигурированному источнику (SOURCES) —
-документ пишется в его обычную папку data/raw/<source>/, иначе — в
-псевдо-source data/raw/manual/ (ADR-0014 п.6), подхватывается обычным
-ds_ingestion CLI (`python -m src.adapter.cli manual`) без изменений
-ingestion-пайплайна.
+Папка = домен: сконфигурированный источник (SOURCES) — его обычная папка
+data/raw/<source>/, иначе data/raw/<domain>/ (issue #388, ранее manual/).
+Имя файла — транслит заголовка (коллизия -> суффикс _YYYYMMDD-HHMMSS).
+Дубликат ищется по source_url во всех data/raw/*/*.json.
 """
 from __future__ import annotations
 
 import hashlib
+import json
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -26,20 +26,33 @@ from ..license.checker import LicenseStatus, check_license
 from .config import SOURCES, SourceConfig
 from .crawler import SourceCrawler
 from .filters import canonicalize_url
+from .slug import domain_dirname
 
 DATA_ROOT = Path(__file__).resolve().parents[2] / "data" / "raw"
 MANUAL_SOURCE_NAME = "manual"
 
 
 def _resolve_source(domain: str, data_root: Path) -> tuple[SourceConfig, Path]:
-    """Существующий source по домену -> его обычная папка data/raw/<name>
-    (ADR-0014 п.6: "если домен туда относится"); иначе псевдо-source
-    `manual` в data/raw/manual/."""
+    """Существующий source по домену -> его папка data/raw/<name>;
+    иначе data/raw/<domain>/ (issue #388)."""
     cfg = next((c for c in SOURCES.values() if c.domain == domain), None)
     if cfg is not None:
         return cfg, data_root / cfg.name
-    manual_cfg = SourceConfig(name=MANUAL_SOURCE_NAME, domain=domain, seed_urls=[], keywords=[])
-    return manual_cfg, data_root / MANUAL_SOURCE_NAME
+    name = domain_dirname(domain)
+    return SourceConfig(name=name, domain=domain, seed_urls=[], keywords=[]), data_root / name
+
+
+def _find_existing(canon: str, doc_id: str, data_root: Path) -> Path | None:
+    """Дубликат по canonical_url (не по имени файла): hash-имя или source_url в sidecar."""
+    for p in data_root.glob(f"*/{doc_id}.json"):
+        return p
+    for p in data_root.glob("*/*.json"):
+        try:
+            if json.loads(p.read_text(encoding="utf-8")).get("source_url") == canon:
+                return p
+        except (OSError, ValueError, AttributeError):
+            continue
+    return None
 
 
 async def add_manual_document(
@@ -62,8 +75,8 @@ async def add_manual_document(
     cfg, out_dir = _resolve_source(domain, data_root)
     doc_id = hashlib.sha256(canon.encode()).hexdigest()[:16]
 
-    existing = out_dir / f"{doc_id}.json"
-    if existing.exists():
+    existing = _find_existing(canon, doc_id, data_root)
+    if existing is not None:
         return {"status": "duplicate", "doc_id": doc_id, "path": str(existing)}
 
     license_result = check_license(cfg.domain, url)
@@ -78,6 +91,7 @@ async def add_manual_document(
     crawler = SourceCrawler(cfg, out_dir)
     meta = await crawler.recrawl_url(
         url, dest_dir=dest_dir, filename=filename, direction=direction, category=category,
+        slug_from_title=True,
     )
     if meta is None:
         return {

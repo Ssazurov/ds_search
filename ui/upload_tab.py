@@ -134,19 +134,10 @@ def _render_link(dictionaries: dict, directions: list) -> None:
         if directions else st.text_input("Направление", key="link_dir")
     )
     if now:
-        dest_dir = st.text_input(
-            "Папка назначения (опционально, относительно data/raw; по умолчанию — домен)",
-            key="link_dest",
-        )
-        filename = st.text_input(
-            "Имя файла (опционально, без расширения; по умолчанию — хэш URL)",
-            key="link_name",
-        )
+        st.caption("Папка — домен URL в data/raw/<домен>/, имя файла — транслит заголовка.")
         if st.button("Скачать сейчас", disabled=not url.strip()):
             result = asyncio.run(add_manual_document(
                 url.strip(),
-                dest_dir=dest_dir.strip() or None,
-                filename=filename.strip() or None,
                 direction=direction,
             ))
             if result["status"] == "added":
