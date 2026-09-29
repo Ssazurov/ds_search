@@ -44,7 +44,10 @@ def render() -> None:
         st.error(f"gar-core-api недоступен: {exc}")
         return
 
-    # Перечень доменов из текущих результатов (по статусу), с числом статей
+    # Перечень доменов из текущих результатов (по статусу), с числом статей;
+    # счётчики согласованы с таблицей: дубли учитываются только при их показе
+    if not show_duplicates:
+        rows = [r for r in rows if not r.get("is_duplicate")]
     for r in rows:
         r["domain"] = r.get("domain") or urlsplit(r.get("url") or "").netloc
     domain_counts = Counter(r["domain"] for r in rows if r["domain"])
