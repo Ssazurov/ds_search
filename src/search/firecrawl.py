@@ -15,12 +15,25 @@ from pathlib import Path
 import httpx
 
 from .base import QuotaExceeded, SearchHit, SearchProvider
+from .dates import parse_published
 from .quota import QuotaState
 
 FIRECRAWL_API_URL = "https://api.firecrawl.dev/v1/search"
 DEFAULT_QUOTA_PATH = Path("data/search_quota.json")
 FREE_TIER_MONTHLY_CREDITS = 1000
 CREDITS_PER_SEARCH = 2  # до 10 результатов за пачку
+
+
+def _published(item: dict):
+    """Дата есть только если ответ содержит metadata (при search без scrape её нет)."""
+    meta = item.get("metadata")
+    if not isinstance(meta, dict):
+        return None
+    for key in ("publishedTime", "article:published_time", "og:published_time", "publishedDate"):
+        parsed = parse_published(meta.get(key))
+        if parsed:
+            return parsed
+    return None
 
 
 class FirecrawlProvider(SearchProvider):
@@ -69,6 +82,7 @@ class FirecrawlProvider(SearchProvider):
                 url=item["url"],
                 title=item.get("title", ""),
                 snippet=item.get("description", ""),
+                published_at=_published(item),
             )
             for item in data.get("data", [])
         ]
