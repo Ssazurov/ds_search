@@ -42,3 +42,14 @@ def test_body_author_wins_over_metadata_and_url_author_is_ignored():
 def test_author_extraction_handles_absent_or_non_author_lines():
     assert extract_author_from_markdown('Текст без автора\nЖурнал: X') == ''
     assert extract_author_from_markdown('Автор: Иванов\nЖурнал: Журнал') == 'Иванов'
+
+
+def test_extract_meta_tags():
+    from src.metadata.meta_extract import extract_meta_tags
+    html = ('<head><META PROPERTY="Article:Published_Time" content="2026-08-15T09:00:00Z">'
+            '<meta name="description" content="Описание"><meta name="description" content="второе">'
+            '<meta property="og:title" content="skip"><meta name="author"></head>')
+    got = extract_meta_tags(html)
+    assert got == {"article:published_time": "2026-08-15T09:00:00Z", "description": "Описание"}
+    assert extract_meta_tags("") == {} and extract_meta_tags(None) == {}
+    assert extract_page_meta(got)["publish_date"] == "2026-08-15T09:00:00Z"
