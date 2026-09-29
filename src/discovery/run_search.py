@@ -10,12 +10,17 @@ from __future__ import annotations
 
 import logging
 import re
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from urllib.parse import urlsplit
 
+import httpx
+
 from ..crawler.filters import canonicalize_url
 from ..search.base import QuotaExceeded, SearchHit
+from ..metadata.meta_extract import extract_meta_tags
 from ..search.chain import SearchProviderChain
+from ..search.dates import parse_published
 from .classify import classify
 from .config import Settings, load_settings
 from .dedup import dedup_candidates
@@ -95,6 +100,50 @@ def _search(chain: SearchProviderChain, query: str, doms: list[str], max_results
     return hits[:max_results]
 
 
+_LD_DATE_RE = re.compile(r'"datePublished"\s*:\s*"([^"]+)"')
+_ITEMPROP_RE = re.compile(
+    r'itemprop=["\']datePublished["\'][^>]*?(?:content|datetime)=["\']([^"\']+)["\']', re.IGNORECASE
+)
+
+
+def _fetch_published(url: str, timeout: float = 8.0) -> datetime | None:
+    """Достаёт дату публикации со страницы: og/article meta, JSON-LD, itemprop.
+    Только published (не modified). Любая ошибка -> None."""
+    try:
+        resp = httpx.get(url, follow_redirects=True, timeout=timeout,
+                         headers={"User-Agent": "Mozilla/5.0 (ds_search)"})
+        resp.raise_for_status()
+        html = resp.text
+        meta = extract_meta_tags(html)
+        for raw in (meta.get("article:published_time"), meta.get("og:published_time")):
+            d = parse_published(raw)
+            if d:
+                return d
+        for rx in (_LD_DATE_RE, _ITEMPROP_RE):
+            m = rx.search(html)
+            if m:
+                d = parse_published(m.group(1))
+                if d:
+                    return d
+    except Exception:  # noqa: BLE001 — обогащение best-effort
+        logger.debug("date fetch failed: %s", url, exc_info=True)
+    return None
+
+
+def _enrich_dates(hits: list[SearchHit], date_from: datetime | None,
+                  date_to: datetime | None) -> None:
+    """Для находок без published_at при заданном периоде добирает дату со страницы."""
+    if not (date_from or date_to):
+        return
+    todo = [h for h in hits if h.published_at is None]
+    if not todo:
+        return
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        for h, d in zip(todo, ex.map(lambda x: _fetch_published(x.url), todo)):
+            if d:
+                h.published_at = d
+
+
 def _filter_by_period(hits: list[SearchHit], date_from: datetime | None,
                       date_to: datetime | None) -> list[SearchHit]:
     """Провайдеры фильтруют период ненадёжно: отбрасываем находки, у которых
@@ -141,6 +190,7 @@ def run_search(
         provider_name = chain.providers[0].name
         try:
             hits = _search(chain, query, doms, max_results, date_from, date_to)
+            _enrich_dates(hits, date_from, date_to)
             hits = _filter_by_period(hits, date_from, date_to)
         except QuotaExceeded as exc:
             logger.warning("search run %s failed: %s", run_id, exc)
