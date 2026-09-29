@@ -138,18 +138,31 @@ def render() -> None:
                 duplicates += 1
             else:
                 errors.append(f"{label}: {msg}")
+        # Смена статуса на in_news (может упасть при недоступности API)
+        status_update_errors = []
         if finalized_ids:
             with GarDiscoveryClient(settings) as client:
                 for row_id in finalized_ids:
-                    client.update_discovered_source(row_id, status="in_news")
+                    try:
+                        client.update_discovered_source(row_id, status="in_news")
+                    except Exception as exc:  # noqa: BLE001
+                        status_update_errors.append(f"ID {row_id}: {exc}")
+
         stats = {}
         if drafted > 0:
             stats["черновиков"] = drafted
         if duplicates > 0:
             stats["уже были"] = duplicates
+
+        # Ошибки смены статуса — в деталях, но не влияют на общий итог
+        all_errors = errors[:]
+        if status_update_errors:
+            all_errors.append("⚠️ Не удалось обновить статус (черновики сохранены):")
+            all_errors.extend(status_update_errors)
+
         level = notify.outcome_level(ok, len(chosen))
         title = f"Добавлено в новости: {ok} из {len(chosen)}"
-        notify.report(level, title, stats, errors)
+        notify.report(level, title, stats, all_errors)
         if finalized_ids:
             st.rerun()
     if b1.button("Одобрить выбранные", disabled=not selected_ids):
