@@ -95,6 +95,27 @@ def _search(chain: SearchProviderChain, query: str, doms: list[str], max_results
     return hits[:max_results]
 
 
+def _filter_by_period(hits: list[SearchHit], date_from: datetime | None,
+                      date_to: datetime | None) -> list[SearchHit]:
+    """Провайдеры фильтруют период ненадёжно: отбрасываем находки, у которых
+    известная published_at вне [date_from, date_to]. Без даты — оставляем."""
+    if not (date_from or date_to):
+        return hits
+
+    def ok(h: SearchHit) -> bool:
+        d = h.published_at
+        if d is None:
+            return True
+        d = d.replace(tzinfo=None)
+        if date_from and d < date_from.replace(tzinfo=None):
+            return False
+        if date_to and d > date_to.replace(tzinfo=None):
+            return False
+        return True
+
+    return [h for h in hits if ok(h)]
+
+
 def run_search(
     query: str,
     chain: SearchProviderChain,
@@ -120,6 +141,7 @@ def run_search(
         provider_name = chain.providers[0].name
         try:
             hits = _search(chain, query, doms, max_results, date_from, date_to)
+            hits = _filter_by_period(hits, date_from, date_to)
         except QuotaExceeded as exc:
             logger.warning("search run %s failed: %s", run_id, exc)
             client.update_search_run(run_id, status="failed", error=str(exc))
