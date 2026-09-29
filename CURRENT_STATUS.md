@@ -557,3 +557,6 @@ local rows + GAR-документы без соответствия по gar_doc
   и `_refresh_local_content`: приоритет автора из тела, URL/отсутствующие
   данные, не-200 resolve, отсутствующий sidecar/source_url, timeout,
   смена расширения и атомарная замена контента. Проверка: 25 тестов.
+
+## 2026-09-29 — #388 Ручная загрузка: папка по домену
+`add_manual_document` пишет в `data/raw/<domain>/`, имя = slug заголовка (`src/crawler/slug.py`), dedup по source_url. UI: убраны поля папки/имени. Тесты 402 passed.

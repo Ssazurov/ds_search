@@ -34,8 +34,9 @@ def test_add_manual_document_success(tmp_path, monkeypatch):
     result = asyncio.run(manual_add.add_manual_document("https://newdomain.example/article", data_root=tmp_path))
 
     assert result["status"] == "added"
-    assert result["source"] == "manual"
-    assert (tmp_path / "manual" / f"{result['doc_id']}.json").exists()
+    assert result["source"] == "newdomain.example"
+    assert (tmp_path / "newdomain.example" / f"{result['doc_id']}.json").exists()
+    assert not (tmp_path / "manual").exists()
 
 
 def test_add_manual_document_unknown_domain_blocked(tmp_path, monkeypatch):
@@ -112,3 +113,27 @@ def test_add_manual_document_with_overrides(tmp_path, monkeypatch):
     assert captured_kwargs["category"] == "nutrition"
     assert result["meta"]["direction"] == "health"
     assert result["meta"]["category"] == "nutrition"
+
+
+def test_duplicate_found_by_source_url_with_slug_name(tmp_path, monkeypatch):
+    """issue #388: имя файла — slug, дубликат ищется по source_url, не по имени."""
+    _patch_license(monkeypatch, LicenseStatus.ALLOW)
+    url = "https://dup2.example/article"
+    canon = manual_add.canonicalize_url(url)
+    d = tmp_path / "dup2.example"
+    d.mkdir()
+    (d / "moya-statya.json").write_text(json.dumps({"source_url": canon}), encoding="utf-8")
+
+    result = asyncio.run(manual_add.add_manual_document(url, data_root=tmp_path))
+
+    assert result["status"] == "duplicate"
+    assert result["path"].endswith("moya-statya.json")
+
+
+def test_slugify_and_domain_dirname():
+    from src.crawler.slug import domain_dirname, slugify
+    assert slugify("Синдром Дауна: что делать?") == "sindrom-dauna-chto-delat"
+    assert slugify("???") == ""
+    assert len(slugify("а" * 200)) <= 80
+    assert domain_dirname("WWW.Ex.ru:8080") == "www.ex.ru"
+    assert domain_dirname("../..") == "unknown"

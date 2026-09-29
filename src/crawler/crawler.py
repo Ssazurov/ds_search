@@ -26,6 +26,7 @@ URL канонизируется (filters.canonicalize_url) до хэширов�
 """
 import asyncio
 import hashlib
+from datetime import datetime
 import json
 import logging
 import uuid
@@ -35,6 +36,7 @@ from crawl4ai import AsyncWebCrawler, CrawlerRunConfig
 from crawl4ai.deep_crawling import BestFirstCrawlingStrategy
 
 from ..discovery.download import _sanitize_filename
+from .slug import slugify
 from ..license.checker import LicenseCheckResult, LicenseStatus, check_license
 from ..metadata import classify as classify_mod
 from ..metadata import gar_schema
@@ -221,6 +223,7 @@ class SourceCrawler:
         filename: str | None = None,
         direction: str | None = None,
         category: str | None = None,
+        slug_from_title: bool = False,
     ) -> dict | None:
         """issue #141 (ADR-0007 п.5): точечный re-crawl одной страницы по URL,
         без full-scan источника. doc_id детерминирован от canon_url (sha256),
@@ -286,7 +289,7 @@ class SourceCrawler:
 
             return self._save(
                 r, canon, fit_md, dest_dir=dest_dir, filename=filename,
-                direction=direction, category=category,
+                direction=direction, category=category, slug_from_title=slug_from_title,
             )
 
     async def _download_pdf(
@@ -336,8 +339,10 @@ class SourceCrawler:
         self, result, canon_url: str, fit_markdown: str,
         dest_dir: str | None = None, filename: str | None = None,
         direction: str | None = None, category: str | None = None,
+        slug_from_title: bool = False,
     ) -> dict:
         """issue #314: dest_dir/filename/direction/category — см. recrawl_url.
+        issue #388: slug_from_title — имя файла = транслит заголовка.
         Вызов из run() (full-scan) без этих аргументов не меняет поведение."""
         header_meta: dict = {}
         if self.cfg.domain == "downsideup.org":
@@ -349,11 +354,19 @@ class SourceCrawler:
         if base_dir is None:
             logger.warning("_save %s: dest_dir %r вне self.out_dir", canon_url, dest_dir)
             base_dir = self.out_dir
-        doc_id = _sanitize_filename(filename) if filename else hashlib.sha256(canon_url.encode()).hexdigest()[:16]
+        title = strip_site_suffix((result.metadata or {}).get("title", ""), self.license_result.site_name)  # issue #347
+        if filename:
+            doc_id = _sanitize_filename(filename)
+        else:
+            doc_id = hashlib.sha256(canon_url.encode()).hexdigest()[:16]
+            slug = slugify(title) if slug_from_title else ""  # issue #388
+            if slug:
+                doc_id = slug
+                if (base_dir / f"{doc_id}.json").exists():
+                    doc_id = f"{slug}_{datetime.now().strftime('%Y%m%d-%H%M%S')}"
         md_path = base_dir / f"{doc_id}.md"
         md_path.write_text(fit_markdown, encoding="utf-8")
 
-        title = strip_site_suffix((result.metadata or {}).get("title", ""), self.license_result.site_name)  # issue #347
         page_meta = extract_page_meta(result.metadata, fit_markdown)  # issue #92
         for key, value in header_meta.items():
             if value:
