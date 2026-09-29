@@ -15,7 +15,7 @@ import streamlit as st
 
 from ui import (
     agents_status_tab, dashboard_tab, dictionaries_tab, documents_tab,
-    news_tab, results_tab, search_tab, site_publish_tab, sources_tab,
+    news_tab, notify, results_tab, search_tab, site_publish_tab, sources_tab,
     upload_tab,
 )
 
@@ -83,4 +83,9 @@ st.session_state["_last_active_tab"] = active
 if st.query_params.get("tab") != active:
     st.query_params["tab"] = active
 
+# Slot для сообщений (issue #366): создаём контейнер до рендера вкладки,
+# чтобы сообщения, добавленные во время рендера, появились вверху.
+slot = st.container()
 _RENDER[active]()
+with slot:
+    notify.render_messages(active)
