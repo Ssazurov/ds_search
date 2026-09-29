@@ -11,13 +11,14 @@ from src.license.checker import LicenseStatus, normalize_domain
 from src.discovery.config import load_settings
 from src.discovery.gar_client import GarDiscoveryClient
 from src.discovery.presets import delete_preset, load_presets, save_preset
-from src.discovery.run_search import run_search
+from src.discovery.run_search import normalize_domains, run_search
 from src.metadata.schema import label_of, load_dictionaries
 from src.search.base import QuotaExceeded
 from src.search.brave import BraveProvider
 from src.search.chain import SearchProviderChain
 from src.search.firecrawl import FirecrawlProvider
 from src.search.tavily import TavilyProvider
+from ui import notify
 
 _NONE = "— не выбрано —"
 
@@ -123,11 +124,44 @@ def render() -> None:
         try:
             result = run_search(query, _build_chain(), max_results=max_results, metadata=metadata, domains=domains,
                                 date_from=date_from, date_to=date_to)
-            st.success(f"Готово: run_id={result['run_id']}, находок={result['result_count']}")
+
+            # issue #368: подробная карточка результата поиска
+            if result["status"] == "failed":
+                notify.report(
+                    "error",
+                    "Поиск не выполнен",
+                    details=[result["error"]] if result.get("error") else []
+                )
+            elif result["found"] == 0:
+                notify.report("warning", "Ничего не найдено")
+            elif result["new"] == 0:
+                notify.report(
+                    "warning",
+                    f"Новых находок нет — все {result['found']} уже есть в базе"
+                )
+            else:
+                stats = {
+                    "найдено": result["found"],
+                    "новых": result["new"],
+                    "дублей": result["duplicates"],
+                    "с датой": result["with_date"],
+                }
+                if result.get("provider"):
+                    stats["провайдер"] = result["provider"]
+                doms = normalize_domains(domains)
+                if doms:
+                    stats["домены"] = ", ".join(doms[:3]) + ("..." if len(doms) > 3 else "")
+
+                notify.report(
+                    "success",
+                    f"Поиск «{query}» завершён",
+                    stats=stats,
+                    details=[f"run_id={result['run_id']}"]
+                )
         except QuotaExceeded as exc:
-            st.error(str(exc))
+            notify.report("error", "Лимит поиска исчерпан", details=[str(exc)])
         except Exception as exc:  # noqa: BLE001 — показать пользователю причину сбоя
-            st.error(f"Ошибка запуска поиска: {exc}")
+            notify.report("error", "Ошибка запуска поиска", details=[str(exc)])
 
     st.divider()
     st.subheader("Сохранить как пресет")
@@ -143,8 +177,9 @@ def render() -> None:
             "domains": domains_new,
             "domains_selected": domains_selected,
         })
-        st.success("Пресет сохранён")
+        notify.toast("Пресет сохранён")
         st.rerun()
     if chosen != _NONE and pcol2.button("Удалить текущий пресет"):
         delete_preset(chosen)
+        notify.toast("Пресет удалён")
         st.rerun()
