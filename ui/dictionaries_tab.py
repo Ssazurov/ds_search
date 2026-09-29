@@ -20,9 +20,9 @@ def render() -> None:
         try:
             sync_from_gar()
         except (GarSchemaError, OSError, ValueError) as exc:
-            notify.report("dictionaries", "error", "Не удалось обновить из GAR", details=[str(exc)])
+            notify.report("error", "Не удалось обновить из GAR", details=[str(exc)])
         else:
-            notify.report("dictionaries", "success", "Справочники обновлены из GAR")
+            notify.report("success", "Справочники обновлены из GAR")
             st.rerun()
 
     dictionaries = load_dictionaries()
