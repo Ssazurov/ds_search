@@ -17,6 +17,7 @@ from src.discovery.gar_client import GarDiscoveryClient
 from src.metadata.schema import label_of, load_dictionaries
 from src.metadata.profile import build_ingestion_metadata
 from src.crawler.manual_add import add_manual_document
+from ui import notify
 
 DATA_ROOT = Path(__file__).resolve().parents[1] / "data" / "raw"
 
@@ -29,7 +30,7 @@ def _render_queue() -> None:
             rows = client.list_discovered_sources(status="queued") + \
                    client.list_discovered_sources(status="error")
     except Exception as exc:  # noqa: BLE001
-        st.error(f"gar-core-api недоступен: {exc}")
+        notify.report("error", "gar-core-api недоступен", details=[str(exc)])
         return
 
     if not rows:
@@ -49,20 +50,33 @@ def _render_queue() -> None:
                     direction=source.get("suggested_direction"),
                     category=source.get("suggested_category") or source.get("category"),
                 ))
+                title_label = source.get("title") or source["url"]
                 if result["status"] == "added":
                     client.update_discovered_source(source["id"], status="downloaded")
-                    st.success("Скачано")
+                    notify.report(
+                        "success", "Скачано",
+                        {"заголовок": title_label},
+                        [f"Путь: {result['meta']['content_path']}", f"ID: {result['doc_id']}"],
+                    )
                 elif result["status"] == "duplicate":
                     client.update_discovered_source(source["id"], status="downloaded")
-                    st.warning(f"Документ уже был скачан ранее: {result['doc_id']}")
+                    notify.report(
+                        "warning", "Документ уже есть в базе",
+                        {"заголовок": title_label},
+                        [f"ID: {result['doc_id']}"],
+                    )
                 else:
                     client.update_discovered_source(source["id"], status="error")
-                    st.error(result.get("reason", result["status"]))
+                    notify.report(
+                        "error", "Не удалось скачать",
+                        {"заголовок": title_label},
+                        [result.get("reason", result["status"])],
+                    )
             st.rerun()
         if cols[4].button("Удалить", key=f"del_{source['id']}"):
             with GarDiscoveryClient(settings) as client:
                 client.delete_discovered_source(source["id"])
-            st.success("Удалено")
+            notify.report("success", "Удалено", {"заголовок": source.get("title") or source["url"]})
             st.rerun()
 
 
@@ -136,19 +150,35 @@ def _render_link(dictionaries: dict, directions: list) -> None:
                 direction=direction,
             ))
             if result["status"] == "added":
-                st.success(f"Скачано: {result['meta']['content_path']}")
+                notify.report(
+                    "success", "Скачано",
+                    {"URL": url.strip()},
+                    [f"Путь: {result['meta']['content_path']}", f"ID: {result['doc_id']}"],
+                )
             elif result["status"] == "duplicate":
-                st.warning(f"Документ с этим URL уже есть: {result['doc_id']}")
+                notify.report(
+                    "warning", "Документ уже есть в базе",
+                    {"URL": url.strip()},
+                    [f"ID: {result['doc_id']}"],
+                )
             elif result["status"] in ("license_pending", "license_denied"):
-                st.warning(result["reason"])
+                notify.report(
+                    "warning", "Проверка лицензии",
+                    {"URL": url.strip()},
+                    [result["reason"]],
+                )
             else:
-                st.error(result.get("reason", result["status"]))
+                notify.report(
+                    "error", "Не удалось скачать",
+                    {"URL": url.strip()},
+                    [result.get("reason", result["status"])],
+                )
     elif st.button("Добавить как одобренную находку", disabled=not url.strip()):
         try:
             _add_manual_link(url.strip(), direction)
-            st.success("Добавлено в discovered_sources со статусом approved — переведите в очередь во вкладке «Результаты»")
+            notify.report("success", "Добавлено в discovered_sources", {"статус": "approved"})
         except Exception as exc:  # noqa: BLE001
-            st.error(f"gar-core-api недоступен: {exc}")
+            notify.report("error", "gar-core-api недоступен", details=[str(exc)])
 
 
 def _render_manual() -> None:
@@ -172,7 +202,7 @@ def _render_manual() -> None:
             format_func=lambda v: label_of(dictionaries, "doc_type", v))
         if st.button("Сохранить файл", disabled=not (uploaded and title.strip())):
             _save_manual_file(uploaded, title.strip(), direction, doc_type, category or None)
-            st.success("Документ сохранён в data/raw/manual/")
+            notify.report("success", "Документ сохранён", {"путь": "data/raw/manual/"})
             st.rerun()
     else:
         _render_link(dictionaries, directions)
