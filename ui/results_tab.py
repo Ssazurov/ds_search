@@ -12,6 +12,7 @@ from src.discovery.gar_client import GarDiscoveryClient
 from src.license.checker import check_license
 from ui.news_add import add_articles_as_news, describe
 from ui.table_utils import COLUMN_LABELS, column_settings, datetime_column, link_column, localize
+from ui import notify
 
 _STATUS_OPTIONS = ["new", "approved", "rejected", "queued", "downloaded", "in_news"]
 _NONE = "— не выбрано —"
@@ -41,7 +42,7 @@ def render() -> None:
                 status=status_filter if status_filter != _NONE else None,
             )
     except Exception as exc:  # noqa: BLE001
-        st.error(f"gar-core-api недоступен: {exc}")
+        notify.report("error", "gar-core-api недоступен", details=[str(exc)])
         return
 
     # Перечень доменов из текущих результатов (по статусу), с числом статей;
@@ -121,38 +122,58 @@ def render() -> None:
             results = add_articles_as_news(
                 [{"url": r["url"], "title": r.get("title") or ""} for r in chosen])
         finalized_ids = []
+        ok = 0
+        drafted = 0
+        duplicates = 0
+        errors = []
         for (label, status), row in zip(results, chosen):
-            level, msg = describe(status)
-            getattr(st, level)(f"{label}: {msg}")
-            if status in ("drafted", "skipped_duplicate"):
+            _, msg = describe(status)
+            if status == "drafted":
                 finalized_ids.append(row["id"])
+                ok += 1
+                drafted += 1
+            elif status == "skipped_duplicate":
+                finalized_ids.append(row["id"])
+                ok += 1
+                duplicates += 1
+            else:
+                errors.append(f"{label}: {msg}")
         if finalized_ids:
             with GarDiscoveryClient(settings) as client:
                 for row_id in finalized_ids:
                     client.update_discovered_source(row_id, status="in_news")
+        stats = {}
+        if drafted > 0:
+            stats["черновиков"] = drafted
+        if duplicates > 0:
+            stats["уже были"] = duplicates
+        level = notify.outcome_level(ok, len(chosen))
+        title = f"Добавлено в новости: {ok} из {len(chosen)}"
+        notify.report(level, title, stats, errors)
+        if finalized_ids:
             st.rerun()
     if b1.button("Одобрить выбранные", disabled=not selected_ids):
         with GarDiscoveryClient(settings) as client:
             for row_id in selected_ids:
                 source = next(r for r in rows if r["id"] == row_id)
                 _approve(client, source)
-        st.success(f"Одобрено: {len(selected_ids)}")
+        notify.report("success", "Одобрено", {"статей": len(selected_ids)})
         st.rerun()
     if b2.button("Отклонить выбранные", disabled=not selected_ids):
         with GarDiscoveryClient(settings) as client:
             for row_id in selected_ids:
                 client.update_discovered_source(row_id, status="rejected")
-        st.success(f"Отклонено: {len(selected_ids)}")
+        notify.report("success", "Отклонено", {"статей": len(selected_ids)})
         st.rerun()
     if b3.button("В очередь загрузки", disabled=not selected_ids):
         with GarDiscoveryClient(settings) as client:
             for row_id in selected_ids:
                 client.update_discovered_source(row_id, status="queued")
-        st.success(f"В очереди: {len(selected_ids)}")
+        notify.report("success", "В очереди", {"статей": len(selected_ids)})
         st.rerun()
     if b4.button("Удалить выбранные", disabled=not selected_ids):
         with GarDiscoveryClient(settings) as client:
             for row_id in selected_ids:
                 client.delete_discovered_source(row_id)
-        st.success(f"Удалено: {len(selected_ids)}")
+        notify.report("success", "Удалено", {"статей": len(selected_ids)})
         st.rerun()
