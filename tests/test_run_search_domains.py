@@ -20,9 +20,13 @@ def test_normalize_domains_skips_non_domains():
     assert normalize_domains("foma.ru и miloserdie.ru") == ["foma.ru", "miloserdie.ru"]
 
 
-def test_search_per_domain_filters_and_splits():
+def test_search_per_domain_filters_and_splits(monkeypatch):
+    from src.discovery import run_search as rs
     from src.discovery.run_search import _search
     from src.search.base import SearchHit
+
+    # WP REST API недоступен -> fallback на chain (без сети в тесте)
+    monkeypatch.setattr(rs, "wp_search", lambda *a, **k: None)
 
     class FakeChain:
         def __init__(self):
