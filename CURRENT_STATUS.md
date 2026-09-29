@@ -560,3 +560,12 @@ local rows + GAR-документы без соответствия по gar_doc
 
 ## 2026-09-29 — #388 Ручная загрузка: папка по домену
 `add_manual_document` пишет в `data/raw/<domain>/`, имя = slug заголовка (`src/crawler/slug.py`), dedup по source_url. UI: убраны поля папки/имени. Тесты 402 passed.
+
+## 2026-09-29 -- issue #392: устойчивость «В новости» при сбое смены статуса
+
+- Обёрнут вызов `update_discovered_source` в try-except (ui/results_tab.py:146-149).
+- Ошибки смены статуса собираются в `status_update_errors` и передаются в `notify.report` через `all_errors`.
+- Сообщение "⚠️ Не удалось обновить статус (черновики сохранены)" добавлено в детали.
+- Черновики не теряются при сбое API, дедупликация работает на уровне `add_single_url` (существующая логика в ui/news_add.py).
+- Тесты: `test_to_news_survives_status_update_failure`, `test_to_news_dedup_prevents_double_draft`, `test_status_update_partial_failure`.
+- Проверка: `pytest tests/test_results_tab_to_news.py -v` — 3 passed. Commit c87261b, issue #392 закрыт.
