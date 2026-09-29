@@ -51,6 +51,8 @@ def abbreviation_terms(path: Path = DEFAULT_XLSX) -> list[dict[str, object]]:
 class GlossaryImportClient:
     def __init__(self, base_url: str, user_id: str, tenant_id: str | None = None):
         headers = {"X-User-ID": user_id}
+        if os.getenv("GAR_API_KEY"):
+            headers["X-API-Key"] = os.environ["GAR_API_KEY"]
         if tenant_id:
             headers["X-Tenant-ID"] = tenant_id
         self.client = httpx.Client(base_url=base_url, headers=headers, timeout=30)

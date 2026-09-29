@@ -5,6 +5,7 @@ ds_search не пишет discovered_sources/search_runs напрямую в Pos
 gar-core-api для любого доступа к GAR (routers/discovery.py, PR #222)."""
 from __future__ import annotations
 
+import os
 from urllib.parse import quote
 
 import httpx
@@ -19,6 +20,8 @@ class GarDiscoveryClientError(RuntimeError):
 class GarDiscoveryClient:
     def __init__(self, settings: Settings):
         headers = {"X-User-ID": settings.user_id}
+        if os.getenv("GAR_API_KEY"):
+            headers["X-API-Key"] = os.environ["GAR_API_KEY"]
         if settings.tenant_id:
             headers["X-Tenant-ID"] = settings.tenant_id
         self._client = httpx.Client(

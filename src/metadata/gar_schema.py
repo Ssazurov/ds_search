@@ -31,6 +31,8 @@ class GarSchemaError(RuntimeError):
 
 def _headers() -> dict:
     headers = {"X-User-ID": DEFAULT_USER_ID}
+    if os.getenv("GAR_API_KEY"):
+        headers["X-API-Key"] = os.environ["GAR_API_KEY"]
     if DEFAULT_TENANT_ID:
         headers["X-Tenant-ID"] = DEFAULT_TENANT_ID
     return headers

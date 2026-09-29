@@ -55,6 +55,8 @@ class GarIngestClient:
 
     def __init__(self, settings: PublishSettings):
         headers = {"X-User-ID": settings.user_id}
+        if os.getenv("GAR_API_KEY"):
+            headers["X-API-Key"] = os.environ["GAR_API_KEY"]
         if settings.tenant_id:
             headers["X-Tenant-ID"] = settings.tenant_id
         self._client = httpx.Client(
