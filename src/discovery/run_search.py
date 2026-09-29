@@ -145,7 +145,7 @@ def _enrich_dates(hits: list[SearchHit], date_from: datetime | None,
 
 
 def _filter_by_period(hits: list[SearchHit], date_from: datetime | None,
-                      date_to: datetime | None) -> list[SearchHit]:
+                      date_to: datetime | None, keep_undated: bool = True) -> list[SearchHit]:
     """Провайдеры фильтруют период ненадёжно: отбрасываем находки, у которых
     известная published_at вне [date_from, date_to]. Без даты — оставляем."""
     if not (date_from or date_to):
@@ -154,7 +154,7 @@ def _filter_by_period(hits: list[SearchHit], date_from: datetime | None,
     def ok(h: SearchHit) -> bool:
         d = h.published_at
         if d is None:
-            return True
+            return keep_undated
         d = d.replace(tzinfo=None)
         if date_from and d < date_from.replace(tzinfo=None):
             return False
@@ -189,9 +189,11 @@ def run_search(
         run_id = run["id"]
         provider_name = chain.providers[0].name
         try:
-            hits = _search(chain, query, doms, max_results, date_from, date_to)
+            # провайдеры игнорируют период -> берём с запасом, фильтруем сами
+            fetch_n = min(100, max_results * 5) if (date_from or date_to) else max_results
+            hits = _search(chain, query, doms, fetch_n, date_from, date_to)
             _enrich_dates(hits, date_from, date_to)
-            hits = _filter_by_period(hits, date_from, date_to)
+            hits = _filter_by_period(hits, date_from, date_to, keep_undated=False)[:max_results]
         except QuotaExceeded as exc:
             logger.warning("search run %s failed: %s", run_id, exc)
             client.update_search_run(run_id, status="failed", error=str(exc))

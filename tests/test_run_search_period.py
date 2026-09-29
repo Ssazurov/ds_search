@@ -39,3 +39,9 @@ def test_fetch_published_from_og(monkeypatch):
         def raise_for_status(self): pass
     monkeypatch.setattr(rs.httpx, "get", lambda *a, **k: R())
     assert rs._fetch_published("u").year == 2018
+
+
+def test_filter_strict_drops_undated():
+    hits = [_hit("b", datetime(2026, 8, 10)), _hit("c", None)]
+    res = _filter_by_period(hits, datetime(2026, 8, 1), datetime(2026, 9, 1), keep_undated=False)
+    assert [h.url for h in res] == ["b"]
