@@ -74,13 +74,14 @@ def render() -> None:
     # п.4: url скрыт, title — кликабельная ссылка на url
     display_cols = [c for c in [
         "select", "title", "domain", "direction", "category",
-        "doc_type", "is_duplicate", "status", "found_at",
+        "doc_type", "is_duplicate", "status", "source_published_at", "found_at",
     ] if c in df.columns]
     # п.1: русские заголовки столбцов
     column_labels = {
         **COLUMN_LABELS,
         "is_duplicate": "Дубль",
         "status": "Статус",
+        "source_published_at": "Дата источника",
         "found_at": "Найдено",
     }
     # п.4: title читаемый текст; отдельная узкая иконка-ссылка на url.
@@ -94,6 +95,7 @@ def render() -> None:
     order, config, sort = column_settings(
         "results", {k: column_labels[k] for k in display_cols_final},
         {column_labels["url"]: link_column(),
+         column_labels["source_published_at"]: datetime_column(column_labels["source_published_at"]),
          column_labels["found_at"]: datetime_column(column_labels["found_at"])})
     if sort:
         df_display = df_display.sort_values(sort[0], ascending=sort[1])

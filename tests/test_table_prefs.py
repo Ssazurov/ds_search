@@ -1,5 +1,6 @@
 """Настройки колонок таблиц (issue #272): слияние, сохранение, битые данные."""
-from ui.table_utils import load_prefs, merge_settings, save_prefs
+import pandas as pd
+from ui.table_utils import load_prefs, localize, merge_settings, save_prefs
 
 COLS = ["select", "title", "url", "domain", "status"]
 PINNED = ("select", "title")
@@ -47,3 +48,16 @@ def test_save_load_roundtrip_and_broken_file(tmp_path):
     assert load_prefs(p) == {"documents": {"order": ["title"]}}
     p.write_text("{broken", encoding="utf-8")
     assert load_prefs(p) == {}
+
+
+def test_localize_handles_source_published_at_column():
+    """localize пропускает datetime колонки (source_published_at) без ошибок."""
+    df = pd.DataFrame({
+        "title": ["Статья 1", "Статья 2"],
+        "direction": ["science", "education"],
+        "source_published_at": [pd.Timestamp("2026-09-29 10:00:00+00:00"), pd.NaT],
+    })
+    result = localize(df, fields=("direction",))
+    assert "source_published_at" in result.columns
+    assert pd.isna(result.loc[1, "source_published_at"])
+    assert result.loc[0, "source_published_at"] == pd.Timestamp("2026-09-29 10:00:00+00:00")
