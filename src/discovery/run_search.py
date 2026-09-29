@@ -35,6 +35,9 @@ def _hit_to_candidate(hit: SearchHit, metadata: dict | None = None) -> dict:
     # issue #21: keyword-эвристика по title+snippet заполняет suggested_*
     # черновым значением (или None, если нет уверенного совпадения).
     candidate.update(classify(hit.title, hit.snippet))
+    # #355: дата публикации из ответа провайдера; ключ не добавляем, если её нет
+    if getattr(hit, "published_at", None):
+        candidate["source_published_at"] = hit.published_at.isoformat()
     if metadata:
         # issue #19 п.2: явные direction/category/... из параметров поиска
         # приоритетнее эвристики issue #21 -> suggested_* поля
