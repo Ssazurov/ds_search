@@ -152,7 +152,7 @@ def _render_detail(domain: str, registry: dict, row: dict) -> None:
         try:
             _dismiss_domain(domain)
         except Exception as exc:  # noqa: BLE001
-            notify.report("sources", "error", "Не удалось убрать находки домена в GAR", details=[str(exc)])
+            notify.report("error", "Не удалось убрать находки домена в GAR", details=[str(exc)])
             return
         registry.pop(domain, None)
         delete_entry(domain)

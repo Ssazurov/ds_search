@@ -29,6 +29,50 @@ _TABLE_LABELS = {
 }
 
 
+def _fmt_dt(raw: str | None) -> str:
+    """ISO-строка → «04.09.2026 10:26» (без секунд и смещения)."""
+    try:
+        return datetime.fromisoformat(raw).strftime("%d.%m.%Y %H:%M")
+    except (TypeError, ValueError):
+        return str(raw or "—")
+
+
+def _render_taxonomy(item: dict) -> tuple[str, str]:
+    """Направление/категория (ADR-013): опции и labels из живой схемы GAR,
+    как в «Документах». Возвращает ("", "") при недоступной схеме."""
+    from src.metadata.gar_schema import (
+        load_gar_schema, field_options, option_labels, category_options_for_direction,
+    )
+    try:
+        fields = load_gar_schema()
+        directions = field_options(fields, "direction")
+        labels = option_labels(fields)
+    except Exception as exc:  # noqa: BLE001 — деградируем, форма остаётся рабочей
+        st.caption(f"Справочник GAR недоступен: {exc}")
+        return item.get("direction") or "", item.get("category") or ""
+    dir_labels, cat_labels = labels.get("direction", {}), labels.get("category", {})
+    iid = item["id"]
+    dkey, ckey = f"dir_{iid}", f"cat_{iid}"
+    cur_dir = item.get("direction") or ""
+    cur_cat = item.get("category") or ""
+    c1, c2 = st.columns(2)
+    direction = c1.selectbox(
+        "Направление", [""] + directions, key=dkey,
+        index=([""] + directions).index(cur_dir) if cur_dir in directions else 0,
+        format_func=lambda v: v if not v else dir_labels.get(v, v))
+    if not direction:
+        c2.caption("Категория — сначала выберите направление")
+        return "", ""
+    cats = category_options_for_direction(fields, direction)
+    if st.session_state.get(ckey) not in (None, "", *cats):
+        del st.session_state[ckey]  # смена направления → старая категория невалидна
+    category = c2.selectbox(
+        "Категория", [""] + cats, key=ckey,
+        index=([""] + cats).index(cur_cat) if cur_cat in cats else 0,
+        format_func=lambda v: v if not v else cat_labels.get(v, v))
+    return direction, category
+
+
 def _render_item(item: dict) -> None:
     """Полная форма редактирования одной записи (только для выбранной в таблице)."""
     st.subheader(item["title"] or "(без заголовка)")
@@ -44,6 +88,7 @@ def _render_item(item: dict) -> None:
         "Каналы публикации", CHANNEL_OPTIONS, default=item.get("channels") or [],
         key=f"ch_{item['id']}",
     )
+    new_direction, new_category = _render_taxonomy(item)
 
     # issue #198: редактируемая дата публикации — источник даты
     # выбирается тумблером, "Вручную" открывает date/time-инпуты.
@@ -66,7 +111,7 @@ def _render_item(item: dict) -> None:
         d = st.date_input("Дата", default_dt.date(), key=f"pubdate_{item['id']}")
         t = st.time_input("Время", default_dt.time(), key=f"pubtime_{item['id']}")
         new_published_at = datetime.combine(d, t).isoformat(sep=" ", timespec="seconds")
-    st.caption(f"Будет сохранено как дата публикации: {new_published_at}")
+    st.caption(f"Дата публикации: {_fmt_dt(new_published_at)}")
 
     cols = st.columns(4)
     if cols[0].button("Сохранить", key=f"save_{item['id']}"):
@@ -77,9 +122,11 @@ def _render_item(item: dict) -> None:
             "body_md": new_body,
             "tags": [t.strip() for t in new_tags.split(",") if t.strip()],
             "channels": new_channels,
+            "direction": new_direction or None,
+            "category": new_category or None,
             "published_at": new_published_at,
         })
-        notify.report("news", "success", "Сохранено")
+        notify.report("success", "Сохранено")
         st.rerun()
     if item["status"] != "published" and cols[1].button("Опубликовать", key=f"pub_{item['id']}"):
         # issue: status не должен фиксироваться как published, если
@@ -90,30 +137,33 @@ def _render_item(item: dict) -> None:
         db.update_status(item["id"], "published")
         try:
             publish.publish_news_item(item["id"])
-            notify.report("news", "success", "Опубликовано и загружено в GAR")
+            notify.report("success", "Опубликовано и загружено в GAR")
         except publish.GarPublishError as exc:
             db.update_status(item["id"], "draft")
-            notify.report("news", "warning", "Публикация не удалась",
+            notify.report("warning", "Публикация не удалась",
                          details=[f"Статус возвращён в черновик: {exc}"])
         st.rerun()
     if item.get("gar_document_id") and cols[1].button("Переотправить в GAR", key=f"repub_{item['id']}"):
         try:
             publish.publish_news_item(item["id"], force=True)
-            notify.report("news", "success", "Переотправлено в GAR")
+            notify.report("success", "Переотправлено в GAR")
         except publish.GarPublishError as exc:
-            notify.report("news", "warning", "Ingestion в GAR не удался", details=[str(exc)])
+            notify.report("warning", "Ingestion в GAR не удался", details=[str(exc)])
         st.rerun()
     elif item["status"] == "published" and item.get("publish_error"):
-        notify.report("news", "error", "GAR ingestion не удался", details=[item['publish_error']])
+        notify.report("error", "GAR ingestion не удался", details=[item['publish_error']])
     if item["status"] != "rejected" and cols[2].button("Отклонить", key=f"rej_{item['id']}"):
-        db.update_status(item["id"], "rejected")
+        err = _reject_item(item)
+        if err:
+            notify.report("error", "Не удалось отозвать документ из GAR",
+                          details=["Статус не изменён", err])
         st.rerun()
     if cols[3].button("Удалить", key=f"del_{item['id']}"):
         if item.get("gar_document_id"):
             try:
                 publish.revoke_news_item(item["id"])
             except publish.GarPublishError as exc:
-                notify.report("news", "error", "Не удалось отозвать документ из GAR",
+                notify.report("error", "Не удалось отозвать документ из GAR",
                              details=["Запись не удалена", str(exc)])
                 st.stop()
         db.delete_news_item(item["id"])
@@ -133,14 +183,27 @@ def _publish_batch(items: list[dict]) -> None:
             db.update_status(item["id"], "draft")
             errors.append(f"{item['title']}: {exc}")
     level = notify.outcome_level(ok, len(items))
-    notify.report("news", level, "Опубликовано", stats={"успешно": ok, "всего": len(items)}, details=errors)
+    notify.report(level, "Опубликовано", stats={"успешно": ok, "всего": len(items)}, details=errors)
     st.rerun()
 
 
+def _reject_item(item: dict) -> str | None:
+    """Отклонить новость. Если она в GAR — сначала отозвать документ; при
+    ошибке отзыва статус не меняется. Возвращает текст ошибки или None."""
+    if item.get("gar_document_id"):
+        try:
+            publish.revoke_news_item(item["id"])
+        except publish.GarPublishError as exc:
+            return f"{item['title']}: {exc}"
+    db.update_status(item["id"], "rejected")
+    return None
+
+
 def _reject_batch(items: list[dict]) -> None:
-    for item in items:
-        db.update_status(item["id"], "rejected")
-    notify.report("news", "success", "Отклонено", stats={"записей": len(items)})
+    errors = [e for e in (_reject_item(i) for i in items) if e]
+    level = notify.outcome_level(len(items) - len(errors), len(items))
+    notify.report(level, "Отклонено", stats={"успешно": len(items) - len(errors), "всего": len(items)},
+                  details=errors)
     st.rerun()
 
 
@@ -156,7 +219,7 @@ def _delete_batch(items: list[dict]) -> None:
         db.delete_news_item(item["id"])
     ok = len(items) - len(errors)
     level = notify.outcome_level(ok, len(items))
-    notify.report("news", level, "Удалено", stats={"успешно": ok, "всего": len(items)}, details=errors)
+    notify.report(level, "Удалено", stats={"успешно": ok, "всего": len(items)}, details=errors)
     st.rerun()
 
 
@@ -180,9 +243,9 @@ def _render_manual_form() -> None:
                     tags=tags.split(","), requires_review=not reviewed,
                 )
             except ValueError as exc:
-                notify.report("news", "error", "Ошибка создания черновика", details=[str(exc)])
+                notify.report("error", "Ошибка создания черновика", details=[str(exc)])
             else:
-                notify.report("news", "success", "Черновик создан", details=[f"id={new_id}"])
+                notify.report("success", "Черновик создан", details=[f"id={new_id}"])
                 st.rerun()
 
 
@@ -216,7 +279,8 @@ def render() -> None:
         "url": i.get("source_url") or None,
         "created_at": i["created_at"],
         "published_at": i.get("published_at") or "",
-        "gar": "✅" if i.get("gar_document_id") else ("⚠️" if i.get("publish_error") else ""),
+        "gar": ("🟥" if i.get("status") == "rejected"
+                else "✅" if i.get("gar_document_id") else ("⚠️" if i.get("publish_error") else "")),
     } for i in items])
     df.insert(0, "select", False)
 
