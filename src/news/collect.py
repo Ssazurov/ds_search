@@ -82,6 +82,8 @@ async def _collect_one(
     db_path: Path,
     source_name: str | None = None,
     source_published_at: str | None = None,
+    direction: str | None = None,
+    category: str | None = None,
 ) -> str:
     """Скачивает источник и создаёт LLM-черновик. Возвращает статус для
     статистики: 'drafted' | 'license_denied' | 'download_failed' |
@@ -145,6 +147,11 @@ async def _collect_one(
         logger.warning("generate_draft упал для %s: %s", hit.url, exc)
         return "llm_failed"
 
+    # ручной выбор (issue #406) перекрывает LLM/classify; пусто = автоклассификация
+    if direction:
+        draft["direction"] = direction
+    if category:
+        draft["category"] = category
     try:
         db.insert_news_item(draft, db_path)
     except sqlite3.IntegrityError as exc:  # гонка дедупа / первоисточник агрегатора уже в базе
@@ -162,6 +169,8 @@ async def add_single_url(
     llm_config: LlmConfig | None = None,
     data_root: Path = DEFAULT_DATA_ROOT,
     db_path: Path = db.DB_PATH,
+    direction: str | None = None,
+    category: str | None = None,
 ) -> str:
     """Штатная загрузка одной новости по ссылке пользователя (issue #183).
 
@@ -174,7 +183,9 @@ async def add_single_url(
     if db.source_url_exists(canon, db_path):
         return "skipped_duplicate"
     hit = SearchHit(url=url, title=title, snippet="")
-    return await _collect_one(hit, llm_config, data_root, db_path)
+    return await _collect_one(
+        hit, llm_config, data_root, db_path, direction=direction, category=category,
+    )
 
 
 async def collect_news(
