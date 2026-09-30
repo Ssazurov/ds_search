@@ -737,7 +737,7 @@ def render() -> None:
     with_url = [r for r in selected_rows if r.get("url")]
     news_fmt = format_selector("documents_news_fmt")
     b1, b2, b3, b4, b5, b6 = action_row(6, "documents")
-    if b1.button(f"Загрузить в GAR выбранные ({len(not_loaded)})", disabled=not not_loaded,
+    if b1.button(f"Загрузить в GAR ({len(not_loaded)})", disabled=not not_loaded,
                  key="ingest_selected_btn"):
         _ingest_batch(not_loaded)
     if b2.button(f"Удалить из GAR ({len(gar_only)})", disabled=not all_have_gar,
@@ -748,7 +748,7 @@ def render() -> None:
                  key="delete_everywhere_btn"):
         st.session_state["confirm_delete_everywhere"] = True
         st.rerun()
-    if b4.button(f"Архивировать выбранные ({len(archivable)})",
+    if b4.button(f"Архивировать ({len(archivable)})",
                  disabled=not archivable, key="doc_archive_btn"):
         _archive_batch(archivable, archive=True)
     if b5.button(f"Вернуть из архива ({len(archivable)})",
