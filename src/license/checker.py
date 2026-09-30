@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 from enum import Enum
 from urllib.parse import urljoin, urlsplit
@@ -95,6 +96,17 @@ def normalize_domain(domain: str) -> str:
     return d[4:] if d.startswith("www.") else d
 
 
+_SITE_NAME_RE = re.compile(r"^\s*Источник:\s*([^{}]+?)\s*\(\s*\{source_url\}")
+
+
+def derive_site_name(template: str | None) -> str:
+    """issue #395: GAR-реестр не хранит site_name (нет колонки) -> strip_site_suffix
+    был no-op. Название сайта берём из шаблона «Источник: <имя> ({source_url})»;
+    шаблон с {title} (дефолтный) -> пусто."""
+    m = _SITE_NAME_RE.match(template or "")
+    return m.group(1).strip() if m else ""
+
+
 def default_attribution_template(domain: str) -> str:
     """Шаблон атрибуции по умолчанию для нового источника."""
     return f"Источник: {{title}} ({{source_url}}), {domain}"
@@ -150,7 +162,7 @@ def check_license(
         status=status,
         reason=reason,
         attribution_template=entry.get("attribution_template"),
-        site_name=entry.get("site_name") or "",
+        site_name=entry.get("site_name") or derive_site_name(entry.get("attribution_template")),
         is_aggregator=bool(entry.get("is_aggregator", False)),
         publish_permission=parse_publish_permission(entry.get("publish_permission")),
     )
