@@ -84,6 +84,7 @@ async def _collect_one(
     source_published_at: str | None = None,
     direction: str | None = None,
     category: str | None = None,
+    fmt: str = "news",
 ) -> str:
     """Скачивает источник и создаёт LLM-черновик. Возвращает статус для
     статистики: 'drafted' | 'license_denied' | 'download_failed' |
@@ -136,7 +137,9 @@ async def _collect_one(
         "text": text,
     }
     try:
-        draft = generate_draft(llm_source, config=llm_config)
+        # ds_search#421: пересказ — автоклассификация направления/категории (чеклист UI)
+        draft_kw = {"fmt": "digest", "autoclassify": True} if fmt == "digest" else {}
+        draft = generate_draft(llm_source, config=llm_config, **draft_kw)
     except NotRelevantError as exc:
         logger.info("источник %s пропущен (нерелевантно): %s", hit.url, exc)
         return "not_relevant"
@@ -171,6 +174,7 @@ async def add_single_url(
     db_path: Path = db.DB_PATH,
     direction: str | None = None,
     category: str | None = None,
+    fmt: str = "news",
 ) -> str:
     """Штатная загрузка одной новости по ссылке пользователя (issue #183).
 
@@ -184,7 +188,7 @@ async def add_single_url(
         return "skipped_duplicate"
     hit = SearchHit(url=url, title=title, snippet="")
     return await _collect_one(
-        hit, llm_config, data_root, db_path, direction=direction, category=category,
+        hit, llm_config, data_root, db_path, direction=direction, category=category, fmt=fmt,
     )
 
 
@@ -257,6 +261,7 @@ async def collect_rss(
     llm_config: LlmConfig | None = None,
     data_root: Path = DEFAULT_DATA_ROOT,
     db_path: Path = db.DB_PATH,
+    fmt: str = "news",
 ) -> CollectStats:
     """RSS-прогон автосбора новостей (issue #157/#159, ADR-010): rss.fetch_all
     -> dedup -> download -> LLM-draft -> news_items status=draft.
@@ -287,6 +292,7 @@ async def collect_rss(
             result = await _collect_one(
                 search_hit, llm_config, data_root, db_path,
                 source_name=hit.source_name, source_published_at=published_at,
+                **({"fmt": fmt} if fmt != "news" else {}),
             )
         except Exception as exc:  # noqa: BLE001 — непредвиденная ошибка одного источника не должна ронять прогон
             logger.exception("необработанная ошибка на источнике %s", hit.url)

@@ -202,6 +202,7 @@ def _generate_digest(source: dict, cfg: LlmConfig, autoclassify: bool) -> dict:
         "overlap_max_run": check["max_run"],
         "overlap_ratio": check["ratio"],
         "overlap_warnings": check["warnings"],
+        "source_text": source.get("text", ""),
     }
     if autoclassify:
         item.update(classify_draft(item))

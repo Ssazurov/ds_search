@@ -51,6 +51,8 @@ _MIGRATIONS = (
     "ALTER TABLE news_items ADD COLUMN quotes TEXT NOT NULL DEFAULT '[]'",
     "ALTER TABLE news_items ADD COLUMN overlap_max_run INTEGER",
     "ALTER TABLE news_items ADD COLUMN overlap_ratio REAL",
+    # ds_search#421: текст оригинала пересказа — для сравнения в UI и чеклиста
+    "ALTER TABLE news_items ADD COLUMN source_text TEXT",
 )
 
 FORMATS = ("news", "digest")
@@ -126,8 +128,8 @@ def insert_news_item(item: dict, db_path: Path = DB_PATH) -> int:
                 (source_url, source_name, source_published_at, title,
                  summary, body_md, direction, tags, requires_review,
                  status, channels, category, format, quotes,
-                 overlap_max_run, overlap_ratio)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 overlap_max_run, overlap_ratio, source_text)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 item["source_url"],
@@ -146,6 +148,7 @@ def insert_news_item(item: dict, db_path: Path = DB_PATH) -> int:
                 json.dumps(item.get("quotes", []), ensure_ascii=False),
                 item.get("overlap_max_run"),
                 item.get("overlap_ratio"),
+                item.get("source_text") if item.get("format") == "digest" else None,
             ),
         )
         conn.commit()

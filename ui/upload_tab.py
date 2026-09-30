@@ -178,6 +178,8 @@ def _render_manual() -> None:
 
 
 def _render_add_news() -> None:
+    from ui.news_add import format_selector
+
     st.subheader("Загрузка новости")
     st.caption("Штатная загрузка одной новости по URL (issue #183) — та же "
                "проверка лицензии домена и LLM-классификация, что и автосбор.")
@@ -190,11 +192,13 @@ def _render_add_news() -> None:
     category = st.selectbox(
         "Категория", [""] + dictionaries["directions"].get(direction, []), key="add_news_cat",
         format_func=lambda v: label_of(dictionaries, "category", v) if v else auto)
+    news_fmt = format_selector("add_news_fmt")
     if st.button("Загрузить", key="add_news_btn", disabled=not news_url.strip()):
         from src.news.collect import add_single_url
 
         result = asyncio.run(add_single_url(
-            news_url.strip(), direction=direction or None, category=category or None))
+            news_url.strip(), direction=direction or None, category=category or None,
+            fmt=news_fmt))
         from ui.news_add import describe
 
         level, msg = describe(result)
