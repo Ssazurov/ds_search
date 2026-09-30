@@ -1,4 +1,7 @@
 # Конфиг LLM для черновиков новостей (issue #46, ADR-003).
+# ADR-015 (issue #423): провайдер/модель выбираются через GAR resolver
+# (POST /generate с purpose=news|digest и input_chars). Локальная конфигурация
+# provider/model/endpoint — fallback при недоступности GAR.
 # provider: ollama | anthropic | openai_compatible
 # ollama = нативный /api/chat с num_ctx (issue #208); в docker endpoint задаётся env NEWS_LLM_ENDPOINT
 provider: ollama

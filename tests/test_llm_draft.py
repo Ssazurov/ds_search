@@ -56,7 +56,7 @@ def test_call_llm_unknown_provider_raises():
 def test_generate_draft_builds_item(monkeypatch):
     monkeypatch.setattr(
         "src.news.llm_draft.call_llm",
-        lambda prompt, config: json.dumps(
+        lambda prompt, config, purpose="news", input_chars=0: json.dumps(
             {"title": "Заголовок", "summary": "Кратко", "body_md": "Текст", "tags": ["сд"]}
         ),
     )
@@ -79,7 +79,7 @@ def test_generate_draft_raises_when_not_relevant(monkeypatch):
     """issue #180: LLM пометил источник как нерелевантный (не про СД/РАС)."""
     monkeypatch.setattr(
         "src.news.llm_draft.call_llm",
-        lambda prompt, config: json.dumps(
+        lambda prompt, config, purpose="news", input_chars=0: json.dumps(
             {"relevant": False, "relevance_reason": "про другое"}
         ),
     )
