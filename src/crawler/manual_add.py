@@ -37,7 +37,7 @@ def _resolve_source(domain: str, data_root: Path) -> tuple[SourceConfig, Path]:
     иначе data/raw/<domain>/ (issue #388)."""
     cfg = next((c for c in SOURCES.values() if c.domain == domain), None)
     if cfg is not None:
-        return cfg, data_root / cfg.name
+        return cfg, data_root / cfg.domain
     name = domain_dirname(domain)
     return SourceConfig(name=name, domain=domain, seed_urls=[], keywords=[]), data_root / name
 
