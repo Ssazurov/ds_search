@@ -102,30 +102,11 @@ def _save_manual_file(
     (out_dir / f"{doc_id}.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def _add_manual_link(url: str, direction: str) -> None:
-    settings = load_settings()
-    with GarDiscoveryClient(settings) as client:
-        run = client.create_search_run(query=f"manual: {url}", provider="manual")
-        client.update_search_run(run["id"], status="done")
-        client.upsert_discovered_sources(run["id"], [{
-            "url": url, "domain": None, "title": url, "direction": direction,
-            "status": "approved",
-        }])
-
-
 def _render_link(dictionaries: dict, directions: list) -> None:
-    """Единая форма URL: скачать сразу (issue #67) или добавить в очередь."""
-    action = st.radio(
-        "Что сделать со ссылкой",
-        ["Скачать сейчас", "В очередь на модерацию"],
-        horizontal=True, key="link_action",
-    )
-    now = action == "Скачать сейчас"
+    """Форма URL: скачать сразу (issue #67), минуя очередь и модерацию."""
     st.caption(
-        "Прямое скачивание сейчас же (минуя очередь и модерацию), license-check — сразу."
-        if now else
-        "Добавляет URL в discovered_sources (статус approved) для модерации/скачивания "
-        "через очередь во вкладке «Результаты» — не скачивает сразу."
+        "Прямое скачивание сейчас же (минуя очередь и модерацию), license-check — сразу. "
+        "Папка — домен URL в data/raw/<домен>/, имя файла — транслит заголовка."
     )
     url = st.text_input("URL страницы/документа", key="link_url")
     direction = (
@@ -133,48 +114,40 @@ def _render_link(dictionaries: dict, directions: list) -> None:
                      format_func=lambda v: label_of(dictionaries, "direction", v))
         if directions else st.text_input("Направление", key="link_dir")
     )
-    if now:
-        category = st.selectbox(
-            "Категория", [""] + dictionaries["directions"].get(direction, []), key="link_cat",
-            format_func=lambda v: label_of(dictionaries, "category", v) if v else "— авто —",
-        ) or None
-        st.caption("Папка — домен URL в data/raw/<домен>/, имя файла — транслит заголовка.")
-        if st.button("Скачать сейчас", disabled=not url.strip()):
-            result = asyncio.run(add_manual_document(
-                url.strip(),
-                direction=direction,
-                category=category,
-            ))
-            if result["status"] == "added":
-                notify.report(
-                    "success", "Скачано",
-                    {"URL": url.strip()},
-                    [f"Путь: {result['meta']['content_path']}", f"ID: {result['doc_id']}"],
-                )
-            elif result["status"] == "duplicate":
-                notify.report(
-                    "warning", "Документ уже есть в базе",
-                    {"URL": url.strip()},
-                    [f"ID: {result['doc_id']}"],
-                )
-            elif result["status"] in ("license_pending", "license_denied"):
-                notify.report(
-                    "warning", "Проверка лицензии",
-                    {"URL": url.strip()},
-                    [result["reason"]],
-                )
-            else:
-                notify.report(
-                    "error", "Не удалось скачать",
-                    {"URL": url.strip()},
-                    [result.get("reason", result["status"])],
-                )
-    elif st.button("Добавить как одобренную находку", disabled=not url.strip()):
-        try:
-            _add_manual_link(url.strip(), direction)
-            notify.report("success", "Добавлено в discovered_sources", {"статус": "approved"})
-        except Exception as exc:  # noqa: BLE001
-            notify.report("error", "gar-core-api недоступен", details=[str(exc)])
+    category = st.selectbox(
+        "Категория", [""] + dictionaries["directions"].get(direction, []), key="link_cat",
+        format_func=lambda v: label_of(dictionaries, "category", v) if v else "— авто —",
+    ) or None
+    if st.button("Скачать сейчас", disabled=not url.strip()):
+        result = asyncio.run(add_manual_document(
+            url.strip(),
+            direction=direction,
+            category=category,
+        ))
+        if result["status"] == "added":
+            notify.report(
+                "success", "Скачано",
+                {"URL": url.strip()},
+                [f"Путь: {result['meta']['content_path']}", f"ID: {result['doc_id']}"],
+            )
+        elif result["status"] == "duplicate":
+            notify.report(
+                "warning", "Документ уже есть в базе",
+                {"URL": url.strip()},
+                [f"ID: {result['doc_id']}"],
+            )
+        elif result["status"] in ("license_pending", "license_denied"):
+            notify.report(
+                "warning", "Проверка лицензии",
+                {"URL": url.strip()},
+                [result["reason"]],
+            )
+        else:
+            notify.report(
+                "error", "Не удалось скачать",
+                {"URL": url.strip()},
+                [result.get("reason", result["status"])],
+            )
 
 
 def _render_manual() -> None:
