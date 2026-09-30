@@ -401,7 +401,7 @@ class SourceCrawler:
         meta = {
             "source_url": canon_url,
             "source_domain": self.cfg.domain,
-            "title": (result.metadata or {}).get("title", ""),
+            "title": strip_site_suffix((result.metadata or {}).get("title", ""), self.license_result.site_name),  # issue #347
             "content_status": reason,
             "fit_markdown_chars": len(fit_markdown.strip()),
         }

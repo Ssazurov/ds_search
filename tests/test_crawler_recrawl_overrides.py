@@ -137,3 +137,29 @@ def test_run_full_scan_unaffected_by_new_params(tmp_path, monkeypatch):
     assert len(docs) == 1
     assert docs[0]["direction"] == "methodology"
     assert docs[0]["category"] == "basic"
+
+
+def test_save_rejected_applies_strip_site_suffix(tmp_path, monkeypatch):
+    """issue #347: _save_rejected тоже применяет strip_site_suffix к title."""
+    from src.metadata.meta_extract import strip_site_suffix
+
+    site_name = "Православный журнал «Фома»"
+    result = FakeResult(
+        success=True, html="<html><body>коротко</body></html>",
+        markdown="коротко",
+        metadata={"title": f"Заголовок - {site_name}"},
+    )
+    crawler = _make_crawler(tmp_path, monkeypatch, result)
+    # Override license_result to have site_name
+    crawler.license_result = LicenseCheckResult(
+        status=LicenseStatus.ATTRIBUTION_REQUIRED, reason="test",
+        attribution_template="{title} {source_url}", site_name=site_name,
+    )
+    crawler._save_rejected(result, "https://example.org/a", "коротко", "rejected_thin_content")
+    rejected_json = tmp_path / "out" / "rejected" / "9e8a7b6c5d4e3f2a.json"
+    # Find the rejected file
+    rejected_files = list((tmp_path / "out" / "rejected").glob("*.json"))
+    assert len(rejected_files) == 1
+    meta = json.loads(rejected_files[0].read_text(encoding="utf-8"))
+    assert meta["title"] == "Заголовок"
+    assert site_name not in meta["title"]
