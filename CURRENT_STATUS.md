@@ -1,3 +1,12 @@
+## 2026-09-30 -- issue #402: backfill нормализации доменов в GAR
+
+- **Создан `scripts/backfill_gar_domain.py`**: скрипт находит документы с `www.` префиксом в `source_domain` и обновляет их через `PATCH /ingestion/documents/{id}`. Поддерживает dry-run режим (по умолчанию) и `--apply` для применения изменений.
+- **Миграция выполнена**: обработано 45 документов в GAR, убран `www.` префикс у всех доменов (www.7ya.ru → 7ya.ru, www.downsyndrome.ru → downsyndrome.ru и т.д.).
+- **Ручное исправление**: документ e3a803b6 (www.sonoticiaboa.com.br) имел невалидное значение `direction='news'` — очищено поле direction, обновлён домен.
+- **Результат**: 0 документов с `www.` префиксом в GAR, все домены нормализованы согласно изменениям в #400.
+- **Проверка**: `GAR_API_KEY=... python3 scripts/backfill_gar_domain.py` (dry-run), `--apply` для применения.
+- PR #401 (Closes #402).
+
 ## 2026-09-30 -- issue #395: strip_site_suffix в _save_rejected + миграция raw-папок
 
 - **`_save_rejected`** теперь применяет `strip_site_suffix()` к title (issue #347), как и `_save()`. Ранее отклонённые документы сохраняли title "как есть" с суффиксом сайта.
