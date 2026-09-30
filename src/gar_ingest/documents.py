@@ -84,3 +84,50 @@ def ingest_document(
     finally:
         if owns_client:
             client.close()
+
+
+def revoke_document(
+    doc_json_path: Path | str,
+    settings: PublishSettings | None = None, client: GarIngestClient | None = None,
+) -> dict:
+    """Отзывает корпусный документ из GAR (hard delete), обновляет sidecar .json.
+
+    No-op, если gar_document_id не проставлен (документ не публиковался).
+    Issue #427/#202: если у сервисного аккаунта нет прав delete на датасете
+    (403 Permission denied) — fallback на archive_document (скрывает из
+    /public и retrieval, issue #133). Любая другая GarPublishError
+    пробрасывается наверх — вызывающий (UI) решает, что делать.
+    """
+    doc_json_path = Path(doc_json_path)
+    item = _load(doc_json_path)
+    document_id = item.get("gar_document_id")
+
+    if not document_id:
+        return {"skipped": True, "doc_json_path": str(doc_json_path)}
+
+    settings = settings or load_settings()
+    owns_client = client is None
+    client = client or GarIngestClient(settings)
+    try:
+        client.delete_document(document_id)
+    except GarPublishError as exc:
+        if "403" not in str(exc):
+            raise
+        # fallback на archive при 403
+        client.archive_document(document_id)
+        item["gar_document_id"] = None
+        item["content_status"] = "revoked"
+        _save(doc_json_path, item)
+        return {
+            "skipped": False, "doc_json_path": str(doc_json_path),
+            "gar_document_id": document_id, "archived_fallback": True,
+        }
+    finally:
+        if owns_client:
+            client.close()
+
+    # успешный delete — сбрасываем gar_document_id и меняем content_status
+    item["gar_document_id"] = None
+    item["content_status"] = "revoked"
+    _save(doc_json_path, item)
+    return {"skipped": False, "doc_json_path": str(doc_json_path), "gar_document_id": document_id}
