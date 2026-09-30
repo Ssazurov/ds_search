@@ -5,7 +5,6 @@ UI: список доменов слева (фильтры, поиск, паги
 домена справа (master-detail)."""
 from __future__ import annotations
 
-import asyncio
 from collections import Counter
 
 import streamlit as st
@@ -92,19 +91,6 @@ def _row_label(r: dict) -> str:
     return f"{mark} {r['domain']}{tail} · {r['count']}"
 
 
-def _render_add_news() -> None:
-    st.caption("Штатная загрузка одной новости по URL (issue #183) — та же "
-               "проверка лицензии домена и LLM-классификация, что и автосбор.")
-    news_url = st.text_input("Ссылка на новость", key="add_news_url")
-    if st.button("Добавить новость", disabled=not news_url.strip()):
-        from src.news.collect import add_single_url
-
-        result = asyncio.run(add_single_url(news_url.strip()))
-        from ui.news_add import describe
-
-        level, msg = describe(result)
-        getattr(st, level)(msg)
-
 
 def _render_detail(domain: str, registry: dict, row: dict) -> None:
     entry = registry.get(domain, {})
@@ -176,8 +162,6 @@ def _render_detail(domain: str, registry: dict, row: dict) -> None:
 
 def render() -> None:
     st.header("Источники / домены")
-    with st.expander("Добавить новость по ссылке"):
-        _render_add_news()
     st.caption("Реестр ToS-статусов — источники в GAR (issue #3, ADR-0021). "
                "Новые домены попадают сюда автоматически со статусом «не проверен».")
     registry = _load_registry()

@@ -199,8 +199,25 @@ def _render_manual() -> None:
         _render_link(dictionaries, directions)
 
 
+def _render_add_news() -> None:
+    st.subheader("Новость по ссылке")
+    st.caption("Штатная загрузка одной новости по URL (issue #183) — та же "
+               "проверка лицензии домена и LLM-классификация, что и автосбор.")
+    news_url = st.text_input("Ссылка на новость", key="add_news_url")
+    if st.button("Добавить новость", disabled=not news_url.strip()):
+        from src.news.collect import add_single_url
+
+        result = asyncio.run(add_single_url(news_url.strip()))
+        from ui.news_add import describe
+
+        level, msg = describe(result)
+        getattr(st, level)(msg)
+
+
 def render() -> None:
     st.header("Загрузка")
     _render_queue()
     st.divider()
     _render_manual()
+    st.divider()
+    _render_add_news()
