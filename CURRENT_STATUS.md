@@ -1,3 +1,25 @@
+## 2026-09-30 -- issue #402: backfill нормализации доменов в GAR
+
+- **Создан `scripts/backfill_gar_domain.py`**: скрипт находит документы с `www.` префиксом в `source_domain` и обновляет их через `PATCH /ingestion/documents/{id}`. Поддерживает dry-run режим (по умолчанию) и `--apply` для применения изменений.
+- **Миграция выполнена**: обработано 45 документов в GAR, убран `www.` префикс у всех доменов (www.7ya.ru → 7ya.ru, www.downsyndrome.ru → downsyndrome.ru и т.д.).
+- **Ручное исправление**: документ e3a803b6 (www.sonoticiaboa.com.br) имел невалидное значение `direction='news'` — очищено поле direction, обновлён домен.
+- **Результат**: 0 документов с `www.` префиксом в GAR, все домены нормализованы согласно изменениям в #400.
+- **Проверка**: `GAR_API_KEY=... python3 scripts/backfill_gar_domain.py` (dry-run), `--apply` для применения.
+- PR #401 (Closes #402).
+
+## 2026-09-30 -- issue #395: strip_site_suffix в _save_rejected + миграция raw-папок
+
+- **`_save_rejected`** теперь применяет `strip_site_suffix()` к title (issue #347), как и `_save()`. Ранее отклонённые документы сохраняли title "как есть" с суффиксом сайта.
+- **`GarRegistryStore.put()`** исправлен: исключает `domain` из полей перед PUT-запросом (было `TypeError: got multiple values for argument 'domain'`).
+- **`scripts/migrate_raw_folders.py`**: новый скрипт для миграции файлов из нестандартных папок (`manual/`, `downsideup/`, `family_support/`, `ПОДДЕРЖКА СЕМЬИ/`, `basic/`) в папки доменов (`data/raw/<domain>/`). Обновляет `content_path` в JSON. Поддерживает `--dry-run`.
+- **Миграция выполнена**: 120+ файлов перенесено из `data/raw/manual/`, `data/raw/downsideup/`, `data/raw/family_support/`, `data/raw/ПОДДЕРЖКА СЕМЬИ/`, `data/raw/basic/` в соответствующие папки доменов.
+- **Тест**: `test_save_rejected_applies_strip_site_suffix` — проверяет применение `strip_site_suffix` в `_save_rejected`.
+- **Проверка**: `pytest tests/test_crawler_recrawl_overrides.py tests/test_manual_add.py tests/test_meta_extract.py tests/test_title_attribution.py` — 27 passed. Полный набор: 413 passed.
+- PR #401 (Closes #395, #396, #400).
+- **Доработка ревью #401**: `data/` в .gitignore — корпус не версионируется (источник истины GAR); 17 случайно отслеживаемых файлов `data/raw/downsideup/` удалены из индекса (`git rm --cached`). `migrate_raw_folders.py` сохраняет префикс content_path (host// app) и переносит `.pdf`. Новый `src/gar_ingest/paths.py::resolve_content_path` — fallback на файл рядом с sidecar .json (host/`/app` пути). `config/categories.yaml` откатан (не относится к задаче). 416 tests passed.
+- **Слияние www-дублей (#400)**: `norm_domain()` (slug.py) — каноничный домен без `www.`; применён в `manual_add` и `download_single`. `scripts/merge_www_folders.py` свёл `www.pravmir.ru/inva.news/medanta.org/miloserdie.ru` к доменам из Источников, `source_domain` нормализован, 1 дубль удалён. Все 150 saved-документов резолвятся. `bb85a3e502694934` (downsideup.org/cifry-i-fakty) перекачан. 417 tests.
+- **Папка = домен везде**: `manual_add._resolve_source` и `crawler.py` (recrawl/CLI) использовали `cfg.name` (`downsideup`), теперь `cfg.domain` (`downsideup.org`); тест `test_resolve_source_domain_dir.py`. Перекачанный doc bb85… лежит в `downsideup.org/`.
+
 ## 2026-09-29 -- issue #372: охранный тест и документация единого вывода сообщений
 
 - Создан охранный тест `tests/test_no_bare_messages.py`: проверяет отсутствие прямых вызовов `st.success/error/warning/info` в `ui/*.py` (кроме `notify.py`).

@@ -101,7 +101,8 @@ class GarRegistryStore:
 
     def put(self, domain: str, entry: dict) -> dict:
         """Создать/обновить запись (PUT). Ошибки пробрасываются — UI покажет пользователю."""
-        saved = self._call("put_source_registry_entry", domain, **entry)
+        fields = {k: v for k, v in entry.items() if k != "domain"}
+        saved = self._call("put_source_registry_entry", domain, **fields)
         self._cache_put(domain, saved)
         return saved
 

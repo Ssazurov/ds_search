@@ -26,7 +26,7 @@ from ..license.checker import LicenseStatus, check_license
 from .config import SOURCES, SourceConfig
 from .crawler import SourceCrawler
 from .filters import canonicalize_url
-from .slug import domain_dirname
+from .slug import domain_dirname, norm_domain
 
 DATA_ROOT = Path(__file__).resolve().parents[2] / "data" / "raw"
 MANUAL_SOURCE_NAME = "manual"
@@ -37,7 +37,7 @@ def _resolve_source(domain: str, data_root: Path) -> tuple[SourceConfig, Path]:
     иначе data/raw/<domain>/ (issue #388)."""
     cfg = next((c for c in SOURCES.values() if c.domain == domain), None)
     if cfg is not None:
-        return cfg, data_root / cfg.name
+        return cfg, data_root / cfg.domain
     name = domain_dirname(domain)
     return SourceConfig(name=name, domain=domain, seed_urls=[], keywords=[]), data_root / name
 
@@ -71,7 +71,7 @@ async def add_manual_document(
     - 'failed' — скачивание не удалось или контент отклонён (thin/каталог); 'reason'.
     """
     canon = canonicalize_url(url)
-    domain = urlparse(canon).netloc
+    domain = norm_domain(urlparse(canon).netloc)
     cfg, out_dir = _resolve_source(domain, data_root)
     doc_id = hashlib.sha256(canon.encode()).hexdigest()[:16]
 

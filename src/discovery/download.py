@@ -32,6 +32,7 @@ from ..crawler.filters import (
 )
 from ..license.checker import check_license
 from ..metadata.downsideup_header import parse_header
+from ..crawler.slug import norm_domain
 from ..metadata.meta_extract import extract_page_meta, strip_site_suffix
 from ..metadata.profile import build_ingestion_metadata
 
@@ -73,7 +74,7 @@ def _sanitize_filename(name: str) -> str:
 def find_local_document(domain: str, url: str, data_root: Path = DEFAULT_DATA_ROOT) -> dict | None:
     """Уже скачанный документ для этого URL, если есть (issue #20 —
     "ссылка на итоговый локальный путь" вычисляется, а не хранится в БД)."""
-    json_path = data_root / domain / f"{doc_id_for(url)}.json"
+    json_path = data_root / norm_domain(domain) / f"{doc_id_for(url)}.json"
     if not json_path.exists():
         return None
     try:
@@ -125,7 +126,7 @@ async def download_single(
     дописываются автоматически); санитизируется до безопасного basename.
     Возвращает meta doc (content_path/content_status) либо кидает DownloadError."""
     url = source["url"]
-    domain = source.get("domain") or urlsplit(url).netloc
+    domain = norm_domain(source.get("domain") or urlsplit(url).netloc)
     direction = source.get("suggested_direction") or "methodology"
     category = source.get("suggested_category") or source.get("category")
 

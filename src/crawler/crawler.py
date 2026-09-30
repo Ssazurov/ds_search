@@ -401,7 +401,7 @@ class SourceCrawler:
         meta = {
             "source_url": canon_url,
             "source_domain": self.cfg.domain,
-            "title": (result.metadata or {}).get("title", ""),
+            "title": strip_site_suffix((result.metadata or {}).get("title", ""), self.license_result.site_name),  # issue #347
             "content_status": reason,
             "fit_markdown_chars": len(fit_markdown.strip()),
         }
@@ -433,7 +433,7 @@ async def recrawl_cli(source: str, doc_id: str | None, url: str | None,
         cfg = next((c for c in SOURCES.values() if c.domain == domain), None)
         if cfg is None:
             raise SystemExit(f"нет SOURCES с domain={domain!r} (--source {source!r})")
-    source_dir = Path(__file__).resolve().parents[2] / "data" / "raw" / cfg.name
+    source_dir = Path(__file__).resolve().parents[2] / "data" / "raw" / cfg.domain
     out_dir = Path(staging_dir) if staging_dir else source_dir
     out_dir.mkdir(parents=True, exist_ok=True)
     if url is None:
@@ -478,7 +478,7 @@ async def main():
 
     from .config import SOURCES
     cfg = SOURCES[args.source]
-    out_dir = Path(__file__).resolve().parents[2] / "data" / "raw" / cfg.name
+    out_dir = Path(__file__).resolve().parents[2] / "data" / "raw" / cfg.domain
     crawler = SourceCrawler(cfg, out_dir)
     docs = await crawler.run()
     print(f"Собрано документов: {len(docs)}")

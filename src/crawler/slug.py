@@ -23,3 +23,9 @@ def domain_dirname(netloc: str) -> str:
     """Безопасное имя папки из host: lower, без порта, только [a-z0-9.-]."""
     host = netloc.lower().split("@")[-1].split(":")[0]
     return re.sub(r"[^a-z0-9.-]", "", host).strip(".") or "unknown"
+
+
+def norm_domain(domain: str) -> str:
+    """Каноничный домен источника: lower, без порта и без ведущего www. (issue #400)."""
+    host = (domain or "").lower().strip().split("@")[-1].split(":")[0]
+    return host.removeprefix("www.")
