@@ -193,7 +193,7 @@ def _render_manual() -> None:
             format_func=lambda v: label_of(dictionaries, "doc_type", v))
         if st.button("Сохранить файл", disabled=not (uploaded and title.strip())):
             _save_manual_file(uploaded, title.strip(), direction, doc_type, category or None)
-            notify.report("success", "Документ сохранён", {"путь": "data/raw/manual/"})
+            notify.report("success", "Документ сохранён", {"путь": "data/raw/<домен>/"})
             st.rerun()
     else:
         _render_link(dictionaries, directions)

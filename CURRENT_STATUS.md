@@ -8,6 +8,7 @@
 - **Проверка**: `pytest tests/test_crawler_recrawl_overrides.py tests/test_manual_add.py tests/test_meta_extract.py tests/test_title_attribution.py` — 27 passed. Полный набор: 413 passed.
 - PR #401 (Closes #395, #396, #400).
 - **Доработка ревью #401**: `data/` в .gitignore — корпус не версионируется (источник истины GAR); 17 случайно отслеживаемых файлов `data/raw/downsideup/` удалены из индекса (`git rm --cached`). `migrate_raw_folders.py` сохраняет префикс content_path (host// app) и переносит `.pdf`. Новый `src/gar_ingest/paths.py::resolve_content_path` — fallback на файл рядом с sidecar .json (host/`/app` пути). `config/categories.yaml` откатан (не относится к задаче). 416 tests passed.
+- **Слияние www-дублей (#400)**: `norm_domain()` (slug.py) — каноничный домен без `www.`; применён в `manual_add` и `download_single`. `scripts/merge_www_folders.py` свёл `www.pravmir.ru/inva.news/medanta.org/miloserdie.ru` к доменам из Источников, `source_domain` нормализован, 1 дубль удалён. Все 150 saved-документов резолвятся. `bb85a3e502694934` (downsideup.org/cifry-i-fakty) перекачан. 417 tests.
 
 ## 2026-09-29 -- issue #372: охранный тест и документация единого вывода сообщений
 
