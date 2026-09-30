@@ -46,7 +46,6 @@ def main(dry_run: bool = False) -> None:
 
             doc_id = json_path.stem
             dest_json = dest_dir / f"{doc_id}.json"
-            dest_md = dest_dir / f"{doc_id}.md"
 
             # Check for collision
             if dest_json.exists():
@@ -54,8 +53,11 @@ def main(dry_run: bool = False) -> None:
                 skipped += 1
                 continue
 
-            # Update content_path in JSON
-            meta["content_path"] = str(dest_md)
+            # Update content_path: сохраняем исходный префикс (host или /app), меняем только папку
+            old_cp = meta.get("content_path") or ""
+            ext = Path(old_cp).suffix or (".pdf" if json_path.with_suffix(".pdf").exists() else ".md")
+            if old_cp:
+                meta["content_path"] = str(Path(old_cp).parent.parent / domain / f"{doc_id}{ext}")
 
             if dry_run:
                 print(f"DRY-RUN: {json_path.parent.name}/{json_path.name} -> {domain}/{json_path.name}")
@@ -63,9 +65,10 @@ def main(dry_run: bool = False) -> None:
                 continue
 
             # Move files
-            src_md = json_path.with_suffix(".md")
-            if src_md.exists():
-                shutil.move(str(src_md), str(dest_md))
+            for ext_ in (".md", ".pdf"):
+                src_f = json_path.with_suffix(ext_)
+                if src_f.exists():
+                    shutil.move(str(src_f), str(dest_dir / f"{doc_id}{ext_}"))
             shutil.move(str(json_path), str(dest_json))
 
             # Write updated JSON

@@ -1,3 +1,14 @@
+## 2026-09-30 -- issue #395: strip_site_suffix в _save_rejected + миграция raw-папок
+
+- **`_save_rejected`** теперь применяет `strip_site_suffix()` к title (issue #347), как и `_save()`. Ранее отклонённые документы сохраняли title "как есть" с суффиксом сайта.
+- **`GarRegistryStore.put()`** исправлен: исключает `domain` из полей перед PUT-запросом (было `TypeError: got multiple values for argument 'domain'`).
+- **`scripts/migrate_raw_folders.py`**: новый скрипт для миграции файлов из нестандартных папок (`manual/`, `downsideup/`, `family_support/`, `ПОДДЕРЖКА СЕМЬИ/`, `basic/`) в папки доменов (`data/raw/<domain>/`). Обновляет `content_path` в JSON. Поддерживает `--dry-run`.
+- **Миграция выполнена**: 120+ файлов перенесено из `data/raw/manual/`, `data/raw/downsideup/`, `data/raw/family_support/`, `data/raw/ПОДДЕРЖКА СЕМЬИ/`, `data/raw/basic/` в соответствующие папки доменов.
+- **Тест**: `test_save_rejected_applies_strip_site_suffix` — проверяет применение `strip_site_suffix` в `_save_rejected`.
+- **Проверка**: `pytest tests/test_crawler_recrawl_overrides.py tests/test_manual_add.py tests/test_meta_extract.py tests/test_title_attribution.py` — 27 passed. Полный набор: 413 passed.
+- PR #401 (Closes #395, #396, #400).
+- **Доработка ревью #401**: `data/` в .gitignore — корпус не версионируется (источник истины GAR); 17 случайно отслеживаемых файлов `data/raw/downsideup/` удалены из индекса (`git rm --cached`). `migrate_raw_folders.py` сохраняет префикс content_path (host// app) и переносит `.pdf`. Новый `src/gar_ingest/paths.py::resolve_content_path` — fallback на файл рядом с sidecar .json (host/`/app` пути). `config/categories.yaml` откатан (не относится к задаче). 416 tests passed.
+
 ## 2026-09-29 -- issue #372: охранный тест и документация единого вывода сообщений
 
 - Создан охранный тест `tests/test_no_bare_messages.py`: проверяет отсутствие прямых вызовов `st.success/error/warning/info` в `ui/*.py` (кроме `notify.py`).

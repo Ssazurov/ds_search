@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .client import GarIngestClient, GarPublishError, PublishSettings, load_settings
+from .paths import resolve_content_path
 
 # Служебные поля sidecar .json, которые не публикуются в GAR как метаданные.
 _NON_METADATA_KEYS = {
@@ -56,7 +57,7 @@ def ingest_document(
     content_path = item.get("content_path")
     if not content_path:
         raise ValueError(f"{doc_json_path}: content_path отсутствует")
-    file_path = Path(content_path)
+    file_path = resolve_content_path(doc_json_path, content_path)
     if not file_path.exists():
         raise FileNotFoundError(f"{doc_json_path}: content_path не найден: {file_path}")
 
