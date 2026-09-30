@@ -1,8 +1,9 @@
-"""Охранный тест ряда действий вкладки «Результаты» (issue #430).
+"""Охранный тест ряда действий вкладки «Результаты» (issue #430, #434).
 
 Фиксирует порядок кнопок и их подписи: перестановка «Удалить» за «Отклонить»,
-появление отдельной кнопки «В пересказ» вместо радио «Формат» и короткие
-подписи статусных действий без слова «выбранные».
+появление отдельной кнопки «В пересказ» вместо радио «Формат», короткие
+подписи статусных действий без слова «выбранные» и кнопку «Скачать» перед
+«В пересказ» (то же ядро, что «Скачать» на вкладке «Загрузки»).
 """
 from __future__ import annotations
 
@@ -19,14 +20,15 @@ def _row() -> dict[str, str]:
     return {m.group(0).split(".")[0]: m.group(1) for m in _BUTTON_RE.finditer(SRC)}
 
 
-def test_action_row_has_six_columns():
-    assert "action_row(6, \"results\")" in SRC
+def test_action_row_has_seven_columns():
+    assert "action_row(7, \"results\")" in SRC
 
 
 def test_button_order():
     assert _row() == {
-        "b5": "В пересказ",
-        "b6": "В новости",
+        "b5": "Скачать",
+        "b6": "В пересказ",
+        "b7": "В новости",
         "b1": "Одобрить",
         "b2": "Отклонить",
         "b4": "В очередь загрузки",
@@ -56,3 +58,23 @@ def test_digest_button_has_help_about_cheklist():
     help_block = SRC.split('button("В пересказ"', 1)[1].split(")", 1)[0]
     assert "чеклист" in help_block
     assert "ссылкой на источник" in help_block
+
+
+def test_download_button_uses_shared_core():
+    """«Скачать» зовёт то же ядро, что «Скачать» на вкладке «Загрузки» (#434)."""
+    assert 'button("Скачать"' in SRC
+    assert 'key="results_download"' in SRC
+    assert "add_manual_document(" in SRC
+    download_block = SRC.split('button("Скачать"', 1)[1].split(")", 1)[0]
+    assert "«Загрузки»" in download_block
+    assert "_download(rows, selected_ids, settings)" in SRC
+
+
+def test_download_helper_keeps_batch_and_uses_status_chain():
+    """Батч не прерывается на ошибке, статусы downloading → downloaded/error."""
+    body = SRC.split("def _download(", 1)[1].split("\ndef render(", 1)[0]
+    assert 'status="downloading"' in body
+    assert 'status="downloaded"' in body
+    assert 'status="error"' in body
+    assert 'status="queued"' not in body  # промежуточный queued не выставляем
+    assert "except Exception as exc" in body  # сбой на одном элементе не рвёт батч

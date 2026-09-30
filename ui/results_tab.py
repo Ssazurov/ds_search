@@ -1,12 +1,15 @@
 """Результаты поиска — таблица discovered_sources, фильтры, bulk (issue #19 п.3)."""
 from __future__ import annotations
 
+import asyncio
+import contextlib
 from collections import Counter
 from urllib.parse import urlsplit
 
 import pandas as pd
 import streamlit as st
 
+from src.crawler.manual_add import add_manual_document
 from src.discovery.config import Settings, load_settings
 from src.discovery.gar_client import GarDiscoveryClient
 from src.license.checker import check_license
@@ -62,6 +65,50 @@ def _to_news(rows: list[dict], selected_ids: list, settings: Settings, fmt: str)
     notify.report(level, title, outcome.stats, all_errors)
     if finalized_ids:
         st.rerun()
+
+
+def _download(rows: list[dict], selected_ids: list, settings: Settings) -> None:
+    """Скачивание выбранных находок прямо с «Результатов» (issue #434).
+
+    То же ядро, что «Скачать» на вкладке «Загрузки»: `add_manual_document`
+    (dedup по canonical_url → license gate → recrawl → sidecar). Статусы
+    downloading → downloaded / error, без промежуточного queued.
+
+    Батч не прерывается на первой ошибке: обрабатываются все выбранные, причины
+    собираются в сводный отчёт (как в `_to_news`).
+    """
+    chosen = [r for r in rows if r["id"] in selected_ids]
+    ok = dupes = 0
+    errors: list[str] = []
+    with st.spinner(f"Скачивание: {len(chosen)}…"):
+        with GarDiscoveryClient(settings) as client:
+            for source in chosen:
+                label = source.get("title") or source["url"]
+                try:
+                    client.update_discovered_source(source["id"], status="downloading")
+                    result = asyncio.run(add_manual_document(
+                        source["url"],
+                        direction=source.get("suggested_direction"),
+                        category=source.get("suggested_category") or source.get("category"),
+                    ))
+                    if result["status"] == "added":
+                        client.update_discovered_source(source["id"], status="downloaded")
+                        ok += 1
+                    elif result["status"] == "duplicate":
+                        client.update_discovered_source(source["id"], status="downloaded")
+                        dupes += 1
+                        errors.append(f"Уже в базе: {label} (ID: {result['doc_id']})")
+                    else:
+                        client.update_discovered_source(source["id"], status="error")
+                        errors.append(f"{label}: {result.get('reason', result['status'])}")
+                except Exception as exc:  # noqa: BLE001 — батч не прерываем
+                    errors.append(f"{label}: {exc}")
+                    with contextlib.suppress(Exception):
+                        client.update_discovered_source(source["id"], status="error")
+    level = notify.outcome_level(ok + dupes, len(chosen))
+    stats = {"скачано": ok, "дублей": dupes, "ошибок": len(chosen) - ok - dupes}
+    notify.report(level, f"Скачано: {ok + dupes} из {len(chosen)}", stats, errors)
+    st.rerun()
 
 
 def render() -> None:
@@ -150,15 +197,21 @@ def render() -> None:
     selected_ids = df.loc[selected_mask, "id"].tolist() if "id" in df.columns else []
     st.caption(f"Выбрано: {len(selected_ids)}")
 
-    # Порядок кнопок (issue #430): терминальные статусные действия → очередь
-    # загрузки → два родственных действия генерации черновика справа.
-    b1, b2, b3, b4, b5, b6 = action_row(6, "results")
+    # Порядок кнопок (issue #430, #434): терминальные статусные действия →
+    # очередь загрузки → скачивание → два родственных действия генерации
+    # черновика справа.
+    b1, b2, b3, b4, b5, b6, b7 = action_row(7, "results")
     settings = load_settings()
-    if b5.button("В пересказ", disabled=not selected_ids, key="results_to_digest",
+    if b5.button("Скачать", disabled=not selected_ids, key="results_download",
+                 help="Скачать выбранные находки сразу, без перехода на вкладку "
+                      "«Загрузки»: то же ядро (dedup, проверка лицензии, отклонение "
+                      "thin/каталог), статус downloading → downloaded/error"):
+        _download(rows, selected_ids, settings)
+    if b6.button("В пересказ", disabled=not selected_ids, key="results_to_digest",
                  help="LLM-черновик сокращённого пересказа со ссылкой на источник "
                       "→ вкладка «Новости»; публикация только после чеклиста"):
         _to_news(rows, selected_ids, settings, fmt="digest")
-    if b6.button("В новости", disabled=not selected_ids, key="results_to_news",
+    if b7.button("В новости", disabled=not selected_ids, key="results_to_news",
                  help="LLM-черновик новости по выбранным статьям → вкладка «Новости»"):
         _to_news(rows, selected_ids, settings, fmt="news")
     if b1.button("Одобрить", disabled=not selected_ids):
