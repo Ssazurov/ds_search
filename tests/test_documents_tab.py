@@ -364,6 +364,22 @@ def test_to_news_batch_sends_only_rows_with_url(monkeypatch):
     assert sent == [[{"url": "https://x.test/a", "title": "A"}]]
 
 
+def test_to_news_batch_passes_digest_format(monkeypatch):
+    """Кнопка «В пересказ» (issue #432) передаёт fmt="digest" в генератор черновиков."""
+    seen: list[dict] = []
+
+    def fake_add(articles, **kw):
+        seen.append(kw)
+        return [(a["title"], "drafted") for a in articles]
+
+    monkeypatch.setattr(documents_tab, "add_articles_as_news", fake_add)
+    rows = [{"doc_id": "a", "title": "A", "url": "https://x.test/a"}]
+
+    documents_tab._to_news_batch(rows, fmt="digest")
+
+    assert seen[0]["fmt"] == "digest"
+
+
 def test_to_news_batch_no_urls_does_not_call_add(monkeypatch):
     calls: list = []
     monkeypatch.setattr(documents_tab, "add_articles_as_news", lambda a, **kw: calls.append(a) or [])
