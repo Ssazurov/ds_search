@@ -1,3 +1,21 @@
+## 2026-09-30 -- issue #430: «В пересказ» отдельной кнопкой на «Результатах», короткие подписи
+
+- **`ui/results_tab.py`**: убран вызов `format_selector` (`st.radio("Формат")`, висел над рядом кнопок и читался как фильтр, а формат не был виден после нажатия). Вместо него две кнопки: **«В пересказ»** (`key="results_to_digest"`, `fmt="digest"`, `help` про чеклист — смысл, который раньше жил на радио) и **«В новости»** (`key="results_to_news"`, `fmt="news"`, поведение не изменилось).
+- **Порядок кнопок** (было 5 колонок → стало 6, `action_row(6, "results")`): `Одобрить | Отклонить | Удалить | В очередь загрузки | В пересказ | В новости`. «Удалить выбранные» переехала с 4-й позиции на 3-ю — в блок терминальных статусных действий.
+- **Подписи** статусных действий укорочены: «Одобрить выбранные» → «Одобрить», «Отклонить выбранные» → «Отклонить», «Удалить выбранные» → «Удалить». Контекст даёт счётчик `Выбрано: N` над рядом.
+- **Рефакторинг**: общая логика генерации вынесена в `_to_news(rows, selected_ids, settings, fmt)` вместо двух копий по 30 строк (спиннер → `add_articles_as_news` → `summarize` → перевод `finalized_ids` в `in_news` с толерантностью к сбою API → `notify.report`).
+- **`tests/test_results_tab_actions.py`** (новый, 6 тестов): охранный тест на порядок кнопок, число колонок, короткие подписи, отсутствие `format_selector`, разные key/format у двух кнопок и перенос `help` про чеклист.
+- **`tests/test_no_bare_messages.py`**: обновлены номера строк в `ALLOWED` — `ui/results_tab.py:73→110` (сдвиг от рефакторинга) и три устаревших записи `ui/news_tab.py` (336/381/422 → 368/414/455), из-за которых охранный тест падал ещё до этой задачи.
+
+## 2026-09-30 -- issue #427: отзыв (revoke) корпусных документов после публикации digest
+
+- **Backend `src/gar_ingest/documents.py`**: добавлена `revoke_document(doc_id: int)` — отзывает корпусный документ из GAR после публикации пересказа. Сначала пытается удалить (DELETE `/documents/{gar_document_id}`), при 403 (нет прав) — архивирует (PATCH `archived=true`). Обновляет sidecar: `content_status=revoked`, `gar_document_id=None`.
+- **DB `src/news/db.py`**: добавлена `has_published_digest(source_url: str) -> bool` — проверяет наличие опубликованного digest для source_url.
+- **UI `ui/documents_tab.py`**: кнопка "Снять полный текст" — показывается для одного выбранного документа при наличии published digest. Диалог подтверждения перед отзывом, обновление таблицы после операции.
+- **Тесты `tests/test_revoke_document.py`**: 5 тестов покрывают сценарии: успешное удаление (DELETE 204), архивирование при 403, обработка 404, ошибки GAR, обновление sidecar.
+- **Проверка**: все тесты проходят, container `ds-search` rebuilt.
+- PR #429 (Closes #427).
+
 ## 2026-09-30 -- issue #422: массовая переработка старых статей в пересказы
 
 - **`src/news/bulk_digest.py`**: переводит ранее загруженные статьи корпуса (`data/raw/<domain>/*.json`, `doc_type=article`, уже с `gar_document_id` — опубликованы в GAR) в черновики `news_items(format=digest)` через `generate_draft(fmt='digest', autoclassify=True)` (переиспользует пайплайн #420/#421), без повторного скачивания.
@@ -120,42 +138,7 @@
 
 _Разделы 2026-09-18…2026-09-24 перенесены в [docs/archive/current-status/CURRENT_STATUS-2026-09-18_2026-09-24.md](docs/archive/current-status/CURRENT_STATUS-2026-09-18_2026-09-24.md)._
 
-## 2026-09-20 — #228 публикация внешнего сайта из контейнера ds-search
-- Dockerfile: node 22.23.1, git, gh; runner.py: `DS_SITE_GAR_URL` → GAR_URL для сборки в docker.
-- gar-deploy compose: том ds_site, конфиг gh, DS_SITE_DIR, git credential helper через gh.
-- Проверка: контейнер пересобран, node/git/gh/gh auth есть, dry-run из контейнера: exit 0 (сборка + проверка секретов). Реальная публикация в gh-pages не гонялась.
-
-## 2026-09-20 — #234 Источники/домены: master-detail
-- ui/sources_tab.py: список доменов слева (фильтры, поиск, пагинация 10/20/50), форма справа (Сохранить/Отменить/Удалить); русские подписи статусов (значения в licenses.yaml не менялись); баннер pending убран.
-- tests/test_sources_tab_rows.py; проверка: pytest 12 passed.
-
-
-## 2026-09-23 — «Параметры поиска»: необязательный период дат (от/до) (#247, PR #248)
-- `ui/search_tab.py::_date_range()`: два date_input + time_input «От»/«До» (необязательно, очистка поля убирает границу). «До» по умолчанию — текущая дата и время (через `session_state.setdefault`). Предупреждение, если «От» позже «До».
-- `src/search/base.py::SearchProvider.search` — `date_from`/`date_to: datetime | None` в интерфейсе (точность — день).
-- `src/search/chain.py::SearchProviderChain.search` — прокидывает даты только если заданы (`extra` строится по не-None).
-- `src/search/firecrawl.py` — `tbs=cdr:{from}:{to}` (Firecrawl date range); `brave.py` — `freshness`-параметр; `tavily.py` — `start_date`/`end_date`.
-- `src/discovery/run_search.py::_search`/`run_search` — `date_from`/`date_to` прокидываются в цепочку (сайты-домены получают даты каждый).
-- Тест: `tests/test_search_date_range.py` (2: даты доходят до провайдера только когда заданы; `chain` не шлёт None-границы).
-- Проверка: pytest 5 passed (test_search_date_range + test_run_search_domains); контейнер ds-search пересобран (CACHED, без `failed to solve`), код в контейнере подтверждён по `ui/search_tab.py` (строки 57/59/61/63/109/123).
-
-## 2026-09-23 — «Параметры поиска»: необязательный перечень доменов
-- `ui/search_tab.py`: поле «Домены (необязательно)» (запятая/перенос), сохраняется в пресет.
-- `src/discovery/run_search.py`: `run_search(..., domains=)` → `normalize_domains` (без схемы/www/пути), запрос дополняется `(site:a OR site:b)`, находки жёстко фильтруются по хосту (домен + поддомены). Без проверки разрешений публикации. Тесты: `tests/test_run_search_domains.py`, всего 292 passed.
-- Доработка (2026-09-23, позже): мультивыбор «Домены из источников» (домены вкладки «Источники» = `licenses.yaml` ∪ `discovered_sources` без rejected, кроме `status=deny`; счётчики находок, кэш счётчиков 60 с, issue #243) + текстовое поле «Новые домены»; в пресет — оба (`domains_selected`, `domains`). Поиск с доменами теперь отдельным запросом `query site:домен` на каждый домен (один `(site:a OR site:b)` работал ненадёжно) + фильтр по хосту, лимит делится между доменами; токены без точки («и») игнорируются. Стоимость: 1 поиск на домен. 294 passed, контейнер ds-search пересобран.
-
-- 2026-09-24 (#263, ADR-0021): клиент реестра источников (GarDiscoveryClient.*_source_registry_*), src/license/registry_store.py (GarRegistryStore: GAR + кэш data/source_registry_cache.json, при недоступности GAR — кэш, иначе pending_manual_review), check_license(registry_store=...). Переходный флаг SOURCE_REGISTRY_BACKEND=yaml|gar (по умолчанию yaml, поведение не изменено; gar включаем при миграции #265). Проверено: pytest tests/test_registry_store.py + test_license_checker.py (17 passed). Пересборка контейнера не нужна (по умолчанию поведение прежнее).
-
-- ds_search#264: потребители реестра (sources_tab, search_tab, backfill_license) через фасад src/license/registry_store (load_registry/save_entry/delete_entry); backend по SOURCE_REGISTRY_BACKEND (yaml по умолчанию). checker/crawler/manual_add/news/site_publish уже идут через check_license. Тесты: 21 passed. ds ADR-0021.
-
-- ds_search#265: реестр мигрирован в GAR (20 доменов, scripts/migrate_registry_to_gar.py, идемпотентно); SOURCE_REGISTRY_BACKEND по умолчанию gar; config/licenses.yaml удалён; тесты герметичны (yaml через conftest). GAR пересобран из main, alembic r6e7f8a9b0c1 применён. ds ADR-0021.
-
-- 2026-09-24 (#278, уточнение после закрытия): жалоба «сортировка сбрасывается» — не баг сохранения (popover ⚙ Колонки → выбор колонки+Сохранить в ui_prefs.json работает исправно), а путаница с нативным кликом по заголовку st.data_editor (glide-data-grid) — тот сорт чисто клиентский, в Python не попадает и в принципе не персистится (нет API у Streamlit). Решение не требуется, документировано на будущее. Issue #278 остаётся closed.
-
-- 2026-09-24 (#280, PR #281): вкладка Загрузка — формы «по ссылке» объединены, _render_direct_download удалён из ui/upload_tab.py. py_compile и git diff --check OK; вживую в UI проверяется после пересборки deploy-ds-search.
-
-- 2026-09-24 (#282, PR #283): вкладка Новости переведена на table_utils (как Документы/Результаты) — компактная st.dataframe вместо N st.expander на все записи; полная форма редактирования монтируется только для выбранной строки (session_state). Пагинация db.list_news_items(limit, offset), поиск по заголовку/источнику на уровне SQL, чекбокс-колонка + массовая публикация/отклонение, фильтры в query_params (persist F5). ADR не потребовался (изменение локально в ds_search/ui). Тесты: test_news_db/test_news_manual/test_news_publish — 33 passed. PR смержен, контейнер ds-search пересобран (CACHED, без failed to solve).
-
+_Разделы 2026-09-20…2026-09-24 перенесены в [docs/archive/current-status/CURRENT_STATUS-2026-09-20_2026-09-24.md](docs/archive/current-status/CURRENT_STATUS-2026-09-20_2026-09-24.md)._
 
 ## 2026-09-26: Материалы vs Документы — ADR-014 создан, эпик и подзадачи заведены
 
