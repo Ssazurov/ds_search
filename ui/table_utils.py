@@ -156,3 +156,9 @@ def column_settings(table_key: str, columns: dict[str, str], base_config: dict |
         config[name] = {**(config.get(name) or {}), "width": w}
     sort = (columns[cur["sort"]["col"]], cur["sort"]["asc"]) if cur["sort"] else None
     return order, config, sort
+
+
+def action_row(n: int, key: str):
+    """Ряд из n кнопок, прижатый к правому краю с равными малыми промежутками
+    (CSS `.st-key-actions_*` в ui/app.py). Возвращает n колонок."""
+    return st.container(key=f"actions_{key}").columns(n)

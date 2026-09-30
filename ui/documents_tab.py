@@ -19,7 +19,7 @@ from src.gar_ingest.documents import ingest_document
 from src.metadata.schema import label_of, load_dictionaries
 from ui import notify
 from ui.news_add import add_articles_as_news, summarize
-from ui.table_utils import COLUMN_LABELS, column_settings, datetime_column, link_column, localize
+from ui.table_utils import COLUMN_LABELS, column_settings, datetime_column, link_column, localize, action_row
 
 ROOT = Path(__file__).resolve().parents[1] / "data"
 RAW_ROOT = ROOT / "raw"
@@ -698,7 +698,7 @@ def render() -> None:
 
     # Кнопки прижаты к правому краю
     with_url = [r for r in selected_rows if r.get("url")]
-    spacer, b1, b2, b3, b4, b5, b6 = st.columns([1.5, 1.2, 1, 1, 1, 1.2, 1])
+    b1, b2, b3, b4, b5, b6 = action_row(6, "documents")
     if b1.button(f"Загрузить в GAR выбранные ({len(not_loaded)})", disabled=not not_loaded,
                  key="ingest_selected_btn"):
         _ingest_batch(not_loaded)

@@ -11,7 +11,7 @@ from src.discovery.config import load_settings
 from src.discovery.gar_client import GarDiscoveryClient
 from src.license.checker import check_license
 from ui.news_add import add_articles_as_news, summarize
-from ui.table_utils import COLUMN_LABELS, column_settings, datetime_column, link_column, localize
+from ui.table_utils import COLUMN_LABELS, column_settings, datetime_column, link_column, localize, action_row
 from ui import notify
 
 _STATUS_OPTIONS = ["new", "approved", "rejected", "queued", "downloaded", "in_news"]
@@ -113,7 +113,7 @@ def render() -> None:
     selected_ids = df.loc[selected_mask, "id"].tolist() if "id" in df.columns else []
     st.caption(f"Выбрано: {len(selected_ids)}")
 
-    b1, b2, b3, b4, b5 = st.columns(5)
+    b1, b2, b3, b4, b5 = action_row(5, "results")
     settings = load_settings()
     if b5.button("В новости", disabled=not selected_ids, key="results_to_news",
                  help="LLM-черновик новости по выбранным статьям → вкладка «Новости»"):
