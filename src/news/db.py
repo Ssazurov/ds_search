@@ -46,7 +46,14 @@ _MIGRATIONS = (
     "ALTER TABLE news_items ADD COLUMN gar_document_id TEXT",
     "ALTER TABLE news_items ADD COLUMN publish_error TEXT",
     "ALTER TABLE news_items ADD COLUMN category TEXT",
+    # ds_search#420: пересказ (digest) — формат, цитаты, метрики перекрытия с оригиналом
+    "ALTER TABLE news_items ADD COLUMN format TEXT NOT NULL DEFAULT 'news'",
+    "ALTER TABLE news_items ADD COLUMN quotes TEXT NOT NULL DEFAULT '[]'",
+    "ALTER TABLE news_items ADD COLUMN overlap_max_run INTEGER",
+    "ALTER TABLE news_items ADD COLUMN overlap_ratio REAL",
 )
+
+FORMATS = ("news", "digest")
 
 
 @contextmanager
@@ -102,6 +109,7 @@ def _row_to_dict(row: sqlite3.Row) -> dict:
     d = dict(row)
     d["tags"] = json.loads(d["tags"])
     d["channels"] = json.loads(d["channels"])
+    d["quotes"] = json.loads(d.get("quotes") or "[]")
     d["requires_review"] = bool(d["requires_review"])
     return d
 
@@ -117,8 +125,9 @@ def insert_news_item(item: dict, db_path: Path = DB_PATH) -> int:
             INSERT INTO news_items
                 (source_url, source_name, source_published_at, title,
                  summary, body_md, direction, tags, requires_review,
-                 status, channels, category)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 status, channels, category, format, quotes,
+                 overlap_max_run, overlap_ratio)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 item["source_url"],
@@ -133,10 +142,20 @@ def insert_news_item(item: dict, db_path: Path = DB_PATH) -> int:
                 item.get("status", "draft"),
                 json.dumps(item.get("channels", []), ensure_ascii=False),
                 item.get("category"),
+                _check_format(item.get("format", "news")),
+                json.dumps(item.get("quotes", []), ensure_ascii=False),
+                item.get("overlap_max_run"),
+                item.get("overlap_ratio"),
             ),
         )
         conn.commit()
         return cur.lastrowid
+
+
+def _check_format(fmt: str) -> str:
+    if fmt not in FORMATS:
+        raise ValueError(f"invalid format: {fmt}")
+    return fmt
 
 
 def source_url_exists(source_url: str, db_path: Path = DB_PATH) -> bool:
@@ -186,7 +205,7 @@ def update_status(item_id: int, status: str, db_path: Path = DB_PATH) -> None:
         conn.commit()
 
 
-EDITABLE_FIELDS = ("title", "source_name", "summary", "body_md", "tags", "channels", "direction", "category", "published_at")
+EDITABLE_FIELDS = ("title", "source_name", "summary", "body_md", "tags", "channels", "direction", "category", "published_at", "quotes", "overlap_max_run", "overlap_ratio")
 
 
 def update_news_item(item_id: int, fields: dict, db_path: Path = DB_PATH) -> None:
@@ -199,7 +218,7 @@ def update_news_item(item_id: int, fields: dict, db_path: Path = DB_PATH) -> Non
         if key not in fields:
             continue
         value = fields[key]
-        if key in ("tags", "channels"):
+        if key in ("tags", "channels", "quotes"):
             value = json.dumps(value, ensure_ascii=False)
         cols.append(f"{key} = ?")
         params.append(value)

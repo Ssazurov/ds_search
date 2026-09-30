@@ -47,7 +47,23 @@ FALLBACK_AGE = gar_schema.FALLBACK_AGE
 def build_content_md(item: dict) -> str:
     """Markdown-документ для ingestion (Docling принимает .pdf/.md/.docx)."""
     body = item.get("body_md") or item.get("summary") or ""
-    return f"# {item['title']}\n\n{body}\n"
+    content = f"# {item['title']}\n\n{body}\n"
+    if item.get("format") == "digest":
+        content += _digest_source_block(item)
+    return content
+
+
+def _digest_source_block(item: dict) -> str:
+    """Обязательный блок пересказа (ds_search#420, ADR-0024): ссылка на
+    первоисточник. Без http(s)-URL источника пересказ не публикуется."""
+    url = effective_source_url(item)
+    if not url.lower().startswith(("http://", "https://")):
+        raise ValueError("digest: нужен http(s)-URL источника для блока «Полный текст»")
+    domain = urlparse(url).netloc.removeprefix("www.")
+    return (
+        "\n---\n\n*Это краткий пересказ. "
+        f"Полный текст — на сайте источника: [{domain}]({url}).*\n"
+    )
 
 
 # issue #219: у ручных черновиков (manual:<uuid>) нет домена, а GAR требует непустой source_domain
@@ -104,7 +120,7 @@ def build_metadata(item: dict) -> dict:
         title=item["title"], license="own_generated",
         category=item.get("category") or classified.get("category"),
         direction=item_direction or classified.get("direction"),
-        doc_type="news",
+        doc_type="digest" if item.get("format") == "digest" else "news",
         description=item.get("summary"),
         publish_date=item.get("published_at") or item.get("source_published_at"),
     )
