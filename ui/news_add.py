@@ -25,18 +25,32 @@ def describe(status: str) -> tuple[str, str]:
     return RESULT_MESSAGES.get(status, ("error", status))
 
 
+FORMAT_LABELS = {"news": "Новость", "digest": "Пересказ"}
+
+
+def format_selector(key: str) -> str:
+    """Переключатель «Новость / Пересказ» (ds_search#421). Возвращает "news"|"digest"."""
+    import streamlit as st
+    return st.radio(
+        "Формат", list(FORMAT_LABELS), format_func=FORMAT_LABELS.get,
+        horizontal=True, key=key,
+        help="Пересказ — сокращённая переработка со ссылкой на источник; публикация после чеклиста",
+    )
+
+
 def add_articles_as_news(
-    articles: Iterable[dict], add: Callable | None = None,
+    articles: Iterable[dict], add: Callable | None = None, fmt: str = "news",
 ) -> list[tuple[str, str]]:
     """articles: [{url, title}]. Возвращает [(заголовок/URL, статус)].
     Ошибка одной статьи не прерывает остальные."""
     if add is None:
         from src.news.collect import add_single_url as add
+    extra = {"fmt": fmt} if fmt != "news" else {}
     results = []
     for a in articles:
         label = a.get("title") or a["url"]
         try:
-            status = asyncio.run(add(a["url"], title=a.get("title") or ""))
+            status = asyncio.run(add(a["url"], title=a.get("title") or "", **extra))
         except Exception as exc:  # noqa: BLE001
             status = f"Ошибка: {exc}"
         results.append((label, status))

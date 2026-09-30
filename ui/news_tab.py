@@ -15,16 +15,17 @@ from datetime import datetime
 import pandas as pd
 import streamlit as st
 
-from src.news import db, publish
+from src.news import db, digest_check, overlap, publish
 from src.news.manual import DEFAULT_SOURCE_NAME, create_manual_draft
 from ui import notify
 from ui.table_utils import column_settings, link_column, action_row
 
 CHANNEL_OPTIONS = ["telegram"]
 STATUS_LABELS = {"draft": "Черновик", "published": "Опубликовано", "rejected": "Отклонено"}
+FORMAT_LABELS = {"news": "Новость", "digest": "Пересказ"}
 _ALL = "Все"
 _TABLE_LABELS = {
-    "select": "Выбор", "status": "Статус", "title": "Заголовок", "source_name": "Источник",
+    "select": "Выбор", "status": "Статус", "format": "Формат", "title": "Заголовок", "source_name": "Источник",
     "url": "Ссылка", "created_at": "Создано", "published_at": "Публикация", "gar": "В GAR",
 }
 
@@ -73,22 +74,72 @@ def _render_taxonomy(item: dict) -> tuple[str, str]:
     return direction, category
 
 
+_ORIG_BOX = ("max-height:520px;overflow:auto;padding:8px 12px;border:1px solid rgba(128,128,128,.35);"
+             "border-radius:6px;font-size:0.9rem;line-height:1.5")
+
+
+def _render_original(item: dict, draft_body: str) -> None:
+    """Левая колонка карточки пересказа: оригинал, фрагменты, совпадающие с
+    текущим черновиком (5+ слов подряд, без цитат), подсвечены."""
+    st.markdown("**Оригинал** — совпадения с пересказом подсвечены")
+    src = item.get("source_text") or ""
+    if not src.strip():
+        st.warning("Текст оригинала не сохранён — сравнить нельзя")
+    else:
+        html = overlap.highlight_html(src, overlap.strip_quotes(draft_body))
+        st.markdown(f'<div style="{_ORIG_BOX}">{html}</div>', unsafe_allow_html=True)
+    st.caption(item.get("source_url") or "")
+
+
+def _render_digest_report(ev: dict, item: dict, draft_body: str) -> None:
+    """Индикатор перекрытия + чеклист + подсветка совпадений в самом пересказе."""
+    ov = ev["overlap"]
+    m1, m2 = st.columns(2)
+    m1.metric("Макс. серия слов", ov["max_run"] if ov else "—",
+              help=f"Порог блокировки: {overlap.MAX_RUN_WORDS} слов подряд")
+    m2.metric("Перекрытие n-грамм", f"{ov['ratio']:.0%}" if ov else "—",
+              help=f"Ориентир: не более {overlap.MAX_RATIO:.0%}")
+    if ov and ov["ratio"] > overlap.MAX_RATIO:
+        st.warning(f"Перекрытие {ov['ratio']:.0%} выше ориентира {overlap.MAX_RATIO:.0%} (не блокирует)")
+    for c in ev["checks"]:
+        st.markdown(f"{'✅' if c['ok'] else '❌'} {c['label']}" + (f" — {c['hint']}" if c["hint"] else ""))
+    src = item.get("source_text") or ""
+    if src.strip():
+        with st.expander("Пересказ с подсветкой совпадений"):
+            html = overlap.highlight_html(draft_body, src, skip_quotes=True)
+            st.markdown(f'<div style="{_ORIG_BOX}">{html}</div>', unsafe_allow_html=True)
+
+
 def _render_item(item: dict) -> None:
-    """Полная форма редактирования одной записи (только для выбранной в таблице)."""
+    """Полная форма редактирования одной записи (только для выбранной в таблице).
+    Пересказ (format=digest, ds_search#421): слева оригинал с подсветкой
+    совпадений, справа редактируемый черновик; чеклист блокирует публикацию."""
+    is_digest = item.get("format") == "digest"
     st.subheader(item["title"] or "(без заголовка)")
-    st.caption(f"{item['source_url']} · создано {item['created_at']}")
-    new_title = st.text_input("Заголовок", item["title"], key=f"title_{item['id']}")
-    new_source = st.text_input("Источник", item.get("source_name") or "", key=f"src_{item['id']}")
-    new_summary = st.text_area("Краткое содержание", item.get("summary") or "", key=f"sum_{item['id']}")
-    new_body = st.text_area("Текст (markdown)", item.get("body_md") or "", height=200, key=f"body_{item['id']}")
-    new_tags = st.text_input(
-        "Теги (через запятую)", ", ".join(item.get("tags") or []), key=f"tags_{item['id']}"
-    )
-    new_channels = st.multiselect(
-        "Каналы публикации", CHANNEL_OPTIONS, default=item.get("channels") or [],
-        key=f"ch_{item['id']}",
-    )
-    new_direction, new_category = _render_taxonomy(item)
+    st.caption(f"{item['source_url']} · создано {item['created_at']}"
+               + (" · формат: пересказ" if is_digest else ""))
+    if is_digest:
+        left, form = st.columns(2)
+    else:
+        left, form = None, st.container()
+    with form:
+        new_title = st.text_input("Заголовок", item["title"], key=f"title_{item['id']}")
+        new_source = st.text_input("Источник", item.get("source_name") or "", key=f"src_{item['id']}")
+        new_summary = st.text_area("Краткое содержание", item.get("summary") or "", key=f"sum_{item['id']}")
+        new_body = st.text_area("Текст (markdown)", item.get("body_md") or "", height=200, key=f"body_{item['id']}")
+        new_quotes = ""
+        if is_digest:
+            new_quotes = st.text_area(
+                "Цитаты (по одной в строке; в тексте — в «ёлочках»)",
+                "\n".join(item.get("quotes") or []), key=f"quotes_{item['id']}")
+        new_tags = st.text_input(
+            "Теги (через запятую)", ", ".join(item.get("tags") or []), key=f"tags_{item['id']}"
+        )
+        new_channels = st.multiselect(
+            "Каналы публикации", CHANNEL_OPTIONS, default=item.get("channels") or [],
+            key=f"ch_{item['id']}",
+        )
+        new_direction, new_category = _render_taxonomy(item)
 
     # issue #198: редактируемая дата публикации — источник даты
     # выбирается тумблером, "Вручную" открывает date/time-инпуты.
@@ -113,22 +164,39 @@ def _render_item(item: dict) -> None:
         new_published_at = datetime.combine(d, t).isoformat(sep=" ", timespec="seconds")
     st.caption(f"Дата публикации: {_fmt_dt(new_published_at)}")
 
+    payload = {
+        "title": new_title,
+        "source_name": new_source.strip() or None,
+        "summary": new_summary,
+        "body_md": new_body,
+        "tags": [t.strip() for t in new_tags.split(",") if t.strip()],
+        "channels": new_channels,
+        "direction": new_direction or None,
+        "category": new_category or None,
+        "published_at": new_published_at,
+    }
+    blocked = False
+    if is_digest:
+        quotes = [q.strip() for q in new_quotes.splitlines() if q.strip()]
+        ev = digest_check.evaluate({**item, **payload, "quotes": quotes})
+        ov = ev["overlap"] or {}
+        payload.update(quotes=quotes, overlap_max_run=ov.get("max_run"), overlap_ratio=ov.get("ratio"))
+        blocked = not ev["ok"]
+        with left:
+            _render_original(item, new_body)
+        _render_digest_report(ev, item, new_body)
+
     cols = action_row(4, "news_item")
     if cols[0].button("Сохранить", key=f"save_{item['id']}"):
-        db.update_news_item(item["id"], {
-            "title": new_title,
-            "source_name": new_source.strip() or None,
-            "summary": new_summary,
-            "body_md": new_body,
-            "tags": [t.strip() for t in new_tags.split(",") if t.strip()],
-            "channels": new_channels,
-            "direction": new_direction or None,
-            "category": new_category or None,
-            "published_at": new_published_at,
-        })
+        db.update_news_item(item["id"], payload)
         notify.report("success", "Сохранено")
         st.rerun()
-    if item["status"] != "published" and cols[1].button("Опубликовать", key=f"pub_{item['id']}"):
+    if item["status"] != "published" and cols[1].button(
+        "Опубликовать", key=f"pub_{item['id']}", disabled=blocked,
+        help="Чеклист пересказа не пройден" if blocked else None,
+    ):
+        if is_digest:
+            db.update_news_item(item["id"], payload)  # публикуем ровно то, что проверено на экране
         # issue: status не должен фиксироваться как published, если
         # ingestion в GAR провалился (publish_news_item требует
         # status="published" до вызова — поэтому ставим временно и
@@ -174,6 +242,10 @@ def _publish_batch(items: list[dict]) -> None:
     ok, errors = 0, []
     for item in items:
         if item["status"] == "published":
+            continue
+        stop = digest_check.blockers(item)  # пересказ: чеклист (ds_search#421)
+        if stop:
+            errors.append(f"{item['title']}: чеклист не пройден — {'; '.join(stop)}")
             continue
         db.update_status(item["id"], "published")
         try:
@@ -249,20 +321,57 @@ def _render_manual_form() -> None:
                 st.rerun()
 
 
+def _digest_queue() -> list[dict]:
+    """Очередь ревью: черновики-пересказы, старые первыми."""
+    drafts = [i for i in db.list_news_items(status="draft") if i.get("format") == "digest"]
+    return list(reversed(drafts))
+
+
+def _render_digest_queue() -> None:
+    """Пакетный режим (ds_search#421): по одному черновику, «Далее / Опубликовать /
+    Отклонить». Опубликованный/отклонённый выпадает из очереди — индекс
+    остаётся на следующем."""
+    queue = _digest_queue()
+    if not queue:
+        st.success("Очередь пересказов пуста")
+        return
+    idx = min(st.session_state.get("digest_q_idx", 0), len(queue) - 1)
+    st.caption(f"Пересказ {idx + 1} из {len(queue)}")
+    n1, n2, _ = st.columns([1, 1, 4])
+    if n1.button("← Назад", disabled=idx == 0, key="digest_q_prev"):
+        st.session_state["digest_q_idx"] = idx - 1
+        st.rerun()
+    if n2.button("Далее →", disabled=idx >= len(queue) - 1, key="digest_q_next"):
+        st.session_state["digest_q_idx"] = idx + 1
+        st.rerun()
+    st.session_state["digest_q_idx"] = idx
+    _render_item(queue[idx])
+
+
 def render() -> None:
     st.header("Новости")
     db.init_db()
     _render_manual_form()
 
-    c1, c2 = st.columns([1, 2])
+    if st.toggle("Пакетный режим: очередь пересказов", key="digest_queue_mode"):
+        _render_digest_queue()
+        return
+
+    c1, c2, c3 = st.columns([1, 1, 2])
     status_filter = c1.selectbox(
         "Статус", [_ALL] + list(STATUS_LABELS.keys()),
         format_func=lambda s: _ALL if s == _ALL else STATUS_LABELS[s],
     )
-    search = c2.text_input("Поиск (заголовок/источник)", key="news_search").strip().lower()
+    format_filter = c2.selectbox(
+        "Формат", [_ALL] + list(FORMAT_LABELS.keys()),
+        format_func=lambda f: _ALL if f == _ALL else FORMAT_LABELS[f], key="news_format_filter",
+    )
+    search = c3.text_input("Поиск (заголовок/источник)", key="news_search").strip().lower()
     status = None if status_filter == _ALL else status_filter
 
     items = db.list_news_items(status=status)  # уже ORDER BY created_at DESC
+    if format_filter != _ALL:
+        items = [i for i in items if (i.get("format") or "news") == format_filter]
     if search:
         items = [
             i for i in items
@@ -274,6 +383,7 @@ def render() -> None:
 
     df = pd.DataFrame([{
         "status": STATUS_LABELS.get(i["status"], i["status"]),
+        "format": FORMAT_LABELS.get(i.get("format") or "news", i.get("format")),
         "title": i["title"] or "(без заголовка)",
         "source_name": i.get("source_name") or "",
         "url": i.get("source_url") or None,

@@ -10,7 +10,7 @@ import streamlit as st
 from src.discovery.config import load_settings
 from src.discovery.gar_client import GarDiscoveryClient
 from src.license.checker import check_license
-from ui.news_add import add_articles_as_news, summarize
+from ui.news_add import add_articles_as_news, format_selector, summarize
 from ui.table_utils import COLUMN_LABELS, column_settings, datetime_column, link_column, localize, action_row
 from ui import notify
 
@@ -113,14 +113,15 @@ def render() -> None:
     selected_ids = df.loc[selected_mask, "id"].tolist() if "id" in df.columns else []
     st.caption(f"Выбрано: {len(selected_ids)}")
 
+    news_fmt = format_selector("results_news_fmt")
     b1, b2, b3, b4, b5 = action_row(5, "results")
     settings = load_settings()
     if b5.button("В новости", disabled=not selected_ids, key="results_to_news",
-                 help="LLM-черновик новости по выбранным статьям → вкладка «Новости»"):
+                 help="LLM-черновик новости/пересказа по выбранным статьям → вкладка «Новости»"):
         chosen = [r for r in rows if r["id"] in selected_ids]
         with st.spinner(f"Генерация черновиков: {len(chosen)}…"):
             results = add_articles_as_news(
-                [{"url": r["url"], "title": r.get("title") or ""} for r in chosen])
+                [{"url": r["url"], "title": r.get("title") or ""} for r in chosen], fmt=news_fmt)
         outcome = summarize(results)
         finalized_ids = [chosen[i]["id"] for i in outcome.finalized]
         ok, errors = outcome.ok, outcome.errors

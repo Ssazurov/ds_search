@@ -29,10 +29,14 @@ def main() -> None:
         "--days", type=int, default=5,
         help="фильтр свежести в днях (issue #158); 0 = без фильтра (issue #159)",
     )
+    parser.add_argument(
+        "--format", choices=("news", "digest"), default="news",
+        help="формат черновиков: news (по умолчанию) или digest — пересказ (issue #421)",
+    )
     args = parser.parse_args()
     max_age_days = None if args.days <= 0 else args.days
 
-    stats = asyncio.run(collect_rss(max_age_days=max_age_days))
+    stats = asyncio.run(collect_rss(max_age_days=max_age_days, fmt=args.format))
     for k, v in stats.as_dict().items():
         print(f"{k}={v}")
     if stats.errors:

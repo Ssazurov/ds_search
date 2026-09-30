@@ -349,7 +349,7 @@ def test_refresh_local_content_times_out(tmp_path, monkeypatch):
 def test_to_news_batch_sends_only_rows_with_url(monkeypatch):
     sent: list[list[dict]] = []
 
-    def fake_add(articles):
+    def fake_add(articles, **kw):
         sent.append(articles)
         return [(a["title"], "drafted") for a in articles]
 
@@ -366,7 +366,7 @@ def test_to_news_batch_sends_only_rows_with_url(monkeypatch):
 
 def test_to_news_batch_no_urls_does_not_call_add(monkeypatch):
     calls: list = []
-    monkeypatch.setattr(documents_tab, "add_articles_as_news", lambda a: calls.append(a) or [])
+    monkeypatch.setattr(documents_tab, "add_articles_as_news", lambda a, **kw: calls.append(a) or [])
 
     documents_tab._to_news_batch([{"doc_id": "b", "title": "B", "url": None}])
 
@@ -378,7 +378,7 @@ def test_to_news_batch_reports_errors_and_duplicates(monkeypatch):
     monkeypatch.setattr(documents_tab.notify, "report", lambda *a, **k: reports.append(a))
     monkeypatch.setattr(
         documents_tab, "add_articles_as_news",
-        lambda arts: [("A", "drafted"), ("B", "skipped_duplicate"), ("C", "llm_failed")])
+        lambda arts, **kw: [("A", "drafted"), ("B", "skipped_duplicate"), ("C", "llm_failed")])
     rows = [{"doc_id": d, "title": d.upper(), "url": f"https://x.test/{d}"} for d in "abc"]
 
     documents_tab._to_news_batch(rows)

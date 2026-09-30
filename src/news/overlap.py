@@ -78,3 +78,43 @@ def check_overlap(
     if ratio > max_ratio:
         warnings.append(f"перекрытие {ratio:.0%} > {max_ratio:.0%}")
     return {"max_run": run, "ratio": ratio, "ok": not warnings, "warnings": warnings}
+
+
+def matched_spans(text: str, other: str, n: int = NGRAM, skip_quotes: bool = False) -> list[tuple[int, int]]:
+    """Диапазоны символов text, слова которых входят в n-грамму, общую с other.
+    skip_quotes — не подсвечивать «ёлочки» (цитаты контролируются отдельно)."""
+    toks = [(m.start(), m.end(), m.group().lower().replace("ё", "е")) for m in _WORD_RE.finditer(text or "")]
+    words = [t[2] for t in toks]
+    other_grams = _grams(_words(other), n)
+    covered = [False] * len(toks)
+    for i in range(len(words) - n + 1):
+        if tuple(words[i:i + n]) in other_grams:
+            for j in range(i, i + n):
+                covered[j] = True
+    if skip_quotes:
+        qspans = [m.span() for m in _QUOTE_RE.finditer(text or "")]
+        for j, (s, e, _) in enumerate(toks):
+            if any(qs <= s and e <= qe for qs, qe in qspans):
+                covered[j] = False
+    spans: list[tuple[int, int]] = []
+    for j, (s, e, _) in enumerate(toks):
+        if not covered[j]:
+            continue
+        if spans and j > 0 and covered[j - 1]:
+            spans[-1] = (spans[-1][0], e)
+        else:
+            spans.append((s, e))
+    return spans
+
+
+def highlight_html(text: str, other: str, n: int = NGRAM, skip_quotes: bool = False) -> str:
+    """HTML-экранированный text с <mark> на фрагментах, совпадающих с other."""
+    from html import escape
+    text = text or ""
+    out, pos = [], 0
+    for s, e in matched_spans(text, other, n, skip_quotes):
+        out.append(escape(text[pos:s]))
+        out.append(f"<mark>{escape(text[s:e])}</mark>")
+        pos = e
+    out.append(escape(text[pos:]))
+    return "".join(out).replace("\n", "<br>")
