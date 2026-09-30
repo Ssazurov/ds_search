@@ -142,7 +142,22 @@ _CALLERS = {
 }
 
 
-def call_llm(prompt: str, config: LlmConfig) -> str:
+def call_llm(prompt: str, config: LlmConfig, purpose: str = "news", input_chars: int = 0) -> str:
+    """Вызов LLM для генерации черновика. Сначала попытка через GAR resolver
+    (ADR-015, issue #423), при недоступности GAR — fallback на локальный
+    провайдер из config. purpose = news|digest, input_chars — размер текста."""
+    # Попытка через GAR resolver (ADR-015)
+    try:
+        from ..gar_ingest.client import GarIngestClient, GarPublishError, load_settings
+        settings = load_settings()
+        with GarIngestClient(settings) as client:
+            return client.generate(purpose, input_chars, prompt)
+    except (GarPublishError, Exception) as exc:
+        # GAR недоступен (сеть, 503, таймаут) или не настроен — fallback на локальный провайдер
+        import logging
+        logging.warning(f"GAR generate недоступен ({exc}), fallback на {config.provider}")
+
+    # Fallback на локальный провайдер из news_llm.yaml
     caller = _CALLERS.get(config.provider)
     if caller is None:
         raise ValueError(f"неизвестный provider: {config.provider}")
@@ -178,7 +193,9 @@ def _generate_digest(source: dict, cfg: LlmConfig, autoclassify: bool) -> dict:
     from dataclasses import replace
     from . import overlap
     cfg = replace(cfg, max_tokens=cfg.max_tokens_digest, num_ctx=cfg.num_ctx_digest)
-    raw = call_llm(build_prompt(cfg, source, "digest"), cfg)
+    prompt = build_prompt(cfg, source, "digest")
+    input_chars = len(source.get("text", ""))
+    raw = call_llm(prompt, cfg, purpose="digest", input_chars=input_chars)
     parsed = parse_llm_json(raw)
     if parsed.get("relevant") is False:
         raise NotRelevantError(parsed.get("relevance_reason", "нерелевантно"))
@@ -227,7 +244,8 @@ def generate_draft(
     if fmt != "news":
         raise ValueError(f"неизвестный format: {fmt}")
     prompt = build_prompt(cfg, source)
-    raw = call_llm(prompt, cfg)
+    input_chars = len(source.get("text", ""))
+    raw = call_llm(prompt, cfg, purpose="news", input_chars=input_chars)
     parsed = parse_llm_json(raw)
     if parsed.get("relevant") is False:
         raise NotRelevantError(parsed.get("relevance_reason", "нерелевантно"))

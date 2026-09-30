@@ -147,3 +147,19 @@ class GarIngestClient:
         if resp.status_code != 200:
             raise GarPublishError(f"delete document {document_id} failed: {resp.status_code} {resp.text}")
         return resp.json()
+
+    def generate(self, purpose: str, input_chars: int, prompt: str) -> str:
+        """POST /generate: генерация через GAR resolver (ADR-015, issue #423).
+        purpose — news|digest, input_chars — размер текста источника.
+        Возвращает сгенерированный текст. Бросает GarPublishError при HTTP-ошибке."""
+        try:
+            resp = self._client.post(
+                "/generate",
+                json={"purpose": purpose, "input_chars": input_chars, "prompt": prompt},
+            )
+        except httpx.RequestError as exc:
+            raise GarPublishError(f"generate request failed: {exc}") from exc
+        if resp.status_code != 200:
+            raise GarPublishError(f"generate failed: {resp.status_code} {resp.text}")
+        data = resp.json()
+        return data.get("text", "")

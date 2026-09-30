@@ -21,6 +21,7 @@
 
 | 2026-09-26 | ADR-014 | Объединить «Материалы» (чтение GAR API) и «Документы» (скан ФС) в одну вкладку: local rows + GAR-документы без локального файла (MD/JSON пустые); перенести фильтр по статусу GAR, архивацию, полное удаление из GAR, «Перезагрузить из источника», PATCH title/summary; добавить фильтр «Локально» и кнопку «Сбросить»; «Материалы» удалить. |
 | 2026-09-29 | ADR-002 (доп. #355/#360) | Дата источника (`source_published_at`): провайдер (Search API) → probe fallback (og/article meta-теги), не перезаписываем. Backfill старых записей: `python -m src.discovery.probe --only-missing-date --status new` (пропуск находок с датой, пауза 0.5с, без обновления relevance_score). |
+| 2026-09-30 | ADR-015 | Генерация news/digest берёт модель из GAR resolver (`POST /generate` с `purpose=news|digest` и `input_chars`); fallback на `news_llm.yaml` при недоступности GAR. Авторизация: сервисный API-ключ `GAR_API_KEY` (gar-core-api ADR-056). Связано с ds_search#423, gar-core-api#439/#436. |
 
 ## 2026-09-08 — ADR-052 (gar-core-api): публичный шлюз для сайта
 Не автономное ADR ds_search (репозиторий gar-core-api ведёт свою нумерацию
