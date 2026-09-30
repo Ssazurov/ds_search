@@ -591,3 +591,28 @@ local rows + GAR-документы без соответствия по gar_doc
 - Черновики не теряются при сбое API, дедупликация работает на уровне `add_single_url` (существующая логика в ui/news_add.py).
 - Тесты: `test_to_news_survives_status_update_failure`, `test_to_news_dedup_prevents_double_draft`, `test_status_update_partial_failure`.
 - Проверка: `pytest tests/test_results_tab_to_news.py -v` — 3 passed. Commit c87261b, issue #392 закрыт.
+
+---
+
+## 2026-09-30: Raw folder backfill migration (#400)
+
+**Проблема:** Файлы из `links_items/` находились не в правильных доменных папках согласно их `source_domain`.
+
+**Реализация:**
+- Создан `scripts/migrate_raw_folders.py` для переноса файлов в правильные папки по домену
+- Добавлена поддержка IDN (кириллических) доменов через транслитерацию всего домена:
+  - `город-надежды.рф` → `gorod-nadezhdy-rf/`
+  - `дети-лучики.рф` → `deti-luchiki-rf/`
+  - `солнечные-дети.рф` → `solnechnye-deti-rf/`
+- Скрипт умеет:
+  - Резолвить правильную папку через `SOURCES` или `domain_dirname()`
+  - Обновлять `content_path` в JSON после переноса
+  - Пропускать внутренние файлы (`source_domain=ds_search`)
+  - Работать в режиме `--dry-run`
+
+**Результат:**
+- Перенесено 126 файлов из `links_items/` в правильные доменные папки
+- Добавлены unit-тесты (7 passed)
+- Повторный запуск подтверждает: `✅ Все файлы уже в правильных папках`
+
+**Верификация:** PR #405 merged, контейнер ds-search пересобран (кэш использован, образ готов).
