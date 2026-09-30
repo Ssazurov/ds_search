@@ -30,6 +30,14 @@ st.markdown(
     """
     <style>
       div.block-container { padding-top: 2.5rem !important; }
+      /* ряды кнопок действий под таблицами: вправо, равные малые промежутки */
+      [class*="st-key-actions_"] [data-testid="stHorizontalBlock"] {
+        justify-content: flex-end; gap: 0.5rem !important; flex-wrap: wrap;
+      }
+      [class*="st-key-actions_"] [data-testid="stColumn"] {
+        flex: 0 0 auto !important; width: auto !important; min-width: 0 !important;
+      }
+      [class*="st-key-actions_"] button { white-space: nowrap; }
     </style>
     """,
     unsafe_allow_html=True,

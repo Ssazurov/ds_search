@@ -18,7 +18,7 @@ import streamlit as st
 from src.news import db, publish
 from src.news.manual import DEFAULT_SOURCE_NAME, create_manual_draft
 from ui import notify
-from ui.table_utils import column_settings, link_column
+from ui.table_utils import column_settings, link_column, action_row
 
 CHANNEL_OPTIONS = ["telegram"]
 STATUS_LABELS = {"draft": "Черновик", "published": "Опубликовано", "rejected": "Отклонено"}
@@ -113,7 +113,7 @@ def _render_item(item: dict) -> None:
         new_published_at = datetime.combine(d, t).isoformat(sep=" ", timespec="seconds")
     st.caption(f"Дата публикации: {_fmt_dt(new_published_at)}")
 
-    cols = st.columns(4)
+    cols = action_row(4, "news_item")
     if cols[0].button("Сохранить", key=f"save_{item['id']}"):
         db.update_news_item(item["id"], {
             "title": new_title,
@@ -297,7 +297,7 @@ def render() -> None:
     selected = [items[i] for i in edited.index[edited[_TABLE_LABELS["select"]]]]
     st.caption(f"Всего: {len(items)}, выбрано: {len(selected)}")
 
-    b1, b2, b3 = st.columns(3)
+    b1, b2, b3 = action_row(3, "news")
     if b1.button(f"Опубликовать выбранные ({len(selected)})", disabled=not selected, key="news_pub_selected"):
         _publish_batch(selected)
     if b2.button("Отклонить выбранные", disabled=not selected, key="news_rej_selected"):
