@@ -1,3 +1,17 @@
+## 2026-09-30 -- issue #393: сквозная проверка Поиск → Новости → Сайт
+
+- **Документация цепочки**: создан `docs/workflows/search-to-site-pipeline.md` — полное описание этапов от поиска до публикации на сайте с артефактами, статусами и типичными сбоями каждого этапа.
+- **Чек-лист**: создан `docs/workflows/search-to-site-checklist.md` — пошаговая инструкция для ручной проверки всей цепочки с командами и ожидаемыми результатами.
+- **Smoke-скрипт**: `docs/workflows/smoke_search_to_site.sh` — автоматизированная проверка доступности сервисов и наличия данных на каждом этапе (окружение, GAR API, discovered_sources, news_items, GAR doc_type=news, ds-site прокси, UI).
+- **Этапы цепочки**:
+  1. Поиск → `discovered_sources` (status=new)
+  2. Одобрение → `news_items` (status=draft)
+  3. Публикация → GAR (doc_type=news, gar_document_id)
+  4. Индексация → ds_ingestion (Docling/векторизация)
+  5. Сайт → ds-site `/news` (прокси `/api/gar/documents`)
+- **Диагностика**: каждый этап документирован с типичными сбоями и способами их проверки (curl-команды, SQL-запросы, логи Docker).
+- **Проверка**: `bash docs/workflows/smoke_search_to_site.sh` (требует GAR_API_KEY в окружении).
+
 ## 2026-09-30 -- issue #402: backfill нормализации доменов в GAR
 
 - **Создан `scripts/backfill_gar_domain.py`**: скрипт находит документы с `www.` префиксом в `source_domain` и обновляет их через `PATCH /ingestion/documents/{id}`. Поддерживает dry-run режим (по умолчанию) и `--apply` для применения изменений.
