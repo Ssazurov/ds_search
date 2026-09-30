@@ -27,3 +27,19 @@ def test_describe_known_and_unknown():
     assert describe("drafted")[0] == "success"
     assert describe("skipped_duplicate")[0] == "info"
     assert describe("weird") == ("error", "weird")
+
+from ui.news_add import summarize
+
+
+def test_summarize_mixed():
+    out = summarize([("A", "drafted"), ("B", "skipped_duplicate"),
+                     ("C", "license_denied"), ("D", "drafted")])
+    assert out.finalized == [0, 1, 3]
+    assert (out.ok, out.drafted, out.duplicates) == (3, 2, 1)
+    assert len(out.errors) == 1 and out.errors[0].startswith("C: ")
+    assert out.stats == {"черновиков": 2, "уже были": 1}
+
+
+def test_summarize_empty():
+    out = summarize([])
+    assert out.finalized == [] and out.ok == 0 and out.stats == {}

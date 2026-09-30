@@ -18,6 +18,7 @@ from src.gar_ingest.client import GarPublishError
 from src.gar_ingest.documents import ingest_document
 from src.metadata.schema import label_of, load_dictionaries
 from ui import notify
+from ui.news_add import add_articles_as_news, summarize
 from ui.table_utils import COLUMN_LABELS, column_settings, datetime_column, link_column, localize
 
 ROOT = Path(__file__).resolve().parents[1] / "data"
@@ -531,6 +532,25 @@ def _ingest_batch(rows: list[dict]) -> None:
     st.rerun()
 
 
+def _to_news_batch(rows: list[dict]) -> None:
+    """«В новости» (issue #398): LLM-черновики по source_url выбранных документов.
+    Как в «Результатах», но без смены статуса (у документов его нет)."""
+    with_url = [r for r in rows if r.get("url")]
+    errors = [f"{_row_label(r)}: нет source_url" for r in rows if not r.get("url")]
+    stats: dict[str, int] = {}
+    ok = 0
+    if with_url:
+        with st.spinner(f"Генерация черновиков: {len(with_url)}…"):
+            results = add_articles_as_news(
+                [{"url": r["url"], "title": r.get("title") or ""} for r in with_url])
+        outcome = summarize(results)
+        ok, stats = outcome.ok, outcome.stats
+        errors = outcome.errors + errors
+    notify.report(notify.outcome_level(ok, len(rows)),
+                  f"Добавлено в новости: {ok} из {len(rows)}", stats, errors)
+    st.rerun()
+
+
 def render() -> None:
     st.header("Документы")
 
@@ -677,7 +697,8 @@ def render() -> None:
     archivable = [r for r in selected_rows if r["gar_document_id"]]
 
     # Кнопки прижаты к правому краю
-    spacer, b1, b2, b3, b4, b5 = st.columns([3, 1.2, 1, 1, 1, 1.2])
+    with_url = [r for r in selected_rows if r.get("url")]
+    spacer, b1, b2, b3, b4, b5, b6 = st.columns([1.5, 1.2, 1, 1, 1, 1.2, 1])
     if b1.button(f"Загрузить в GAR выбранные ({len(not_loaded)})", disabled=not not_loaded,
                  key="ingest_selected_btn"):
         _ingest_batch(not_loaded)
@@ -695,6 +716,9 @@ def render() -> None:
     if b5.button(f"Вернуть из архива ({len(archivable)})",
                  disabled=not archivable, key="doc_unarchive_btn"):
         _archive_batch(archivable, archive=False)
+    if b6.button(f"В новости ({len(with_url)})", disabled=not with_url, key="doc_to_news_btn",
+                 help="LLM-черновик новости по выбранным документам → вкладка «Новости»"):
+        _to_news_batch(with_url)
 
     _confirm_and_run(
         "confirm_delete_from_gar",

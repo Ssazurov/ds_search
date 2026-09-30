@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable, Iterable
+from dataclasses import dataclass, field
 
 RESULT_MESSAGES = {
     "drafted": ("success", "Добавлено черновиком в «Новости» (needs_review)"),
@@ -40,3 +41,38 @@ def add_articles_as_news(
             status = f"Ошибка: {exc}"
         results.append((label, status))
     return results
+
+
+@dataclass
+class NewsOutcome:
+    """Итог пакетной отправки в новости (issue #398)."""
+    finalized: list[int] = field(default_factory=list)  # индексы drafted/skipped_duplicate
+    ok: int = 0
+    drafted: int = 0
+    duplicates: int = 0
+    errors: list[str] = field(default_factory=list)  # "label: текст"
+
+    @property
+    def stats(self) -> dict[str, int]:
+        out: dict[str, int] = {}
+        if self.drafted:
+            out["черновиков"] = self.drafted
+        if self.duplicates:
+            out["уже были"] = self.duplicates
+        return out
+
+
+def summarize(results: list[tuple[str, str]]) -> NewsOutcome:
+    """results — вывод add_articles_as_news, порядок совпадает с исходными статьями."""
+    out = NewsOutcome()
+    for i, (label, status) in enumerate(results):
+        if status == "drafted":
+            out.drafted += 1
+        elif status == "skipped_duplicate":
+            out.duplicates += 1
+        else:
+            out.errors.append(f"{label}: {describe(status)[1]}")
+            continue
+        out.finalized.append(i)
+        out.ok += 1
+    return out

@@ -10,7 +10,7 @@ import streamlit as st
 from src.discovery.config import load_settings
 from src.discovery.gar_client import GarDiscoveryClient
 from src.license.checker import check_license
-from ui.news_add import add_articles_as_news, describe
+from ui.news_add import add_articles_as_news, summarize
 from ui.table_utils import COLUMN_LABELS, column_settings, datetime_column, link_column, localize
 from ui import notify
 
@@ -121,23 +121,9 @@ def render() -> None:
         with st.spinner(f"Генерация черновиков: {len(chosen)}…"):
             results = add_articles_as_news(
                 [{"url": r["url"], "title": r.get("title") or ""} for r in chosen])
-        finalized_ids = []
-        ok = 0
-        drafted = 0
-        duplicates = 0
-        errors = []
-        for (label, status), row in zip(results, chosen):
-            _, msg = describe(status)
-            if status == "drafted":
-                finalized_ids.append(row["id"])
-                ok += 1
-                drafted += 1
-            elif status == "skipped_duplicate":
-                finalized_ids.append(row["id"])
-                ok += 1
-                duplicates += 1
-            else:
-                errors.append(f"{label}: {msg}")
+        outcome = summarize(results)
+        finalized_ids = [chosen[i]["id"] for i in outcome.finalized]
+        ok, errors = outcome.ok, outcome.errors
         # Смена статуса на in_news (может упасть при недоступности API)
         status_update_errors = []
         if finalized_ids:
@@ -148,11 +134,7 @@ def render() -> None:
                     except Exception as exc:  # noqa: BLE001
                         status_update_errors.append(f"ID {row_id}: {exc}")
 
-        stats = {}
-        if drafted > 0:
-            stats["черновиков"] = drafted
-        if duplicates > 0:
-            stats["уже были"] = duplicates
+        stats = outcome.stats
 
         # Ошибки смены статуса — в деталях, но не влияют на общий итог
         all_errors = errors[:]
