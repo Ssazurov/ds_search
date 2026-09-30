@@ -15,8 +15,9 @@ import pandas as pd
 import streamlit as st
 
 from src.gar_ingest.client import GarPublishError
-from src.gar_ingest.documents import ingest_document
+from src.gar_ingest.documents import ingest_document, revoke_document
 from src.metadata.schema import label_of, load_dictionaries
+from src.news.db import has_published_digest
 from ui import notify
 from ui.news_add import add_articles_as_news, format_selector, summarize
 from ui.table_utils import COLUMN_LABELS, column_settings, datetime_column, link_column, localize, action_row
@@ -179,6 +180,14 @@ def _row_label(row: dict) -> str:
     return row.get("title") or row["doc_id"]
 
 
+def _has_published_digest_for_url(url: str) -> bool:
+    """Проверка наличия опубликованного пересказа для source_url (issue #427)."""
+    try:
+        return has_published_digest(url)
+    except Exception:  # noqa: BLE001 — деградируем, не роняем UI
+        return False
+
+
 def _delete_local_only(row: dict) -> None:
     """Удаляет локальные файлы документа: raw meta + content + clean sidecar.
     Вызывать только когда doc_json_path is not None (issue #299)."""
@@ -262,6 +271,25 @@ def _confirm_and_run(flag_key: str, warning: str, on_confirm) -> None:
         if cc2.button("Отмена", key=f"{flag_key}_no"):
             st.session_state[flag_key] = False
             st.rerun()
+
+
+def _revoke_document_ui(row: dict) -> None:
+    """Отзыв корпусного документа из GAR (issue #427).
+
+    Hard delete при наличии прав, иначе fallback на archive. Обновляет
+    sidecar .json, проставляя content_status=revoked и gar_document_id=None.
+    """
+    try:
+        result = revoke_document(row["doc_json_path"])
+        if result.get("skipped"):
+            notify.report("info", f"Документ не был в GAR: {_row_label(row)}")
+        else:
+            verb = "Архивирован (нет прав на удаление)" if result.get("archived_fallback") else "Отозван из GAR"
+            notify.report("success", f"{verb}: {_row_label(row)}")
+            st.session_state.pop("gar_docs_cache", None)
+    except GarPublishError as exc:
+        notify.report("error", f"Не удалось отозвать: {_row_label(row)}", details=[str(exc)])
+    st.rerun()
 
 
 def _update_document_metadata(doc_json_path: Path, updates: dict) -> None:
@@ -409,14 +437,14 @@ def _render_metadata_form(selected_rows: list[dict]) -> None:
             st.session_state["batch_age"] = ""
         if "batch_needs_review" not in st.session_state:
             st.session_state["batch_needs_review"] = "не менять"
-        
+
         if len(selected_rows) == 1:
             # Единичный выбор: всегда брать значения документа
             doc = selected_rows[0]
             st.session_state["batch_direction"] = doc.get("direction", "")
             st.session_state["batch_category"] = doc.get("category", "")
             st.session_state["batch_age"] = doc.get("age", "")
-            
+
             # needs_review — bool в метаданных, но selectbox работает с текстом
             needs_review = doc.get("needs_review")
             if needs_review is True:
@@ -430,15 +458,15 @@ def _render_metadata_form(selected_rows: list[dict]) -> None:
             dirs = {r["direction"] for r in selected_rows}
             common_dir = next(iter(dirs)) if len(dirs) == 1 else ""
             st.session_state["batch_direction"] = common_dir if common_dir in directions else ""
-            
+
             cats = {r["category"] for r in selected_rows}
             common_cat = next(iter(cats)) if len(cats) == 1 else ""
             valid_cats = category_options_for_direction(gar_fields, common_dir) if common_dir and gar_fields else []
             st.session_state["batch_category"] = common_cat if common_cat in valid_cats else ""
-            
+
             st.session_state["batch_age"] = ""
             st.session_state["batch_needs_review"] = "не менять"
-        
+
         st.session_state["_batch_meta_sel_key"] = sel_key
 
     # Без st.form: внутри st.form виджеты не вызывают rerun при изменении
@@ -621,7 +649,7 @@ def render() -> None:
         for r in filtered
     ])
     df.insert(0, "select", False)
-    
+
     # Кнопка "Колонки" и "Обновить список из GAR" в одной строке
     col_settings, col_gar_refresh, col_gar_info = st.columns([1, 2, 5])
     with col_settings:
@@ -654,7 +682,7 @@ def render() -> None:
     else:
         col_gar_info.caption("Список GAR ещё не загружен — нажмите «Обновить список из GAR», "
                              "чтобы увидеть документы без локального файла")
-    
+
     df_display = localize(df).rename(columns=labels)
     if sort:
         df_display = df_display.sort_values(sort[0], ascending=sort[1])
@@ -675,7 +703,8 @@ def render() -> None:
 
         # issue #300: кнопка перезагрузки из источника для одного документа с gar_document_id
         if len(selected_rows) == 1 and selected_rows[0]["gar_document_id"]:
-            if st.button("🔄 Перезагрузить из источника", key="doc_reload_btn"):
+            c1, c2 = st.columns(2)
+            if c1.button("🔄 Перезагрузить из источника", key="doc_reload_btn"):
                 try:
                     rep = _reload_from_source(selected_rows[0]["gar_document_id"])
                     changed, preserved = rep.get("changed_fields"), rep.get("preserved_fields")
@@ -689,6 +718,14 @@ def render() -> None:
                 except GarPublishError as exc:
                     notify.report("error", "Не удалось перезагрузить из источника",
                                   details=[f"{_row_label(selected_rows[0])}: {exc}"])
+
+            # issue #427: кнопка «Снять полный текст» для документа с опубликованным digest
+            row = selected_rows[0]
+            if row.get("url") and _has_published_digest_for_url(row["url"]):
+                if c2.button("📤 Снять полный текст", key="doc_revoke_btn",
+                            help="Отозвать оригинал из GAR (опубликован пересказ)"):
+                    st.session_state["confirm_revoke_document"] = True
+                    st.rerun()
 
     # issue #299: кнопки удаления с явной семантикой и подтверждением
     not_loaded = [r for r in selected_rows if not r["gar_document_id"]]
@@ -729,3 +766,16 @@ def render() -> None:
         "confirm_delete_everywhere",
         f"⚠️ Будет удалено {len(selected_rows)} документов везде (из GAR и локально). Операция необратима.",
         lambda: _delete_everywhere_batch(selected_rows))
+
+    # issue #427: подтверждение отзыва документа после публикации пересказа
+    if st.session_state.get("confirm_revoke_document") and len(selected_rows) == 1:
+        row = selected_rows[0]
+        notify.report("warning", f"⚠️ Будет отозван из GAR: {_row_label(row)}. "
+                                 "Пересказ останется опубликованным. Операция необратима.")
+        cc1, cc2 = st.columns(2)
+        if cc1.button("Да, снять полный текст", key="confirm_revoke_yes"):
+            st.session_state["confirm_revoke_document"] = False
+            _revoke_document_ui(row)
+        if cc2.button("Отмена", key="confirm_revoke_no"):
+            st.session_state["confirm_revoke_document"] = False
+            st.rerun()

@@ -171,6 +171,20 @@ def source_url_exists(source_url: str, db_path: Path = DB_PATH) -> bool:
         return row is not None
 
 
+def has_published_digest(source_url: str, db_path: Path = DB_PATH) -> bool:
+    """Проверка, есть ли опубликованный пересказ (digest) для данного source_url.
+
+    Issue #427: используется для определения доступности кнопки «Снять полный текст»
+    в UI — кнопка доступна только если для source_url есть published digest.
+    """
+    with get_connection(db_path) as conn:
+        row = conn.execute(
+            "SELECT 1 FROM news_items WHERE source_url = ? AND format = 'digest' AND status = 'published'",
+            (source_url,)
+        ).fetchone()
+        return row is not None
+
+
 def get_news_item(item_id: int, db_path: Path = DB_PATH) -> dict | None:
     with get_connection(db_path) as conn:
         row = conn.execute(
