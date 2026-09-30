@@ -366,4 +366,4 @@ local rows + GAR-документы без соответствия по gar_doc
 - `src/news/overlap.py`: серия ≥8 слов / доля 5-грамм >15% (цитаты исключены), лимиты цитат (≤2, ≤25 слов).
 - `publish`: `doc_type=digest`, блок «Полный текст — на сайте источника», без http(s)-URL публикация запрещена.
 - ADR-0024 (ds/docs/adr). Требуется активная опция `doc_type=digest` в GAR (вручную).
-- Container ds-search rebuilt, UI без изменений (UI — #421). PR #<pr>, Closes #420.
+- Container ds-search rebuilt, UI без изменений (UI — #421). PR #424, Closes #420.
