@@ -134,11 +134,16 @@ def _render_link(dictionaries: dict, directions: list) -> None:
         if directions else st.text_input("Направление", key="link_dir")
     )
     if now:
+        category = st.selectbox(
+            "Категория", [""] + dictionaries["directions"].get(direction, []), key="link_cat",
+            format_func=lambda v: label_of(dictionaries, "category", v) if v else "— авто —",
+        ) or None
         st.caption("Папка — домен URL в data/raw/<домен>/, имя файла — транслит заголовка.")
         if st.button("Скачать сейчас", disabled=not url.strip()):
             result = asyncio.run(add_manual_document(
                 url.strip(),
                 direction=direction,
+                category=category,
             ))
             if result["status"] == "added":
                 notify.report(
