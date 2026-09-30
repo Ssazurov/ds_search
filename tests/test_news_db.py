@@ -114,3 +114,9 @@ def test_delete_news_item(db_path):
     item_id = insert_news_item(_item(), db_path)
     delete_news_item(item_id, db_path)
     assert get_news_item(item_id, db_path) is None
+
+
+def test_category_roundtrip(db_path):
+    item_id = insert_news_item(_item(category="cat1"), db_path)
+    assert get_news_item(item_id, db_path)["category"] == "cat1"
+    assert get_news_item(insert_news_item(_item(source_url="https://x.org/2"), db_path), db_path)["category"] is None

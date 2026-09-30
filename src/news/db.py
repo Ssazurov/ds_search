@@ -45,6 +45,7 @@ CREATE INDEX IF NOT EXISTS idx_news_items_status ON news_items(status);
 _MIGRATIONS = (
     "ALTER TABLE news_items ADD COLUMN gar_document_id TEXT",
     "ALTER TABLE news_items ADD COLUMN publish_error TEXT",
+    "ALTER TABLE news_items ADD COLUMN category TEXT",
 )
 
 
@@ -116,8 +117,8 @@ def insert_news_item(item: dict, db_path: Path = DB_PATH) -> int:
             INSERT INTO news_items
                 (source_url, source_name, source_published_at, title,
                  summary, body_md, direction, tags, requires_review,
-                 status, channels)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 status, channels, category)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 item["source_url"],
@@ -131,6 +132,7 @@ def insert_news_item(item: dict, db_path: Path = DB_PATH) -> int:
                 int(item.get("requires_review", False)),
                 item.get("status", "draft"),
                 json.dumps(item.get("channels", []), ensure_ascii=False),
+                item.get("category"),
             ),
         )
         conn.commit()

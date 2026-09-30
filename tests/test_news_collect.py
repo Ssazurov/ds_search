@@ -248,3 +248,18 @@ def test_add_single_url_license_denied(db_path, monkeypatch):
 
     assert result == "license_denied"
     assert db.list_news_items(db_path=db_path) == []
+
+
+def test_add_single_url_manual_direction_category(db_path, tmp_path, monkeypatch):
+    async def fake_download(source, data_root=None):
+        return await _fake_download_ok(source, data_root, tmp_path)
+
+    monkeypatch.setattr(collect, "download_single", fake_download)
+    monkeypatch.setattr(collect, "generate_draft", lambda source, config=None: _draft_item(source))
+
+    result = asyncio.run(collect.add_single_url(
+        "https://d.org/news/1", db_path=db_path, direction="dir1", category="cat1"))
+
+    assert result == "drafted"
+    item = db.list_news_items(db_path=db_path)[0]
+    assert (item["direction"], item["category"]) == ("dir1", "cat1")
