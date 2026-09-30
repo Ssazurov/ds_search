@@ -321,6 +321,38 @@ def _render_manual_form() -> None:
                 st.rerun()
 
 
+def _render_bulk_digest_form() -> None:
+    """Массовая переработка ранее загруженных статей корпуса в пересказы
+    (issue #422): dry-run считает кандидатов, лимит ограничивает прогон."""
+    from src.news.bulk_digest import bulk_digest
+
+    with st.expander("Переработать в пересказы (массово)"):
+        st.caption(
+            "Статьи корпуса, уже опубликованные в GAR, кроме доменов из "
+            "config/digest_bulk.yaml — становятся черновиками-пересказами."
+        )
+        limit = st.number_input("Лимит за прогон (0 — без лимита)", min_value=0, value=20, key="bulk_digest_limit")
+        c1, c2 = st.columns(2)
+        if c1.button("Посчитать кандидатов (dry-run)", key="bulk_digest_dry"):
+            stats = bulk_digest(dry_run=True)
+            notify.report("info", "Кандидатов найдено", stats=stats.as_dict())
+            if stats.titles:
+                st.write(stats.titles)
+        if c2.button("Запустить", key="bulk_digest_run"):
+            bar = st.progress(0.0)
+            total = bulk_digest(dry_run=True).candidates_total or 1
+
+            def _cb(n: int, title: str) -> None:
+                bar.progress(min(n / total, 1.0), text=title)
+
+            stats = bulk_digest(limit=limit or None, progress_cb=_cb)
+            notify.report(
+                "success" if not stats.errors else "warning",
+                "Массовая переработка завершена", stats=stats.as_dict(), details=stats.errors,
+            )
+            st.rerun()
+
+
 def _digest_queue() -> list[dict]:
     """Очередь ревью: черновики-пересказы, старые первыми."""
     drafts = [i for i in db.list_news_items(status="draft") if i.get("format") == "digest"]
@@ -352,6 +384,7 @@ def render() -> None:
     st.header("Новости")
     db.init_db()
     _render_manual_form()
+    _render_bulk_digest_form()
 
     if st.toggle("Пакетный режим: очередь пересказов", key="digest_queue_mode"):
         _render_digest_queue()
