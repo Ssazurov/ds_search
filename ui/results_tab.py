@@ -7,10 +7,10 @@ from urllib.parse import urlsplit
 import pandas as pd
 import streamlit as st
 
-from src.discovery.config import load_settings
+from src.discovery.config import Settings, load_settings
 from src.discovery.gar_client import GarDiscoveryClient
 from src.license.checker import check_license
-from ui.news_add import add_articles_as_news, format_selector, summarize
+from ui.news_add import add_articles_as_news, summarize
 from ui.table_utils import COLUMN_LABELS, column_settings, datetime_column, link_column, localize, action_row
 from ui import notify
 
@@ -25,6 +25,43 @@ def _approve(client: GarDiscoveryClient, source: dict) -> None:
     client.update_discovered_source(
         source["id"], status="approved", license_status=result.status.value,
     )
+
+
+def _to_news(rows: list[dict], selected_ids: list, settings: Settings, fmt: str) -> None:
+    """LLM-черновики новостей/пересказов по выбранным находкам (issue #351, #430).
+
+    fmt="news" — новость, fmt="digest" — сокращённый пересказ (issue #420).
+    Общий обработчик для двух кнопок ряда действий: отличаются только формат
+    и подпись, поэтому код не дублируется.
+    """
+    chosen = [r for r in rows if r["id"] in selected_ids]
+    with st.spinner(f"Генерация черновиков: {len(chosen)}…"):
+        results = add_articles_as_news(
+            [{"url": r["url"], "title": r.get("title") or ""} for r in chosen], fmt=fmt)
+    outcome = summarize(results)
+    finalized_ids = [chosen[i]["id"] for i in outcome.finalized]
+
+    # Смена статуса на in_news (может упасть при недоступности API)
+    status_update_errors = []
+    if finalized_ids:
+        with GarDiscoveryClient(settings) as client:
+            for row_id in finalized_ids:
+                try:
+                    client.update_discovered_source(row_id, status="in_news")
+                except Exception as exc:  # noqa: BLE001
+                    status_update_errors.append(f"ID {row_id}: {exc}")
+
+    # Ошибки смены статуса — в деталях, но не влияют на общий итог
+    all_errors = outcome.errors[:]
+    if status_update_errors:
+        all_errors.append("⚠️ Не удалось обновить статус (черновики сохранены):")
+        all_errors.extend(status_update_errors)
+
+    level = notify.outcome_level(outcome.ok, len(chosen))
+    title = f"Добавлено в новости: {outcome.ok} из {len(chosen)}"
+    notify.report(level, title, outcome.stats, all_errors)
+    if finalized_ids:
+        st.rerun()
 
 
 def render() -> None:
@@ -113,61 +150,37 @@ def render() -> None:
     selected_ids = df.loc[selected_mask, "id"].tolist() if "id" in df.columns else []
     st.caption(f"Выбрано: {len(selected_ids)}")
 
-    news_fmt = format_selector("results_news_fmt")
-    b1, b2, b3, b4, b5 = action_row(5, "results")
+    # Порядок кнопок (issue #430): терминальные статусные действия → очередь
+    # загрузки → два родственных действия генерации черновика справа.
+    b1, b2, b3, b4, b5, b6 = action_row(6, "results")
     settings = load_settings()
-    if b5.button("В новости", disabled=not selected_ids, key="results_to_news",
-                 help="LLM-черновик новости/пересказа по выбранным статьям → вкладка «Новости»"):
-        chosen = [r for r in rows if r["id"] in selected_ids]
-        with st.spinner(f"Генерация черновиков: {len(chosen)}…"):
-            results = add_articles_as_news(
-                [{"url": r["url"], "title": r.get("title") or ""} for r in chosen], fmt=news_fmt)
-        outcome = summarize(results)
-        finalized_ids = [chosen[i]["id"] for i in outcome.finalized]
-        ok, errors = outcome.ok, outcome.errors
-        # Смена статуса на in_news (может упасть при недоступности API)
-        status_update_errors = []
-        if finalized_ids:
-            with GarDiscoveryClient(settings) as client:
-                for row_id in finalized_ids:
-                    try:
-                        client.update_discovered_source(row_id, status="in_news")
-                    except Exception as exc:  # noqa: BLE001
-                        status_update_errors.append(f"ID {row_id}: {exc}")
-
-        stats = outcome.stats
-
-        # Ошибки смены статуса — в деталях, но не влияют на общий итог
-        all_errors = errors[:]
-        if status_update_errors:
-            all_errors.append("⚠️ Не удалось обновить статус (черновики сохранены):")
-            all_errors.extend(status_update_errors)
-
-        level = notify.outcome_level(ok, len(chosen))
-        title = f"Добавлено в новости: {ok} из {len(chosen)}"
-        notify.report(level, title, stats, all_errors)
-        if finalized_ids:
-            st.rerun()
-    if b1.button("Одобрить выбранные", disabled=not selected_ids):
+    if b5.button("В пересказ", disabled=not selected_ids, key="results_to_digest",
+                 help="LLM-черновик сокращённого пересказа со ссылкой на источник "
+                      "→ вкладка «Новости»; публикация только после чеклиста"):
+        _to_news(rows, selected_ids, settings, fmt="digest")
+    if b6.button("В новости", disabled=not selected_ids, key="results_to_news",
+                 help="LLM-черновик новости по выбранным статьям → вкладка «Новости»"):
+        _to_news(rows, selected_ids, settings, fmt="news")
+    if b1.button("Одобрить", disabled=not selected_ids):
         with GarDiscoveryClient(settings) as client:
             for row_id in selected_ids:
                 source = next(r for r in rows if r["id"] == row_id)
                 _approve(client, source)
         notify.report("success", "Одобрено", {"статей": len(selected_ids)})
         st.rerun()
-    if b2.button("Отклонить выбранные", disabled=not selected_ids):
+    if b2.button("Отклонить", disabled=not selected_ids):
         with GarDiscoveryClient(settings) as client:
             for row_id in selected_ids:
                 client.update_discovered_source(row_id, status="rejected")
         notify.report("success", "Отклонено", {"статей": len(selected_ids)})
         st.rerun()
-    if b3.button("В очередь загрузки", disabled=not selected_ids):
+    if b4.button("В очередь загрузки", disabled=not selected_ids):
         with GarDiscoveryClient(settings) as client:
             for row_id in selected_ids:
                 client.update_discovered_source(row_id, status="queued")
         notify.report("success", "В очереди", {"статей": len(selected_ids)})
         st.rerun()
-    if b4.button("Удалить выбранные", disabled=not selected_ids):
+    if b3.button("Удалить", disabled=not selected_ids):
         with GarDiscoveryClient(settings) as client:
             for row_id in selected_ids:
                 client.delete_discovered_source(row_id)
