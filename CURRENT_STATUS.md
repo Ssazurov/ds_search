@@ -359,3 +359,11 @@ local rows + GAR-документы без соответствия по gar_doc
 - **Проверка**: UI localhost:8501 — кнопки справа, равные промежутки между ними.
 - Container ds-search rebuilt, UI готов к проверке.
 - PR #418, Closes #417.
+
+## 2026-09-30 — ds_search#420: пересказ (digest), модель/промпт/overlap
+- `news_items`: колонки `format`, `quotes`, `overlap_max_run`, `overlap_ratio` (миграция в `db.init_db`).
+- `llm_draft.generate_draft(..., fmt="digest", autoclassify=...)`, `prompt_template_digest` + `max_tokens_digest`/`num_ctx_digest` в `news_llm.yaml`.
+- `src/news/overlap.py`: серия ≥8 слов / доля 5-грамм >15% (цитаты исключены), лимиты цитат (≤2, ≤25 слов).
+- `publish`: `doc_type=digest`, блок «Полный текст — на сайте источника», без http(s)-URL публикация запрещена.
+- ADR-0024 (ds/docs/adr). Требуется активная опция `doc_type=digest` в GAR (вручную).
+- Container ds-search rebuilt, UI без изменений (UI — #421). PR #<pr>, Closes #420.
