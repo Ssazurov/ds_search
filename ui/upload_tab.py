@@ -23,7 +23,7 @@ DATA_ROOT = Path(__file__).resolve().parents[1] / "data" / "raw"
 
 
 def _render_queue() -> None:
-    st.subheader("Очередь загрузки")
+    st.subheader("Очередь загрузки статей")
     settings = load_settings()
     try:
         with GarDiscoveryClient(settings) as client:
@@ -173,7 +173,7 @@ def _render_link(dictionaries: dict, directions: list) -> None:
 
 
 def _render_manual() -> None:
-    st.subheader("Ручная загрузка")
+    st.subheader("Ручная загрузка статей")
     dictionaries = load_dictionaries()
     directions = list(dictionaries["directions"].keys())
     mode = st.radio("Способ", ["Файл", "Ссылка"], horizontal=True)
@@ -191,7 +191,7 @@ def _render_manual() -> None:
         doc_type = st.selectbox(
             "Тип документа", dictionaries.get("doc_types", []) or [""],
             format_func=lambda v: label_of(dictionaries, "doc_type", v))
-        if st.button("Сохранить файл", disabled=not (uploaded and title.strip())):
+        if st.button("Загрузить", key="upload_file_btn", disabled=not (uploaded and title.strip())):
             _save_manual_file(uploaded, title.strip(), direction, doc_type, category or None)
             notify.report("success", "Документ сохранён", {"путь": "data/raw/<домен>/"})
             st.rerun()
@@ -200,7 +200,7 @@ def _render_manual() -> None:
 
 
 def _render_add_news() -> None:
-    st.subheader("Новость по ссылке")
+    st.subheader("Загрузка новости")
     st.caption("Штатная загрузка одной новости по URL (issue #183) — та же "
                "проверка лицензии домена и LLM-классификация, что и автосбор.")
     news_url = st.text_input("Ссылка на новость", key="add_news_url")
@@ -212,7 +212,7 @@ def _render_add_news() -> None:
     category = st.selectbox(
         "Категория", [""] + dictionaries["directions"].get(direction, []), key="add_news_cat",
         format_func=lambda v: label_of(dictionaries, "category", v) if v else auto)
-    if st.button("Добавить новость", disabled=not news_url.strip()):
+    if st.button("Загрузить", key="add_news_btn", disabled=not news_url.strip()):
         from src.news.collect import add_single_url
 
         result = asyncio.run(add_single_url(
