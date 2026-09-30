@@ -19,7 +19,7 @@ from src.gar_ingest.documents import ingest_document, revoke_document
 from src.metadata.schema import label_of, load_dictionaries
 from src.news.db import has_published_digest
 from ui import notify
-from ui.news_add import add_articles_as_news, format_selector, summarize
+from ui.news_add import add_articles_as_news, summarize
 from ui.table_utils import COLUMN_LABELS, column_settings, datetime_column, link_column, localize, action_row
 
 ROOT = Path(__file__).resolve().parents[1] / "data"
@@ -735,8 +735,9 @@ def render() -> None:
 
     # Кнопки прижаты к правому краю
     with_url = [r for r in selected_rows if r.get("url")]
-    news_fmt = format_selector("documents_news_fmt")
-    b1, b2, b3, b4, b5, b6 = action_row(6, "documents")
+    # Порядок кнопок (issue #432): статусные действия → две кнопки генерации
+    # черновика «В пересказ» / «В новости» справа, без переключателя «Формат».
+    b1, b2, b3, b4, b5, b6, b7 = action_row(7, "documents")
     if b1.button(f"Загрузить в GAR ({len(not_loaded)})", disabled=not not_loaded,
                  key="ingest_selected_btn"):
         _ingest_batch(not_loaded)
@@ -751,12 +752,16 @@ def render() -> None:
     if b4.button(f"Архивировать ({len(archivable)})",
                  disabled=not archivable, key="doc_archive_btn"):
         _archive_batch(archivable, archive=True)
-    if b5.button(f"Вернуть из архива ({len(archivable)})",
+    if b5.button(f"Из архива ({len(archivable)})",
                  disabled=not archivable, key="doc_unarchive_btn"):
         _archive_batch(archivable, archive=False)
-    if b6.button(f"В новости ({len(with_url)})", disabled=not with_url, key="doc_to_news_btn",
+    if b6.button(f"В пересказ ({len(with_url)})", disabled=not with_url, key="doc_to_digest_btn",
+                 help="LLM-черновик сокращённого пересказа со ссылкой на источник → вкладка "
+                      "«Новости»; публикация только после чеклиста"):
+        _to_news_batch(with_url, fmt="digest")
+    if b7.button(f"В новости ({len(with_url)})", disabled=not with_url, key="doc_to_news_btn",
                  help="LLM-черновик новости по выбранным документам → вкладка «Новости»"):
-        _to_news_batch(with_url, fmt=news_fmt)
+        _to_news_batch(with_url, fmt="news")
 
     _confirm_and_run(
         "confirm_delete_from_gar",
