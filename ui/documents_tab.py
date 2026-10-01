@@ -27,8 +27,12 @@ RAW_ROOT = ROOT / "raw"
 CLEAN_ROOT = ROOT / "clean"
 
 _ALL = "Все"
-_STATUS_ORDER = {"error": 0, "pending": 1, "loaded": 2}  # ошибки сверху
-_STATUS_CELL = {"loaded": "✅ загружен", "error": "⚠️ ошибка", "pending": "— не загружен"}
+_STATUS_ORDER = {"error": 0, "digest_only": 1, "pending": 2, "loaded": 3}  # ошибки сверху
+_STATUS_CELL = {
+    "loaded": "✅ загружен", "error": "⚠️ ошибка", "pending": "— не загружен",
+    # issue #438: отдельная иконка, не путать с pending/error/loaded
+    "digest_only": "📑 только пересказ",
+}
 _STATUS_FILTER = {"pending": "Не загружены", "error": "Ошибка", "loaded": "Загружены"}
 _DS_INGESTION_URL = os.environ.get("DS_INGESTION_URL", "http://127.0.0.1:8200")
 
@@ -64,6 +68,8 @@ def _scan_raw() -> list[dict]:
             "gar_document_id": gar_id,
             "ingest_error": error,
             "status": "loaded" if gar_id else ("error" if error else "pending"),
+            # issue #438: ручной сброс авто-статуса digest_only
+            "digest_only_dismissed": bool(meta.get("digest_only_dismissed")),
             "added": datetime.fromtimestamp(meta_path.stat().st_mtime),
             "local": True,
         })
@@ -96,6 +102,20 @@ def _derived_cell(url: str | None, derived: dict[str, dict]) -> str:
         return ""
     icon = _NEWS_FORMAT_ICON.get(item["format"], "📰")
     return f"{icon} #{item['id']} {_NEWS_STATUS_LABEL.get(item['status'], item['status'])}"
+
+
+def _apply_digest_only_status(rows: list[dict], derived: dict[str, dict]) -> None:
+    """issue #438: статус digest_only для статьи-источника — выставляется,
+    когда у документа (doc_type=article) нет своего gar_document_id, но по
+    тому же source_url есть опубликованная новость/дайджест (derived — из
+    items_by_source_urls). Снимается вручную флагом digest_only_dismissed
+    в sidecar .json (см. _render_metadata_form)."""
+    for r in rows:
+        if r["gar_document_id"] or r["doc_type"] != "article" or r.get("digest_only_dismissed"):
+            continue
+        item = derived.get(r["url"]) if r["url"] else None
+        if item and item["status"] == "published":
+            r["status"] = "digest_only"
 
 
 def _apply_filters(rows: list[dict]) -> list[dict]:
@@ -606,6 +626,11 @@ def render() -> None:
         notify.report("info", "Нет сохранённых документов в data/raw")
         return
 
+    # issue #438: статус digest_only считается до фильтрации/сортировки,
+    # чтобы сортировка по статусу и счётчики ниже видели актуальное значение
+    derived = items_by_source_urls([r["url"] for r in rows])
+    _apply_digest_only_status(rows, derived)
+
     filtered = _apply_filters(rows)
     if not filtered:
         notify.report("info", "Ничего не найдено по текущим фильтрам")
@@ -615,7 +640,6 @@ def render() -> None:
         **COLUMN_LABELS, "clean": "Очищен", "gar": "В GAR", "error": "Ошибка", "added": "Добавлен",
         "md": "MD", "json": "JSON", "derived": "Производные",
     }
-    derived = items_by_source_urls([r["url"] for r in filtered])
 
     _HOST_DATA_ROOT = os.environ.get("HOST_DATA_ROOT", "/home/vector/projects/ds/ds_search/data")
     _WSL_DISTRO = os.environ.get("HOST_WSL_DISTRO", "Ubuntu")
@@ -743,6 +767,19 @@ def render() -> None:
                             help="Отозвать оригинал из GAR (опубликован пересказ)"):
                     st.session_state["confirm_revoke_document"] = True
                     st.rerun()
+
+        # issue #438: ручной сброс авто-статуса digest_only — на случай,
+        # если всё же нужно догрузить полный текст статьи в GAR
+        if len(selected_rows) == 1 and selected_rows[0]["status"] == "digest_only" \
+                and selected_rows[0]["doc_json_path"] is not None:
+            row = selected_rows[0]
+            if st.button("♻️ Снять digest_only (догрузить полный текст)", key="doc_digest_only_dismiss_btn",
+                         help="Статья помечена как «только пересказ» — есть опубликованная новость/"
+                              "дайджест по этому source_url. Снимите, если всё же нужно загрузить "
+                              "полный текст статьи в GAR."):
+                _update_document_metadata(row["doc_json_path"], {"digest_only_dismissed": True})
+                notify.report("success", f"Статус digest_only снят: {_row_label(row)}")
+                st.rerun()
 
     # issue #299: кнопки удаления с явной семантикой и подтверждением
     not_loaded = [r for r in selected_rows if not r["gar_document_id"]]

@@ -1,3 +1,12 @@
+## 2026-10-01 -- issue #438: статус digest_only для статьи-источника
+
+- `ui/documents_tab.py`: новый статус строки `digest_only` — отдельная иконка `📑 только пересказ` (`_STATUS_CELL`, `_STATUS_ORDER`), не путается с `pending/error/loaded`. Выставляется функцией `_apply_digest_only_status(rows, derived)`: `doc_type=article`, нет `gar_document_id`, по `source_url` в `items_by_source_urls` есть запись со `status=published` (`format` news или digest), и флаг `digest_only_dismissed` не стоит. Вызывается в `render()` сразу после сборки `rows`, **до** `_apply_filters` (нужно для сортировки/счётчиков) — `derived` считается один раз на все строки и переиспользуется ниже для бейджа «Производные» (дублирующий запрос убран).
+- `_scan_raw()`: читает `digest_only_dismissed` из sidecar `.json` в строку.
+- Ручной сброс: кнопка «♻️ Снять digest_only (догрузить полный текст)» в карточке действий (видна при выборе одного документа со статусом `digest_only`) — пишет `digest_only_dismissed: true` через `_update_document_metadata`.
+- Фильтр «Тип документа» (доступен в #439) и колонка `В GAR`/`_STATUS_FILTER` пока digest_only не знают — вне скоупа #438.
+- `tests/test_documents_tab.py`: 7 новых тестов на `_apply_digest_only_status` (срабатывание для news/digest, игнор draft/rejected, пропуск уже загруженных и не-article, уважение ручного сброса, no-op без url). `30 passed` в файле.
+- Полный набор: `504 passed`, 3 падения `test_digest.py` + 1 ImportError `test_migrate_raw_folders.py` — предсуществующие (воспроизводятся на чистом `main`).
+
 ## 2026-09-30 -- issue #434: кнопка «Скачать» на «Результатах» (скачивание без перехода на «Загрузку»)
 
 - **`ui/results_tab.py`**: новый хелпер `_download(rows, selected_ids, settings)` — то же ядро, что «Скачать» на вкладке «Загрузки» (`add_manual_document`: dedup по canonical_url → license gate → recrawl → sidecar), вызов через `asyncio.run`, `direction`/`category` берутся из `suggested_direction`/`suggested_category` (fallback на `category`). Статусы `downloading` → `downloaded` / `error`, промежуточный `queued` **не** выставляется (решение по issue). Маппинг: `added`→`downloaded`+`скачано`, `duplicate`→`downloaded`+`дублей` (в деталях `doc_id`), `license_pending`/`license_denied`/`failed`→`error` с причиной. Батч не прерывается на первой ошибке (`except Exception` + `contextlib.suppress` на повторную смену статуса), `st.spinner` на весь батч, сводный `notify.report("Скачано: N из M", {"скачано", "дублей", "ошибок"}, errors)`, затем `st.rerun()`.

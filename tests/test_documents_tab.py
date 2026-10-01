@@ -99,7 +99,80 @@ def test_scan_raw_statuses_and_skips(tmp_path, monkeypatch):
     assert all(r["local"] for r in rows.values())
 
 
-# ------------------------------------------------------------ _gar_only_rows
+# --------------------------------------------------- _apply_digest_only_status (issue #438)
+
+def _row(**overrides) -> dict:
+    base = {
+        "gar_document_id": None, "doc_type": "article", "url": "https://x.test/a",
+        "status": "pending", "digest_only_dismissed": False,
+    }
+    base.update(overrides)
+    return base
+
+
+def test_digest_only_status_set_when_published_derivative_exists():
+    rows = [_row()]
+    derived = {"https://x.test/a": {"id": 1, "status": "published", "format": "news"}}
+
+    documents_tab._apply_digest_only_status(rows, derived)
+
+    assert rows[0]["status"] == "digest_only"
+
+
+def test_digest_only_status_works_for_digest_format_too():
+    rows = [_row()]
+    derived = {"https://x.test/a": {"id": 1, "status": "published", "format": "digest"}}
+
+    documents_tab._apply_digest_only_status(rows, derived)
+
+    assert rows[0]["status"] == "digest_only"
+
+
+def test_digest_only_status_ignores_draft_or_rejected():
+    rows = [_row()]
+    derived = {"https://x.test/a": {"id": 1, "status": "draft", "format": "news"}}
+
+    documents_tab._apply_digest_only_status(rows, derived)
+
+    assert rows[0]["status"] == "pending"
+
+
+def test_digest_only_status_skips_documents_already_in_gar():
+    rows = [_row(gar_document_id="gid-1", status="loaded")]
+    derived = {"https://x.test/a": {"id": 1, "status": "published", "format": "news"}}
+
+    documents_tab._apply_digest_only_status(rows, derived)
+
+    assert rows[0]["status"] == "loaded"
+
+
+def test_digest_only_status_skips_non_article_doc_type():
+    rows = [_row(doc_type="guide")]
+    derived = {"https://x.test/a": {"id": 1, "status": "published", "format": "news"}}
+
+    documents_tab._apply_digest_only_status(rows, derived)
+
+    assert rows[0]["status"] == "pending"
+
+
+def test_digest_only_status_respects_manual_dismiss():
+    rows = [_row(digest_only_dismissed=True)]
+    derived = {"https://x.test/a": {"id": 1, "status": "published", "format": "news"}}
+
+    documents_tab._apply_digest_only_status(rows, derived)
+
+    assert rows[0]["status"] == "pending"
+
+
+def test_digest_only_status_noop_without_url():
+    rows = [_row(url=None)]
+
+    documents_tab._apply_digest_only_status(rows, {})
+
+    assert rows[0]["status"] == "pending"
+
+
+# --------------------------------------------------------- _gar_only_rows
 
 def test_gar_only_rows_dedups_and_maps_fields():
     local_rows = [{"gar_document_id": "gid-local"}]
