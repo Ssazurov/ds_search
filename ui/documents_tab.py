@@ -17,7 +17,7 @@ import streamlit as st
 from src.gar_ingest.client import GarPublishError
 from src.gar_ingest.documents import ingest_document, revoke_document
 from src.metadata.schema import label_of, load_dictionaries
-from src.news.db import has_published_digest
+from src.news.db import has_published_digest, items_by_source_urls
 from ui import notify
 from ui.news_add import add_articles_as_news, summarize
 from ui.table_utils import COLUMN_LABELS, column_settings, datetime_column, link_column, localize, action_row
@@ -82,6 +82,20 @@ def _reset_filters() -> None:
 
 
 _GAR_STATUS_FILTER = {"indexed": "Активные", "archived": "Архив"}
+
+_NEWS_FORMAT_ICON = {"news": "📰", "digest": "📝"}
+_NEWS_STATUS_LABEL = {"draft": "черновик", "published": "опубликована", "rejected": "отклонена"}
+
+
+def _derived_cell(url: str | None, derived: dict[str, dict]) -> str:
+    """Бейдж «Производные» (issue ds_search#437): новость/дайджест,
+    собранные из этой же статьи (связь по source_url, не по gar_document_id —
+    у производных свой отдельный документ в GAR)."""
+    item = derived.get(url) if url else None
+    if not item:
+        return ""
+    icon = _NEWS_FORMAT_ICON.get(item["format"], "📰")
+    return f"{icon} #{item['id']} {_NEWS_STATUS_LABEL.get(item['status'], item['status'])}"
 
 
 def _apply_filters(rows: list[dict]) -> list[dict]:
@@ -599,8 +613,9 @@ def render() -> None:
 
     labels = {
         **COLUMN_LABELS, "clean": "Очищен", "gar": "В GAR", "error": "Ошибка", "added": "Добавлен",
-        "md": "MD", "json": "JSON",
+        "md": "MD", "json": "JSON", "derived": "Производные",
     }
+    derived = items_by_source_urls([r["url"] for r in filtered])
 
     _HOST_DATA_ROOT = os.environ.get("HOST_DATA_ROOT", "/home/vector/projects/ds/ds_search/data")
     _WSL_DISTRO = os.environ.get("HOST_WSL_DISTRO", "Ubuntu")
@@ -645,6 +660,7 @@ def render() -> None:
             "clean": r["clean"], "gar": _STATUS_CELL[r["status"]],
             "error": r["ingest_error"] or "", "added": r["added"],
             "md": _file_uri(r["content_path"]), "json": _file_uri(r["doc_json_path"]),
+            "derived": _derived_cell(r["url"], derived),
         }
         for r in filtered
     ])
@@ -655,7 +671,8 @@ def render() -> None:
     with col_settings:
         order, config, sort = column_settings(
             "documents", {k: labels[k] for k in ("select", "title", "url", "domain", "direction", "category",
-                                                 "doc_type", "clean", "gar", "error", "added", "md", "json")},
+                                                 "doc_type", "clean", "gar", "error", "derived", "added",
+                                                 "md", "json")},
             {labels["url"]: link_column(), labels["added"]: datetime_column(labels["added"]),
              labels["md"]: st.column_config.LinkColumn(
                  labels["md"], display_text=":material/description:", width="small"),

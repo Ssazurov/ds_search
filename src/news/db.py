@@ -161,6 +161,21 @@ def _check_format(fmt: str) -> str:
     return fmt
 
 
+def items_by_source_urls(urls: list[str], db_path: Path = DB_PATH) -> dict[str, dict]:
+    """source_url -> {id, status, format} для непустого списка ссылок (issue
+    ds_search#437: бейдж «Производные» во вкладке «Документы»)."""
+    urls = [u for u in urls if u]
+    if not urls:
+        return {}
+    with get_connection(db_path) as conn:
+        placeholders = ",".join("?" for _ in urls)
+        rows = conn.execute(
+            f"SELECT source_url, id, status, format FROM news_items WHERE source_url IN ({placeholders})",
+            urls,
+        ).fetchall()
+    return {r["source_url"]: {"id": r["id"], "status": r["status"], "format": r["format"]} for r in rows}
+
+
 def source_url_exists(source_url: str, db_path: Path = DB_PATH) -> bool:
     """Дешёвая проверка перед download+LLM в cron-пайплайне (issue #61) —
     не тратить скачивание/LLM-вызов на источник, уже собранный раньше."""
