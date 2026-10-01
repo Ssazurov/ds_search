@@ -144,7 +144,7 @@ def _apply_filters(rows: list[dict]) -> list[dict]:
         format_func=lambda v: _DOC_TYPE_FILTER.get(v, _ALL))
     domain_key = f"doc_filter_domain_v{st.session_state.get('doc_filter_domain_version', 0)}"
     domain = c4.selectbox(
-        "Домен", [_ALL, *sorted(domain_counts)], key=domain_key,
+        "Домен", [_ALL, *sorted(domain_counts, key=lambda d: (-domain_counts[d], d))], key=domain_key,
         format_func=lambda d: f"Все ({total_count})" if d == _ALL else f"{d} ({domain_counts[d]})")
     direction = c5.selectbox(
         "Направление", [_ALL, *directions], key="doc_filter_direction",
