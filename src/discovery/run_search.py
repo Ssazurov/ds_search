@@ -22,6 +22,8 @@ from ..metadata.meta_extract import extract_meta_tags
 from ..search.chain import SearchProviderChain
 from ..search.dates import parse_published
 from ..search.wp_api import wp_search
+from ..search.rss_search import rss_search
+from ..search.sitemap_search import sitemap_search
 from .classify import classify
 from .config import Settings, load_settings
 from .dedup import dedup_candidates
@@ -89,9 +91,19 @@ def _search(chain: SearchProviderChain, query: str, doms: list[str], max_results
     hits: list[SearchHit] = []
     seen: set[str] = set()
     for d in doms:
-        # точный поиск внутри сайта: WordPress REST API (даты и период на стороне сайта)
+        # точный поиск внутри сайта: порядок адаптеров (#382)
+        # 1. WordPress REST API (даты и период на стороне сайта)
         found = wp_search(d, query, max_results=min(100, per_domain * 2),
                           date_from=date_from, date_to=date_to)
+        # 2. RSS/Atom (автообнаружение через <link> и стандартные пути)
+        if found is None:
+            found = rss_search(d, query, max_results=min(100, per_domain * 2),
+                              date_from=date_from, date_to=date_to)
+        # 3. Sitemap (lastmod + проверка дат со страниц)
+        if found is None:
+            found = sitemap_search(d, query, max_results=min(100, per_domain * 2),
+                                  date_from=date_from, date_to=date_to)
+        # 4. Фолбэк на цепочку провайдеров
         if found is None:
             found = chain.search(f"{query} site:{d}", max_results=min(100, per_domain * 2), **dates)
         taken = 0
