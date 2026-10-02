@@ -432,6 +432,49 @@ def _refresh_local_content(document_id: str) -> None:
         os.replace(tmp_dst, dst)
 
 
+def _refresh_local_content_for_row(row: dict) -> None:
+    """Перекачка контента для документа без gar_document_id (issue #300
+    расширение): тот же приём, что в _refresh_local_content, но без
+    resolve_by_gar_id — sidecar .json и source_url уже есть локально."""
+    import asyncio
+    import concurrent.futures as _cf
+    import shutil
+    import tempfile
+
+    from src.discovery.download import download_single
+
+    jp = row["doc_json_path"]
+    url = row.get("url")
+    if not url:
+        raise GarPublishError(f"reload {row['doc_id']}: в sidecar нет source_url")
+
+    async def _dl(tmp_root):
+        return await asyncio.wait_for(
+            download_single({"url": url}, data_root=tmp_root, dest_dir="r", filename="r"),
+            timeout=_RECRAWL_TIMEOUT_S,
+        )
+
+    with tempfile.TemporaryDirectory() as tmp, _cf.ThreadPoolExecutor(max_workers=1) as ex:
+        fut = ex.submit(asyncio.run, _dl(Path(tmp)))
+        status = st.empty()
+        waited = 0
+        while not _cf.wait([fut], timeout=_RECRAWL_POLL_S)[0]:
+            waited += _RECRAWL_POLL_S
+            status.caption(f"Скачивание источника… {waited} с из {_RECRAWL_TIMEOUT_S}")
+        status.empty()
+        try:
+            new = fut.result()
+        except asyncio.TimeoutError as exc:
+            raise GarPublishError(f"reload {row['doc_id']}: источник не ответил за {_RECRAWL_TIMEOUT_S} с") from exc
+        src = Path(new["content_path"])
+        dst = jp.with_suffix(src.suffix)
+        if not dst.is_file():
+            raise GarPublishError(f"reload {row['doc_id']}: тип контента источника изменился ({src.suffix})")
+        tmp_dst = dst.with_name(dst.name + ".tmp")
+        shutil.copyfile(src, tmp_dst)
+        os.replace(tmp_dst, dst)
+
+
 def _reload_from_source(document_id: str) -> dict:
     """POST /reload_by_gar_id на ds_ingestion (issue ds_search#145 /
     ADR-0007): полная перезагрузка metadata+content из локального источника.
@@ -778,26 +821,37 @@ def render() -> None:
     if selected_rows:
         _render_metadata_form(selected_rows)
 
-        # issue #300: кнопка перезагрузки из источника для одного документа с gar_document_id
-        if len(selected_rows) == 1 and selected_rows[0]["gar_document_id"]:
+        # issue #300 / расширение: кнопка перезагрузки из источника — всегда
+        # для одного выбранного документа, независимо от статуса в GAR.
+        # С gar_document_id — полный reload (metadata+content через
+        # ds_ingestion). Без него — только перекачка локального контента
+        # (документ ещё не загружен/ошибка/digest_only), сам reload в GAR
+        # произойдёт при следующей загрузке.
+        if len(selected_rows) == 1:
+            row = selected_rows[0]
             c1, c2 = st.columns(2)
             if c1.button("🔄 Перезагрузить из источника", key="doc_reload_btn"):
                 try:
-                    rep = _reload_from_source(selected_rows[0]["gar_document_id"])
-                    changed, preserved = rep.get("changed_fields"), rep.get("preserved_fields")
-                    notify.report(
-                        "success", f"Перезагружено из источника: {_row_label(selected_rows[0])}",
-                        {"изменено полей": len(changed or []), "сохранено полей": len(preserved or []),
-                         "контент заменён": "да" if rep.get("content_replaced") else "нет"},
-                        details=[f"Изменено: {', '.join(map(str, changed))}"] if changed else None)
-                    st.session_state.pop("gar_docs_cache", None)
+                    if row["gar_document_id"]:
+                        rep = _reload_from_source(row["gar_document_id"])
+                        changed, preserved = rep.get("changed_fields"), rep.get("preserved_fields")
+                        notify.report(
+                            "success", f"Перезагружено из источника: {_row_label(row)}",
+                            {"изменено полей": len(changed or []), "сохранено полей": len(preserved or []),
+                             "контент заменён": "да" if rep.get("content_replaced") else "нет"},
+                            details=[f"Изменено: {', '.join(map(str, changed))}"] if changed else None)
+                        st.session_state.pop("gar_docs_cache", None)
+                    elif row["doc_json_path"] is not None:
+                        _refresh_local_content_for_row(row)
+                        notify.report("success", f"Контент перекачан из источника: {_row_label(row)}")
+                    else:
+                        notify.report("info", f"Нет ни GAR-документа, ни локального файла: {_row_label(row)}")
                     st.rerun()
                 except GarPublishError as exc:
                     notify.report("error", "Не удалось перезагрузить из источника",
-                                  details=[f"{_row_label(selected_rows[0])}: {exc}"])
+                                  details=[f"{_row_label(row)}: {exc}"])
 
             # issue #427: кнопка «Снять полный текст» для документа с опубликованным digest
-            row = selected_rows[0]
             if row.get("url") and _has_published_digest_for_url(row["url"]):
                 if c2.button("📤 Снять полный текст", key="doc_revoke_btn",
                             help="Отозвать оригинал из GAR (опубликован пересказ)"):
