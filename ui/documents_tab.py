@@ -16,6 +16,7 @@ import streamlit as st
 
 from src.gar_ingest.client import GarPublishError
 from src.gar_ingest.documents import ingest_document, revoke_document
+from src.gar_ingest.paths import resolve_content_path
 from src.metadata.schema import label_of, load_dictionaries
 from src.news.db import has_published_digest, items_by_source_urls
 from ui import notify
@@ -666,7 +667,19 @@ def render() -> None:
     _HOST_DATA_ROOT = os.environ.get("HOST_DATA_ROOT", "/home/vector/projects/ds/ds_search/data")
     _WSL_DISTRO = os.environ.get("HOST_WSL_DISTRO", "Ubuntu")
 
-    def _file_uri(p) -> str | None:
+    def _resolved_content_path(p, doc_json_path) -> Path | None:
+        # issue #445: content_path в sidecar .json бывает контейнерным
+        # (/app/data/...) или host-путём другой машины/окружения — в обоих
+        # случаях голый Path(p) не существует локально. resolve_content_path
+        # (см. src/gar_ingest/paths.py, issue #400) уже умеет падать обратно
+        # на файл рядом с sidecar .json (тот же stem, .md/.pdf) — переиспользуем
+        # эту же логику здесь, иначе колонка md остаётся пустой при живом файле.
+        if not p:
+            return None
+        resolved = resolve_content_path(doc_json_path, p)
+        return resolved if resolved.exists() else None
+
+    def _file_uri(p, doc_json_path) -> str | None:
         # issue #292/#327: vscode://vscode-remote/wsl+<distro>/... — ненадёжно
         # (переоткрытие уже открытого remote-окна фокусирует его, файл не
         # открывается). file://wsl.localhost/... — браузер блокирует
@@ -676,23 +689,23 @@ def render() -> None:
         # расширения через \\wsl.localhost\<distro>\<path> — у автора это
         # Notepad++). Требует host path, см. HOST_DATA_ROOT.
         # Статика Streamlit (issue #325) оставлена как fallback ниже.
-        if not p:
+        resolved = _resolved_content_path(p, doc_json_path)
+        if resolved is None:
             return None
-        resolved = Path(p).resolve()
         try:
             rel = resolved.relative_to(ROOT)
         except ValueError:
             return None
         return f"dsdoc://{_WSL_DISTRO}{_HOST_DATA_ROOT}/{rel.as_posix()}"
 
-    def _static_uri(p) -> str | None:
+    def _static_uri(p, doc_json_path) -> str | None:
         # Fallback для тех, у кого нет VS Code/Remote-WSL — статика Streamlit
         # (data смонтирован ещё раз в /app/ui/static/data, НЕ symlink'ом:
         # у symlink'а realpath уходит за пределы app_static_root, и Streamlit
         # отвечает 400 Bad Request на любой файл — issue #325).
-        if not p:
+        resolved = _resolved_content_path(p, doc_json_path)
+        if resolved is None:
             return None
-        resolved = Path(p).resolve()
         try:
             rel = resolved.relative_to(ROOT)
         except ValueError:
@@ -705,7 +718,8 @@ def render() -> None:
             "direction": r["direction"], "category": r["category"], "doc_type": r["doc_type"],
             "clean": r["clean"], "gar": _STATUS_CELL[r["status"]],
             "error": r["ingest_error"] or "", "added": r["added"],
-            "md": _file_uri(r["content_path"]), "json": _file_uri(r["doc_json_path"]),
+            "md": _file_uri(r["content_path"], r["doc_json_path"]),
+            "json": _file_uri(r["doc_json_path"], r["doc_json_path"]),
             "derived": _derived_cell(r["url"], derived),
         }
         for r in filtered
