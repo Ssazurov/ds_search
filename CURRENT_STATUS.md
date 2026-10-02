@@ -1,3 +1,11 @@
+## 2026-10-02 -- issue #447: trailing пробелы в markdown таблицах
+
+- **Проблема**: `html2text` добавляет trailing пробелы после pipe-символов в таблицах (`|  \n` вместо `|\n`), что ломает рендеринг markdown таблиц на сайте.
+- **Решение**: `src/crawler/filters.py` — добавлена функция `_clean_markdown_tables()` для удаления trailing пробелов после `|` через regex `r'\|\s+$'` (multiline mode). Применяется ко всем результатам `AdaptiveMarkdownGenerator`: `raw_markdown`, `fit_markdown`, `references_markdown`.
+- **Тест**: `tests/test_crawler_filters.py::test_adaptive_generator_cleans_table_trailing_spaces` — проверяет корректность очистки таблиц с кириллицей.
+- **Проверка**: `pytest tests/test_crawler_filters.py -v` проходит, `git diff --check` — нет whitespace ошибок, контейнер `ds-search` пересобран.
+- PR #450 (Closes #447).
+
 ## 2026-10-02 -- issue #445: колонка md без ссылки при контейнерном content_path
 
 - `ui/documents_tab.py`: `_file_uri`/`_static_uri` резолвят путь через `resolve_content_path` (`src/gar_ingest/paths.py`, issue #400) вместо голого `Path(p).resolve()` — если записанный `content_path` контейнерный (`/app/data/...`) или из другого окружения, ищется файл рядом с sidecar `.json` по тому же stem (`.md`/`.pdf`). Раньше `relative_to(ROOT)` падал → колонка `md` оставалась пустой при живом файле на диске. Без миграции данных.
