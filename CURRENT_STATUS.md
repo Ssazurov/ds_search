@@ -393,3 +393,16 @@ local rows + GAR-документы без соответствия по gar_doc
 ## Архив
 
 - Записи 2026-09-30 (ds_search#420, #423 и последующие) вынесены в [CURRENT_STATUS-2026-09-30_part2.md](docs/archive/current-status/CURRENT_STATUS-2026-09-30_part2.md)
+
+## 2026-10-02 -- issue #451: миграция существующих markdown файлов (trailing пробелы в таблицах)
+
+- **Проблема**: исправление #447 (PR #450) применялось только при новом скрапинге. Уже загруженные статьи содержали битые таблицы с trailing пробелами.
+- **Решение**: `scripts/migrate_fix_tables.py` — применяет `_clean_markdown_tables()` ко всем `data/raw/**/*.md`. Dry-run режим для preview, обновляет `modified_at` в sidecar `.json`, идемпотентный (повторный запуск не меняет уже исправленные файлы).
+- **Результаты миграции**: обработано 347 .md файлов, исправлено 4, пропущено 343, ошибок 0.
+- **Исправленные файлы**:
+  - `t-l.ru/f32f72e2b79208ee.md`
+  - `downsideup.org/4087a890fd025a1c.md`
+  - `downsideup.org/07233a95bbd97df5.md` (статья 28768ef3-d5e1-444f-b2fa-c9355002c388)
+  - `downsideup.org/pomoshch-roditelyam-v-prinyatii-diagnoza-rebenka-put-k-normalizatsii.md`
+- **Проверка**: миграция применена локально, `data/` в `.gitignore` — коммитится только скрипт. Исправленные файлы используются сайтом сразу, контейнер перезагружать не нужно.
+- PR #452 (Closes #451).

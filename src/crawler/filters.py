@@ -188,5 +188,15 @@ EXCLUDED_SELECTOR = (
     '[class*="main-sidebar"], [class*="reading-buttons"], [class*="after-content"], '
     '[class*="posts-slider"], [class*="related-posts"], [class*="post-social"], '
     '[class*="spu-"], [class*="wppopups"], [class*="scroll-up"], '
-    '[class*="audio"], [class*="player"]'
+    '[class*="audio"], [class*="player"], '
+    # downsideup.org редизайн 2026 ("Фонд «Синдром любви»"): меню/подвал/
+    # модалки авторизации больше не в <nav>/<footer> (их там просто нет в
+    # разметке), а в BEM-классах Bitrix-шаблона — живая проверка на статье
+    # "druzya-govorili..." показала полную шапку/подвал без этих правил.
+    # ВНИМАНИЕ: [class*="dsa-el-item"] (карточки "Читать полностью") сюда
+    # НЕ добавлять — в комбинации с остальными правилами это у Crawl4AI
+    # схлопывает и основной текст статьи (проверено вручную).
+    '[class*="site-header"], [class*="dsa-mobile"], [class*="dsa-mmenu"], '
+    '[class*="sln-footer"], [class*="socials-links"], [class*="popup"], '
+    '#kk--cookie'
 )
