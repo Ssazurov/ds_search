@@ -1,3 +1,7 @@
+## 2026-10-02 -- issue #445: колонка md без ссылки при контейнерном content_path
+
+- `ui/documents_tab.py`: `_file_uri`/`_static_uri` резолвят путь через `resolve_content_path` (`src/gar_ingest/paths.py`, issue #400) вместо голого `Path(p).resolve()` — если записанный `content_path` контейнерный (`/app/data/...`) или из другого окружения, ищется файл рядом с sidecar `.json` по тому же stem (`.md`/`.pdf`). Раньше `relative_to(ROOT)` падал → колонка `md` оставалась пустой при живом файле на диске. Без миграции данных.
+
 ## 2026-10-01 -- issue #438: статус digest_only для статьи-источника
 
 - `ui/documents_tab.py`: новый статус строки `digest_only` — отдельная иконка `📑 только пересказ` (`_STATUS_CELL`, `_STATUS_ORDER`), не путается с `pending/error/loaded`. Выставляется функцией `_apply_digest_only_status(rows, derived)`: `doc_type=article`, нет `gar_document_id`, по `source_url` в `items_by_source_urls` есть запись со `status=published` (`format` news или digest), и флаг `digest_only_dismissed` не стоит. Вызывается в `render()` сразу после сборки `rows`, **до** `_apply_filters` (нужно для сортировки/счётчиков) — `derived` считается один раз на все строки и переиспользуется ниже для бейджа «Производные» (дублирующий запрос убран).
