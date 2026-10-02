@@ -198,5 +198,11 @@ EXCLUDED_SELECTOR = (
     # схлопывает и основной текст статьи (проверено вручную).
     '[class*="site-header"], [class*="dsa-mobile"], [class*="dsa-mmenu"], '
     '[class*="sln-footer"], [class*="socials-links"], [class*="popup"], '
-    '#kk--cookie'
+    '#kk--cookie, '
+    # то же редизайн: хлебные крошки (.tm-breadcrumb), скрытый баннер
+    # паволла "зарегистрируйтесь, чтобы читать дальше" (.news-blur__notice —
+    # класс _hidden есть в разметке всегда, парсеру это не мешает) и строка
+    # дата/рубрика над статьёй (.news__info) — точные классы, не префиксы,
+    # т.к. "news-blur" без уточнения оборачивает и сам текст статьи.
+    ".tm-breadcrumb, .news-blur__notice, .news__info"
 )
