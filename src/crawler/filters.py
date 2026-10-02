@@ -83,6 +83,13 @@ def build_content_filter() -> PruningContentFilter:
     return PruningContentFilter()
 
 
+def _clean_markdown_tables(markdown: str) -> str:
+    """issue #447: удаляет trailing пробелы после pipe в markdown-таблицах.
+    html2text генерирует "|  \\n" вместо "|\\n", что ломает рендеринг."""
+    # Находим строки таблиц (содержат | и заканчиваются пробелами перед \n)
+    return re.sub(r'(\|[^\n]*?) +\n', r'\1\n', markdown)
+
+
 class AdaptiveMarkdownGenerator(DefaultMarkdownGenerator):
     """Default Crawl4AI generator with source-specific heading normalization."""
 
@@ -92,12 +99,18 @@ class AdaptiveMarkdownGenerator(DefaultMarkdownGenerator):
         # html2text_options имеет наивысший приоритет в DefaultMarkdownGenerator.
         html2text_options = {"single_line_break": False}
         html2text_options.update(kwargs.pop("html2text_options", None) or {})
-        return super().generate_markdown(
+        result = super().generate_markdown(
             input_html=normalize_headings_for_url(input_html, base_url),
             base_url=base_url,
             html2text_options=html2text_options,
             **kwargs,
         )
+        # issue #447: html2text добавляет trailing пробелы после pipe в таблицах
+        # ("|  \n" вместо "|\n"), что ломает рендеринг. Очищаем их.
+        result.raw_markdown = _clean_markdown_tables(result.raw_markdown)
+        result.fit_markdown = _clean_markdown_tables(result.fit_markdown)
+        result.references_markdown = _clean_markdown_tables(result.references_markdown)
+        return result
 
 
 # issue #6 / ADR-001 п.3a: каталожные/листинговые страницы проходят
