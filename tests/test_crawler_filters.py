@@ -40,3 +40,22 @@ def test_adaptive_generator_respects_explicit_html2text_options():
         html2text_options={"single_line_break": True},
     )
     assert "Первый.\n\nВторой." not in md.raw_markdown
+
+
+def test_adaptive_generator_cleans_table_trailing_spaces():
+    # issue #447: html2text добавляет trailing пробелы в таблицах
+    from src.crawler.filters import AdaptiveMarkdownGenerator
+
+    html_table = """
+    <table>
+    <tr><th>Текст A</th><th>Текст Б</th></tr>
+    <tr><td>Первая ячейка.</td><td>Вторая ячейка.</td></tr>
+    </table>
+    """
+    md = AdaptiveMarkdownGenerator().generate_markdown(html_table, base_url="https://example.ru/")
+
+    # Проверяем, что trailing пробелы удалены
+    assert "| \n" not in md.raw_markdown
+    assert "|  \n" not in md.raw_markdown
+    # Проверяем корректную структуру таблицы
+    assert "| Текст A | Текст Б |\n" in md.raw_markdown
