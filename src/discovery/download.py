@@ -196,10 +196,13 @@ async def download_single(
             if value:
                 page_meta[key] = value
         meta = build_ingestion_metadata(
-            source_url=canon, source_domain=domain, title=title,
+            # issue #446: source_url — реальный result.url, не canon (slash
+            # обязателен для части сайтов, canonicalize_url его режет для
+            # дедупа — см. crawler.py._save).
+            source_url=result.url, source_domain=domain, title=title,
             license=license_result.status.value, category=category,
             direction=direction,
-            attribution=license_result.build_attribution(title=title, source_url=canon, domain=domain),
+            attribution=license_result.build_attribution(title=title, source_url=result.url, domain=domain),
             content_path=str(md_path), content_status="saved",
             doc_type="article",  # issue: doc_type не проставлялся веб-статьям (0 из 107)
             is_aggregator=license_result.is_aggregator,

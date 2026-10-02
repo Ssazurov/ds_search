@@ -375,7 +375,13 @@ class SourceCrawler:
             title=title, source_url=result.url, domain=self.cfg.domain,
         )
         meta = build_ingestion_metadata(
-            source_url=canon_url, source_domain=self.cfg.domain, title=title,
+            # issue #446: source_url — реальный URL страницы (result.url), а
+            # не canon_url. canonicalize_url() (issue #8) режет trailing
+            # slash для дедупа/doc_id — на части сайтов (напр. downsideup.org
+            # /elektronnaya-biblioteka/<slug>/) слэш обязателен, без него
+            # сервер редиректит на главную. canon_url остаётся только для
+            # doc_id/дедупа (строки выше), в сохраняемые метаданные не идёт.
+            source_url=result.url, source_domain=self.cfg.domain, title=title,
             license=self.license_result.status.value, category=category or self.cfg.category,
             direction=direction or self.cfg.direction,
             attribution=attribution, content_path=str(md_path), content_status="saved",
@@ -399,7 +405,8 @@ class SourceCrawler:
         rejected_dir = self.out_dir / "rejected"
         rejected_dir.mkdir(exist_ok=True)
         meta = {
-            "source_url": canon_url,
+            # issue #446: см. _save — реальный URL, не canon_url (slash).
+            "source_url": result.url,
             "source_domain": self.cfg.domain,
             "title": strip_site_suffix((result.metadata or {}).get("title", ""), self.license_result.site_name),  # issue #347
             "content_status": reason,
