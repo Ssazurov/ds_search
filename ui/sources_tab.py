@@ -15,7 +15,7 @@ from src.license.registry_store import delete_entry, load_registry, save_entry
 from src.license.checker import (
     default_attribution_template,
     PUBLISH_PERMISSION_LABELS, LicenseStatus, PublishPermission,
-    normalize_domain, parse_publish_permission,
+    normalize_domain, parse_publish_permission, community_key_for_url,
 )
 from ui import notify
 
@@ -210,4 +210,18 @@ def render() -> None:
                             "publish_permission": PublishPermission.NOT_SET.value}
             save_entry(nd, registry[nd])
             st.session_state["dom_sel"] = nd
+            st.rerun()
+
+    with st.expander("Добавить сообщество (VK)"):
+        new_comm = st.text_input("URL сообщества или поста (vk.ru/club123…, wall-123_45)", key="new_comm")
+        ckey = community_key_for_url(new_comm if "://" in new_comm else f"https://{new_comm}")
+        if new_comm.strip() and not ckey:
+            st.caption("Не распознан ID сообщества")
+        if st.button("Добавить сообщество", disabled=not ckey):
+            registry[ckey] = {"status": "pending_manual_review", "notes": "",
+                              "attribution_template": default_attribution_template(ckey),
+                              "publish_permission": PublishPermission.NOT_SET.value,
+                              "source_type": "community"}
+            save_entry(ckey, registry[ckey])
+            st.session_state["dom_sel"] = ckey
             st.rerun()

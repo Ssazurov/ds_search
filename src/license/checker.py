@@ -85,11 +85,17 @@ class LicenseCheckResult:
         return self.attribution_template.format(title=title, source_url=source_url, domain=domain)
 
 
+_COMMUNITY_KEY_RE = re.compile(r"^([^:/@]+):((?:club|public)\d+)$")
+
+
 def normalize_domain(domain: str) -> str:
     """Канонический ключ реестра: lower, без порта и ведущего 'www.'
     (issue #206). Без этого www.example.org и example.org считались разными
     доменами, и ссылка на www-адрес блокировалась как pending_manual_review."""
     d = domain.strip().lower()
+    m = _COMMUNITY_KEY_RE.match(d)
+    if m:  # ключ сообщества 'vk.ru:club<id>' — не порт, сохраняем (#467)
+        return f"{normalize_domain(m.group(1))}:{m.group(2)}"
     if "://" in d:
         d = urlsplit(d).netloc
     d = d.rsplit("@", 1)[-1].split(":", 1)[0]
