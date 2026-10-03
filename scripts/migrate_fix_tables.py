@@ -9,12 +9,19 @@ import json
 from pathlib import Path
 from datetime import datetime
 from typing import Optional
+import importlib.util
+
+_spec = importlib.util.spec_from_file_location(
+    'md_tables', Path(__file__).parent.parent / 'src' / 'crawler' / 'md_tables.py')
+_mt = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_mt)
 
 
 def _clean_markdown_tables(markdown: str) -> str:
     """issue #447: удаляет trailing пробелы после pipe в markdown-таблицах.
     html2text генерирует "|  \\n" вместо "|\\n", что ломает рендеринг."""
     # Находим строки таблиц (содержат | и заканчиваются пробелами перед \n)
+    markdown = _mt.collapse_multiline_tables(markdown)  # issue #460
     return re.sub(r'(\|[^\n]*?) +\n', r'\1\n', markdown)
 
 
@@ -57,9 +64,6 @@ def migrate_file(md_path: Path, dry_run: bool = False) -> Optional[str]:
     
     if not has_table(content):
         return "skipped"  # нет таблиц
-    
-    if not needs_cleaning(content):
-        return "skipped"  # таблицы уже чистые
     
     cleaned = _clean_markdown_tables(content)
     
