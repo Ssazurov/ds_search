@@ -86,14 +86,24 @@ class LicenseCheckResult:
 
 
 def normalize_domain(domain: str) -> str:
-    """Канонический ключ реестра: lower, без порта и ведущего 'www.'
-    (issue #206). Без этого www.example.org и example.org считались разными
-    доменами, и ссылка на www-адрес блокировалась как pending_manual_review."""
+    """Канонический ключ реестра: lower, без порта и ведущего 'www.' (issue #206),
+    путь сохраняется (issue #473): 'https://www.vk.ru/sundetiekb/' → 'vk.ru/sundetiekb'.
+    Ключ с путём — самостоятельная запись реестра; без пути — домен."""
     d = domain.strip().lower()
     if "://" in d:
-        d = urlsplit(d).netloc
-    d = d.rsplit("@", 1)[-1].split(":", 1)[0]
-    return d[4:] if d.startswith("www.") else d
+        parts = urlsplit(d)
+        d = parts.netloc + parts.path
+    host, _, path = d.partition("/")
+    host = host.rsplit("@", 1)[-1].split(":", 1)[0]
+    if host.startswith("www."):
+        host = host[4:]
+    path = path.strip("/")
+    return f"{host}/{path}" if path else host
+
+
+def registry_host(key: str) -> str:
+    """Домен из ключа реестра: 'vk.ru/sundetiekb' → 'vk.ru'."""
+    return key.partition("/")[0]
 
 
 _SITE_NAME_RE = re.compile(r"^\s*Источник:\s*([^{}]+?)\s*\(\s*\{source_url\}")
@@ -143,15 +153,18 @@ def check_license(
             reason="robots.txt запрещает обход для нашего user-agent",
         )
 
-    domain = normalize_domain(domain)
+    full_key = normalize_domain(domain)
     store = registry_store if registry_store is not None else GarRegistryStore()
-    entry = store.get(domain)
+    entry = store.get(full_key)
+    if entry is None and "/" in full_key:
+        # issue #473: нет записи по полному ключу → fallback на домен
+        entry = store.get(registry_host(full_key))
     if entry is None:
-        store.ensure(domain, default_attribution_template(domain))
+        store.ensure(full_key, default_attribution_template(full_key))
         return LicenseCheckResult(
             status=LicenseStatus.PENDING_MANUAL_REVIEW,
             reason=(
-                f"домен {domain} отсутствует в реестре источников (или реестр GAR недоступен) — "
+                f"домен {full_key} отсутствует в реестре источников (или реестр GAR недоступен) — "
                 "требуется ручная проверка ToS перед автосбором"
             ),
         )
