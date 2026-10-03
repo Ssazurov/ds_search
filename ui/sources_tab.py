@@ -131,6 +131,8 @@ def _render_detail(domain: str, registry: dict, row: dict) -> None:
     is_aggregator = st.checkbox(
         "Агрегатор", value=bool(entry.get("is_aggregator", False)), key=f"agg_{domain}",
     )
+    author = st.text_input("Автор", value=entry.get("author", ""), key=f"author_{domain}")
+    city = st.text_input("Город (необязательно)", value=entry.get("city", ""), key=f"city_{domain}")
     c1, c2, c3 = st.columns(3)
     if c1.button("Сохранить", key=f"save_{domain}", type="primary", disabled=status is None, width="stretch"):
         registry[domain] = {
@@ -141,6 +143,9 @@ def _render_detail(domain: str, registry: dict, row: dict) -> None:
             "checked_date": entry.get("checked_date"),
             "is_aggregator": is_aggregator,
             "publish_permission": permission,
+            "source_type": "community" if "/" in domain else "site",
+            "author": author.strip(),
+            "city": city.strip(),
         }
         save_entry(domain, registry[domain])
         st.rerun()

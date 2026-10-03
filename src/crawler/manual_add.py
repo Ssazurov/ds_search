@@ -79,7 +79,7 @@ async def add_manual_document(
     if existing is not None:
         return {"status": "duplicate", "doc_id": doc_id, "path": str(existing)}
 
-    license_result = check_license(cfg.domain, url)
+    license_result = check_license(cfg.domain, url, source_url=url)
     if not license_result.downloadable:
         status = (
             "license_pending"

@@ -58,7 +58,7 @@ def _scan_raw() -> list[dict]:
             "title": meta.get("title") or doc_id,
             "summary": meta.get("summary", ""),
             "url": meta.get("source_url") or None,
-            "domain": meta.get("source_domain", ""),
+            "domain": _source_key(meta),
             "direction": meta.get("direction", ""),
             "category": meta.get("category", ""),
             "doc_type": meta.get("doc_type", ""),
@@ -214,7 +214,7 @@ def _gar_only_rows(rows: list[dict]) -> list[dict]:
             "title": meta.get("title") or doc.get("doc_name", doc_id),
             "summary": meta.get("summary", ""),
             "url": meta.get("source_url") or None,
-            "domain": meta.get("source_domain", ""),
+            "domain": _source_key(meta),
             "direction": meta.get("direction", ""),
             "category": meta.get("category", ""),
             "doc_type": doc.get("doc_type", ""),
@@ -706,6 +706,12 @@ def _render_recrawl_batch() -> None:
                          f"{r.get('old_len')} → {r.get('new_len')} симв. {r.get('error', '')}")
             st.caption(f"Отчёт: {out['report']}. Всего перекачано {out['done_total']}/{out['total']}.")
             st.session_state.pop("gar_docs_cache", None)
+
+
+def _source_key(meta: dict) -> str:
+    """ds_search#467: для поста сообщества VK ключ 'vk.ru/club<id>', иначе домен."""
+    from src.license.checker import community_key_for_url
+    return community_key_for_url(meta.get("source_url")) or meta.get("source_domain", "")
 
 
 def render() -> None:

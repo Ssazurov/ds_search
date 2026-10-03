@@ -24,7 +24,7 @@ _NONE = "— не выбрано —"
 def _approve(client: GarDiscoveryClient, source: dict) -> None:
     """approve лениво триггерит license-check (issue #3, issue #19 п.3)."""
     domain = source.get("domain") or urlsplit(source["url"]).netloc
-    result = check_license(domain, source["url"])
+    result = check_license(domain, source["url"], source_url=source["url"])
     client.update_discovered_source(
         source["id"], status="approved", license_status=result.status.value,
     )

@@ -6,3 +6,5 @@ __pycache__/
 data/
 config/gar_schema_cache.json
 config/ui_prefs.json
+
+.env.local

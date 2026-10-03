@@ -96,6 +96,27 @@ def normalize_domain(domain: str) -> str:
     return d[4:] if d.startswith("www.") else d
 
 
+_VK_HOSTS = {"vk.ru", "vk.com", "m.vk.ru", "m.vk.com"}
+_VK_WALL_RE = re.compile(r"/wall-(\d+)_\d+")
+_VK_CLUB_RE = re.compile(r"/(?:club|public)(\d+)")
+
+
+def community_key_for_url(url: str | None) -> str | None:
+    """Ключ реестра для сообщества VK: 'vk.ru/club<id>' (issue #467).
+    Для wall-ссылок берётся owner id, для адреса сообщества число из club/public.
+    Для остальных адресов None: поиск идёт только по домену."""
+    if not url:
+        return None
+    parts = urlsplit(url.strip())
+    host = normalize_domain(parts.netloc)
+    if host not in _VK_HOSTS:
+        return None
+    m = _VK_WALL_RE.search(parts.path) or _VK_CLUB_RE.search(parts.path)
+    if not m:
+        return None
+    return f"vk.ru/club{abs(int(m.group(1)))}"
+
+
 _SITE_NAME_RE = re.compile(r"^\s*Источник:\s*([^{}]+?)\s*\(\s*\{source_url\}")
 
 
@@ -132,6 +153,7 @@ def check_license(
     base_url: str,
     user_agent: str = _DEFAULT_USER_AGENT,
     registry_store=None,
+    source_url: str | None = None,
 ) -> LicenseCheckResult:
     """Реестр источников — в GAR (+ кэш при недоступности), ds ADR-0021 (#263).
     `registry_store` для тестов (см. tests/test_registry_store.py,
@@ -145,7 +167,10 @@ def check_license(
 
     domain = normalize_domain(domain)
     store = registry_store if registry_store is not None else GarRegistryStore()
-    entry = store.get(domain)
+    community_key = community_key_for_url(source_url)
+    entry = store.get(community_key) if community_key else None
+    if entry is None:
+        entry = store.get(domain)
     if entry is None:
         store.ensure(domain, default_attribution_template(domain))
         return LicenseCheckResult(

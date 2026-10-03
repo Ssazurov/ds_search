@@ -239,7 +239,7 @@ class SourceCrawler:
         discovery.download._sanitize_filename и используется как basename
         вместо sha256(canon_url)[:16]. direction/category перекрывают
         self.cfg.* только для этого вызова, self.cfg не мутируется."""
-        self.license_result = check_license(self.cfg.domain, url)
+        self.license_result = check_license(self.cfg.domain, url, source_url=url)
         if not self.license_result.downloadable:
             logger.warning(
                 "recrawl %s: источник %s требует ручного сбора: %s",
