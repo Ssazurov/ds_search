@@ -110,6 +110,11 @@ def render() -> None:
         help="Домены, которых ещё нет в списке. Если домены не заданы — поиск по всему интернету.",
     )
     domains = ", ".join(domains_selected) + ", " + domains_new
+    vk_community = st.text_input(
+        "Сообщество VK (необязательно)", value=preset.get("vk_community", ""),
+        placeholder="https://vk.com/club216520775 или screen_name",
+        help="Ищет только посты этого сообщества (стена VK). Если задано — домены и общий поиск не используются. Нужен VK_USER_TOKEN.",
+    )
     date_from, date_to = _date_range()
     max_results = st.slider("Кол-во результатов", 1, 50, preset.get("max_results", 10))
 
@@ -123,7 +128,7 @@ def render() -> None:
     if col1.button("Запустить поиск", type="primary", disabled=not query.strip()):
         try:
             result = run_search(query, _build_chain(), max_results=max_results, metadata=metadata, domains=domains,
-                                date_from=date_from, date_to=date_to)
+                                date_from=date_from, date_to=date_to, vk_community=vk_community.strip() or None)
 
             # issue #368: подробная карточка результата поиска
             if result["status"] == "failed":
