@@ -55,8 +55,66 @@ def test_normalize_domain():
 
     assert normalize_domain("WWW.Example.org") == "example.org"
     assert normalize_domain("www.example.org:8080") == "example.org"
-    assert normalize_domain("https://www.example.org/a/b") == "example.org"
+    assert normalize_domain("https://www.example.org/a/b") == "example.org/a/b"
+    assert normalize_domain("https://www.example.org/a/b/") == "example.org/a/b"
     assert normalize_domain("news.un.org") == "news.un.org"
+
+
+class _DictStore:
+    """Двойник GarRegistryStore: get/ensure по ключу (issue #473)."""
+
+    def __init__(self, entries=None):
+        self.entries = dict(entries or {})
+        self.ensured = []
+
+    def get(self, key):
+        return self.entries.get(key)
+
+    def ensure(self, key, template=""):
+        self.ensured.append(key)
+        return None
+
+
+def _check_key(store, domain):
+    from unittest.mock import patch
+
+    from src.license.checker import check_license
+
+    with patch("src.license.checker._check_robots", return_value=None):
+        return check_license(domain, f"https://{domain}/", registry_store=store)
+
+
+def test_path_key_found_by_full_key():
+    store = _DictStore({
+        "vk.ru/sundetiekb": {"status": "allow", "notes": "ok", "attribution_template": None},
+        "vk.ru": {"status": "deny", "notes": "домен", "attribution_template": None},
+    })
+    result = _check_key(store, "https://www.vk.ru/sundetiekb/")
+    assert result.status is LicenseStatus.ALLOW
+    assert store.ensured == []
+
+
+def test_path_key_falls_back_to_domain():
+    store = _DictStore({"vk.ru": {"status": "attribution_required", "notes": "d",
+                                  "attribution_template": "Источник: {title} ({source_url})"}})
+    result = _check_key(store, "vk.ru/other-group")
+    assert result.status is LicenseStatus.ATTRIBUTION_REQUIRED
+    assert store.ensured == []
+
+
+def test_unknown_path_key_ensures_full_key_not_domain():
+    store = _DictStore()
+    result = _check_key(store, "vk.ru/new-group")
+    assert result.status is LicenseStatus.PENDING_MANUAL_REVIEW
+    assert store.ensured == ["vk.ru/new-group"]
+
+
+def test_legacy_entry_without_source_type_works():
+    store = _DictStore({"vk.ru/sundetiekb": {"status": "allow", "notes": "", "attribution_template": None,
+                                             "publish_permission": "not_set"}})
+    result = _check_key(store, "vk.ru/sundetiekb")
+    assert result.status is LicenseStatus.ALLOW
+    assert result.downloadable
 
 
 def test_pending_registered_under_normalized_key():
