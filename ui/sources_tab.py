@@ -28,7 +28,10 @@ STATUS_LABELS = {
     "deny": "Запрещено",
 }
 _PAGE_SIZES = [10, 20, 50]
-_FILTERS = {"all": "Все", "pending": "Не проверен", "found": "Есть находки", "agg": "Агрегаторы"}
+_FILTERS = {"all": "Все", "pending": "Не проверен", "found": "Есть находки", "agg": "Агрегаторы",
+            "community": "Сообщества"}
+_SOURCE_TYPES = ["site", "community", "channel"]  # issue #467
+_SOURCE_TYPE_LABELS = {"site": "Сайт", "community": "Сообщество VK", "channel": "Канал"}
 _ATTR_EXAMPLE = "Источник: {title} ({source_url}), Агентство социальной информации (asi.org.ru)"
 
 
@@ -58,19 +61,36 @@ def _dismiss_domain(domain: str) -> None:
 
 
 def build_rows(registry: dict, counts: Counter) -> list[dict]:
-    """Строки списка: сначала непроверенные с находками, затем по числу находок и алфавиту."""
+    """Строки списка: сначала непроверенные с находками, затем по числу находок и алфавиту.
+    Сообщества (ключ domain/path, issue #473) выводятся сразу под своим доменом (issue #474)."""
     rows = []
     for domain in set(registry) | set(counts):
         entry = registry.get(domain, {})
+        is_community = "/" in domain
         rows.append({
             "domain": domain,
+            "base": domain.split("/", 1)[0],
+            "is_community": is_community,
             "count": counts.get(domain, 0),
             "pending": entry.get("status") not in _STATUSES,
             "aggregator": bool(entry.get("is_aggregator")),
             "status": entry.get("status"),
+            "source_type": entry.get("source_type") or ("community" if is_community else "site"),
         })
     rows.sort(key=lambda r: (not (r["pending"] and r["count"]), not r["pending"], -r["count"], r["domain"]))
-    return rows
+    return _group_under_domain(rows)
+
+
+def _group_under_domain(rows: list[dict]) -> list[dict]:
+    """Сохраняет порядок доменов; сообщества переносит сразу после своего домена."""
+    bases = {r["domain"] for r in rows if not r["is_community"]}
+    out: list[dict] = []
+    for r in rows:
+        if not r["is_community"] or r["base"] not in bases:
+            out.append(r)
+            if not r["is_community"]:
+                out.extend(c for c in rows if c["is_community"] and c["base"] == r["domain"])
+    return out
 
 
 def filter_rows(rows: list[dict], flt: str, query: str) -> list[dict]:
@@ -82,6 +102,8 @@ def filter_rows(rows: list[dict], flt: str, query: str) -> list[dict]:
         out = [r for r in out if r["count"] > 0]
     elif flt == "agg":
         out = [r for r in out if r["aggregator"]]
+    elif flt == "community":
+        out = [r for r in out if r["source_type"] == "community"]
     return out
 
 
@@ -128,6 +150,15 @@ def _render_detail(domain: str, registry: dict, row: dict) -> None:
         key=f"site_{domain}",
     )
     notes = st.text_area("Заметки", value=entry.get("notes", ""), key=f"notes_{domain}")
+    source_type = st.selectbox(
+        "Тип источника", _SOURCE_TYPES,
+        index=_SOURCE_TYPES.index(row["source_type"]) if row["source_type"] in _SOURCE_TYPES else 0,
+        format_func=_SOURCE_TYPE_LABELS.get, key=f"stype_{domain}",
+    )
+    c_author, c_city = st.columns(2)
+    author = c_author.text_input("Автор", value=entry.get("author") or "", key=f"author_{domain}",
+                                 help="Пусто — строка «Автор | Город» не выводится.")
+    city = c_city.text_input("Город", value=entry.get("city") or "", key=f"city_{domain}")
     is_aggregator = st.checkbox(
         "Агрегатор", value=bool(entry.get("is_aggregator", False)), key=f"agg_{domain}",
     )
@@ -141,11 +172,14 @@ def _render_detail(domain: str, registry: dict, row: dict) -> None:
             "checked_date": entry.get("checked_date"),
             "is_aggregator": is_aggregator,
             "publish_permission": permission,
+            "source_type": source_type,
+            "author": author.strip(),
+            "city": city.strip(),
         }
         save_entry(domain, registry[domain])
         st.rerun()
     if c2.button("Отменить", key=f"cancel_{domain}", width="stretch"):
-        for p in ("status", "perm", "attr", "site", "notes", "agg"):
+        for p in ("status", "perm", "attr", "site", "notes", "agg", "stype", "author", "city"):
             st.session_state.pop(f"{p}_{domain}", None)
         st.rerun()
     if c3.button("Удалить", key=f"del_{domain}", width="stretch"):
