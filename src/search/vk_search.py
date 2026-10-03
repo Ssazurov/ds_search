@@ -49,6 +49,65 @@ def _to_hit(item: dict) -> SearchHit | None:
     return SearchHit(url=_post_url(owner_id, post_id), title=title, snippet=snippet, published_at=published_at)
 
 
+_NUM_RE = re.compile(r"^-?\d+$")
+_COMMUNITY_RE = re.compile(r"^(?:club|public)(\d+)$")
+_USER_ID_RE = re.compile(r"^id(\d+)$")
+
+
+def parse_vk_community(raw: str) -> dict | None:
+    """'https://vk.com/club216520775', 'vk.ru/public123', 'club1', '-1', 'screen_name'
+    -> {'owner_id': -N} (сообщество) | {'domain': 'screen_name'}; None — пусто/не разобрано."""
+    s = (raw or "").strip()
+    s = re.sub(r"^https?://", "", s).removeprefix("www.")
+    s = re.sub(r"^(vk\.com|vk\.ru)/", "", s).split("?")[0].split("#")[0].strip("/ ")
+    if not s:
+        return None
+    if _NUM_RE.match(s):
+        return {"owner_id": int(s) if s.startswith("-") else -int(s)}
+    if m := _COMMUNITY_RE.match(s):
+        return {"owner_id": -int(m.group(1))}
+    if m := _USER_ID_RE.match(s):
+        return {"owner_id": int(m.group(1))}
+    if re.match(r"^[A-Za-z0-9_.]{2,}$", s):
+        return {"domain": s}
+    return None
+
+
+def vk_community_search(
+    query: str, community: str, max_results: int = 10,
+    date_from: datetime | None = None, date_to: datetime | None = None,
+    client: VkClient | None = None,
+) -> list[SearchHit] | None:
+    """Посты только из одного сообщества VK через wall.search (issue #464).
+    None — токен не задан / VK API недоступен / сообщество не разобрано;
+    [] — токен есть, находок нет."""
+    target = parse_vk_community(community)
+    if target is None:
+        return None
+    client = client or VkClient()
+    if not client.token:
+        return None
+    try:
+        resp = client.wall_search(query, count=min(max(max_results, 1), 100), **target)
+    except VkAuthError as exc:
+        logger.warning("VK wall.search недоступен: %s", exc)
+        return None
+    except Exception:  # noqa: BLE001
+        logger.exception("VK wall.search: неожиданная ошибка")
+        return None
+    hits: list[SearchHit] = []
+    for item in resp.get("items", []):
+        hit = _to_hit(item)
+        if not hit or hit.published_at is None and (date_from or date_to):
+            continue
+        if date_from and hit.published_at < date_from:
+            continue
+        if date_to and hit.published_at > date_to:
+            continue
+        hits.append(hit)
+    return hits[:max_results]
+
+
 def vk_search(
     query: str, max_results: int = 10,
     date_from: datetime | None = None, date_to: datetime | None = None,
