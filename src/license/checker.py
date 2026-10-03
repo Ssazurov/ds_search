@@ -102,7 +102,7 @@ _VK_CLUB_RE = re.compile(r"/(?:club|public)(\d+)")
 
 
 def community_key_for_url(url: str | None) -> str | None:
-    """Ключ реестра для сообщества VK: 'vk.ru/club<id>' (issue #467).
+    """Ключ реестра для сообщества VK: 'vk.ru:club<id>' (issue #467).
     Для wall-ссылок берётся owner id, для адреса сообщества число из club/public.
     Для остальных адресов None: поиск идёт только по домену."""
     if not url:
@@ -114,7 +114,7 @@ def community_key_for_url(url: str | None) -> str | None:
     m = _VK_WALL_RE.search(parts.path) or _VK_CLUB_RE.search(parts.path)
     if not m:
         return None
-    return f"vk.ru/club{abs(int(m.group(1)))}"
+    return f"vk.ru:club{abs(int(m.group(1)))}"
 
 
 _SITE_NAME_RE = re.compile(r"^\s*Источник:\s*([^{}]+?)\s*\(\s*\{source_url\}")

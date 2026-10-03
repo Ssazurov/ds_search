@@ -143,7 +143,7 @@ def _render_detail(domain: str, registry: dict, row: dict) -> None:
             "checked_date": entry.get("checked_date"),
             "is_aggregator": is_aggregator,
             "publish_permission": permission,
-            "source_type": "community" if "/" in domain else "site",
+            "source_type": "community" if ":" in domain else "site",
             "author": author.strip(),
             "city": city.strip(),
         }
