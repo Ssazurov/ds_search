@@ -73,10 +73,17 @@ class LicenseCheckResult:
     site_name: str = ""
     is_aggregator: bool = False
     publish_permission: PublishPermission = PublishPermission.NOT_SET
+    source_type: str = "site"  # issue #467: site | community | channel
+    author: str = ""           # issue #474
+    city: str = ""             # issue #474
 
     @property
     def downloadable(self) -> bool:
         return self.status in (LicenseStatus.ALLOW, LicenseStatus.ATTRIBUTION_REQUIRED)
+
+    def byline(self) -> str:
+        """issue #474: строка «Автор | Город» над текстом; пустые поля не выводятся."""
+        return " | ".join(v for v in (self.author.strip(), self.city.strip()) if v)
 
     def build_attribution(self, *, title: str = "", source_url: str, domain: str = "") -> str | None:
         """Плейсхолдеры шаблона: {title}, {source_url}, {domain}."""
@@ -178,4 +185,7 @@ def check_license(
         site_name=entry.get("site_name") or derive_site_name(entry.get("attribution_template")),
         is_aggregator=bool(entry.get("is_aggregator", False)),
         publish_permission=parse_publish_permission(entry.get("publish_permission")),
+        source_type=entry.get("source_type") or ("community" if "/" in full_key else "site"),
+        author=entry.get("author") or "",
+        city=entry.get("city") or "",
     )
