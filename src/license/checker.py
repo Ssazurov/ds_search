@@ -86,10 +86,12 @@ class LicenseCheckResult:
         return " | ".join(v for v in (self.author.strip(), self.city.strip()) if v)
 
     def build_attribution(self, *, title: str = "", source_url: str, domain: str = "") -> str | None:
-        """Плейсхолдеры шаблона: {title}, {source_url}, {domain}."""
+        """Плейсхолдеры шаблона: {title}, {source_url}, {domain}, {author}, {city} (issue #474)."""
         if not self.attribution_template:
             return None
-        return self.attribution_template.format(title=title, source_url=source_url, domain=domain)
+        return self.attribution_template.format(
+            title=title, source_url=source_url, domain=domain, author=self.author, city=self.city,
+        )
 
 
 def normalize_domain(domain: str) -> str:
@@ -101,7 +103,13 @@ def normalize_domain(domain: str) -> str:
         parts = urlsplit(d)
         d = parts.netloc + parts.path
     host, _, path = d.partition("/")
-    host = host.rsplit("@", 1)[-1].split(":", 1)[0]
+    host = host.rsplit("@", 1)[-1]
+    # issue #474: 'vk.ru:club123' — двоеточие с нечисловым хвостом это путь, а не порт
+    h, sep, tail = host.partition(":")
+    if sep and tail and not tail.isdigit():
+        host, path = h, f"{tail}/{path}" if path else tail
+    else:
+        host = h
     if host.startswith("www."):
         host = host[4:]
     path = path.strip("/")

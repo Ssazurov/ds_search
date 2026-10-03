@@ -31,6 +31,14 @@ def test_communities_grouped_under_their_domain():
     assert set(keys[vk + 1: vk + 3]) == {"vk.ru/sundetiekb", "vk.ru/other"}
 
 
+def test_normalize_colon_path_is_community_key():
+    from src.license.checker import normalize_domain
+    assert normalize_domain("vk.ru:club216520775") == "vk.ru/club216520775"
+    assert normalize_domain("vk.ru/club216520775") == "vk.ru/club216520775"
+    assert normalize_domain("vk.ru:8080") == "vk.ru"
+    assert normalize_domain("www.vk.ru:8080/x") == "vk.ru/x"
+
+
 def test_community_filter_returns_only_communities():
     registry = {
         "vk.ru": {"status": "allow"},
