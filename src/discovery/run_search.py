@@ -24,6 +24,7 @@ from ..search.dates import parse_published
 from ..search.wp_api import wp_search
 from ..search.rss_search import rss_search
 from ..search.sitemap_search import sitemap_search
+from ..search.vk_search import vk_search
 from .classify import classify
 from .config import Settings, load_settings
 from .dedup import dedup_candidates
@@ -86,7 +87,19 @@ def _search(chain: SearchProviderChain, query: str, doms: list[str], max_results
     и делятся между доменами поровну (не больше max_results в сумме)."""
     dates = {k: v for k, v in (("date_from", date_from), ("date_to", date_to)) if v}
     if not doms:
-        return chain.search(query, max_results=max_results, **dates)
+        try:
+            hits = chain.search(query, max_results=max_results, **dates)
+        except QuotaExceeded:
+            vk_hits = vk_search(query, max_results=max_results, date_from=date_from, date_to=date_to)
+            if not vk_hits:
+                raise  # ни один провайдер, ни VK — пробрасываем исходную ошибку
+            return vk_hits[:max_results]
+        # VK newsfeed.search — доп. источник по всей VK, не fallback (issue #463)
+        vk_hits = vk_search(query, max_results=max_results, date_from=date_from, date_to=date_to)
+        if vk_hits:
+            seen = {h.url for h in hits}
+            hits += [h for h in vk_hits if h.url not in seen][:max_results]
+        return hits[:max_results]
     per_domain = -(-max_results // len(doms))
     hits: list[SearchHit] = []
     seen: set[str] = set()
