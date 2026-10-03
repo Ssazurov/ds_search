@@ -1,3 +1,11 @@
+## 2026-10-03 -- issue #464: поиск по одному сообществу VK
+
+- `src/search/vk_client.py`: `wall_search` принимает `owner_id` или `domain` (screen_name).
+- `src/search/vk_search.py`: `parse_vk_community` (URL/`club123`/`-123`/screen_name) и `vk_community_search` (wall.search, только посты сообщества).
+- `src/discovery/run_search.py`: параметр `vk_community`; если задан — домены и общий поиск игнорируются, ошибка VK -> статус `failed`.
+- `ui/search_tab.py`: поле «Сообщество VK (необязательно)».
+- Тесты: `tests/test_vk_search.py` (22 passed вместе с test_run_search). PR #471 (Closes #464), контейнер `ds-search` пересобран.
+
 ## 2026-10-02 -- issue #447: trailing пробелы в markdown таблицах
 
 - **Проблема**: `html2text` добавляет trailing пробелы после pipe-символов в таблицах (`|  \n` вместо `|\n`), что ломает рендеринг markdown таблиц на сайте.
