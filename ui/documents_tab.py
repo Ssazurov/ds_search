@@ -383,7 +383,7 @@ def _refresh_local_content(document_id: str) -> None:
     import tempfile
     from pathlib import Path
 
-    from src.discovery.download import DEFAULT_DATA_ROOT, download_single
+    from src.discovery.download import DEFAULT_DATA_ROOT, DownloadError, download_single
 
     headers = {}
     api_key = os.environ.get("DS_INGESTION_API_KEY")
@@ -423,6 +423,8 @@ def _refresh_local_content(document_id: str) -> None:
         except asyncio.TimeoutError as exc:
             raise GarPublishError(
                 f"reload {document_id}: источник не ответил за {_RECRAWL_TIMEOUT_S} с") from exc
+        except DownloadError as exc:
+            raise GarPublishError(f"reload {document_id}: источник недоступен для перекачки ({exc})") from exc
         src = Path(new["content_path"])
         dst = jp.with_suffix(src.suffix)
         if not dst.is_file():
@@ -441,7 +443,7 @@ def _refresh_local_content_for_row(row: dict) -> None:
     import shutil
     import tempfile
 
-    from src.discovery.download import download_single
+    from src.discovery.download import DownloadError, download_single
 
     jp = row["doc_json_path"]
     url = row.get("url")
@@ -466,6 +468,8 @@ def _refresh_local_content_for_row(row: dict) -> None:
             new = fut.result()
         except asyncio.TimeoutError as exc:
             raise GarPublishError(f"reload {row['doc_id']}: источник не ответил за {_RECRAWL_TIMEOUT_S} с") from exc
+        except DownloadError as exc:
+            raise GarPublishError(f"reload {row['doc_id']}: источник недоступен для перекачки ({exc})") from exc
         src = Path(new["content_path"])
         dst = jp.with_suffix(src.suffix)
         if not dst.is_file():
@@ -679,8 +683,34 @@ def _to_news_batch(rows: list[dict], fmt: str = "news") -> None:
     st.rerun()
 
 
+def _render_recrawl_batch() -> None:
+    """ds_search#457: пакетная перекачка статей downsideup.org из источника."""
+    from src.recrawl.batch import run_batch, scan_candidates, load_state
+
+    with st.expander("🔄 Пакетная перекачка из источника (downsideup.org)"):
+        cands = scan_candidates("downsideup.org")
+        state = load_state()
+        done = sum(1 for r in cands if state.get(r["doc_id"], {}).get("status") == "done")
+        failed = sum(1 for r in cands if state.get(r["doc_id"], {}).get("status") == "failed")
+        st.caption(f"В GAR: {len(cands)}, перекачано: {done}, с ошибкой: {failed}. "
+                   "Заменяет контент как кнопка «Перезагрузить из источника». Старый файл → data/recrawl_backup.")
+        limit = st.number_input("Размер порции", min_value=1, max_value=50, value=3, key="recrawl_limit")
+        retry = st.checkbox("Повторить ошибочные", key="recrawl_retry")
+        if st.button(f"Перекачать порцию ({int(limit)})", key="recrawl_run_btn"):
+            bar = st.progress(0.0)
+            out = run_batch(int(limit), retry_failed=retry,
+                            progress=lambda i, n, t: bar.progress(i / max(n, 1), text=f"{i + 1}/{n}: {t}"))
+            bar.empty()
+            for r in out["processed"]:
+                st.write(f"{'✅' if r['status'] == 'done' else '⚠️'} {r['title']}: "
+                         f"{r.get('old_len')} → {r.get('new_len')} симв. {r.get('error', '')}")
+            st.caption(f"Отчёт: {out['report']}. Всего перекачано {out['done_total']}/{out['total']}.")
+            st.session_state.pop("gar_docs_cache", None)
+
+
 def render() -> None:
     st.header("Документы")
+    _render_recrawl_batch()
 
     rows = _scan_raw()
     # Добавляем gar_status из кэша GAR к локальным строкам (issue #297)
