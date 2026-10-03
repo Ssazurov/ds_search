@@ -73,54 +73,52 @@ class LicenseCheckResult:
     site_name: str = ""
     is_aggregator: bool = False
     publish_permission: PublishPermission = PublishPermission.NOT_SET
+    source_type: str = "site"  # issue #467: site | community | channel
+    author: str = ""           # issue #474
+    city: str = ""             # issue #474
 
     @property
     def downloadable(self) -> bool:
         return self.status in (LicenseStatus.ALLOW, LicenseStatus.ATTRIBUTION_REQUIRED)
 
+    def byline(self) -> str:
+        """issue #474: строка «Автор | Город» над текстом; пустые поля не выводятся."""
+        return " | ".join(v for v in (self.author.strip(), self.city.strip()) if v)
+
     def build_attribution(self, *, title: str = "", source_url: str, domain: str = "") -> str | None:
-        """Плейсхолдеры шаблона: {title}, {source_url}, {domain}."""
+        """Плейсхолдеры шаблона: {title}, {source_url}, {domain}, {author}, {city} (issue #474)."""
         if not self.attribution_template:
             return None
-        return self.attribution_template.format(title=title, source_url=source_url, domain=domain)
-
-
-_COMMUNITY_KEY_RE = re.compile(r"^([^:/@]+):((?:club|public)\d+)$")
+        return self.attribution_template.format(
+            title=title, source_url=source_url, domain=domain, author=self.author, city=self.city,
+        )
 
 
 def normalize_domain(domain: str) -> str:
-    """Канонический ключ реестра: lower, без порта и ведущего 'www.'
-    (issue #206). Без этого www.example.org и example.org считались разными
-    доменами, и ссылка на www-адрес блокировалась как pending_manual_review."""
+    """Канонический ключ реестра: lower, без порта и ведущего 'www.' (issue #206),
+    путь сохраняется (issue #473): 'https://www.vk.ru/sundetiekb/' → 'vk.ru/sundetiekb'.
+    Ключ с путём — самостоятельная запись реестра; без пути — домен."""
     d = domain.strip().lower()
-    m = _COMMUNITY_KEY_RE.match(d)
-    if m:  # ключ сообщества 'vk.ru:club<id>' — не порт, сохраняем (#467)
-        return f"{normalize_domain(m.group(1))}:{m.group(2)}"
     if "://" in d:
-        d = urlsplit(d).netloc
-    d = d.rsplit("@", 1)[-1].split(":", 1)[0]
-    return d[4:] if d.startswith("www.") else d
+        parts = urlsplit(d)
+        d = parts.netloc + parts.path
+    host, _, path = d.partition("/")
+    host = host.rsplit("@", 1)[-1]
+    # issue #474: 'vk.ru:club123' — двоеточие с нечисловым хвостом это путь, а не порт
+    h, sep, tail = host.partition(":")
+    if sep and tail and not tail.isdigit():
+        host, path = h, f"{tail}/{path}" if path else tail
+    else:
+        host = h
+    if host.startswith("www."):
+        host = host[4:]
+    path = path.strip("/")
+    return f"{host}/{path}" if path else host
 
 
-_VK_HOSTS = {"vk.ru", "vk.com", "m.vk.ru", "m.vk.com"}
-_VK_WALL_RE = re.compile(r"/wall-(\d+)_\d+")
-_VK_CLUB_RE = re.compile(r"/(?:club|public)(\d+)")
-
-
-def community_key_for_url(url: str | None) -> str | None:
-    """Ключ реестра для сообщества VK: 'vk.ru:club<id>' (issue #467).
-    Для wall-ссылок берётся owner id, для адреса сообщества число из club/public.
-    Для остальных адресов None: поиск идёт только по домену."""
-    if not url:
-        return None
-    parts = urlsplit(url.strip())
-    host = normalize_domain(parts.netloc)
-    if host not in _VK_HOSTS:
-        return None
-    m = _VK_WALL_RE.search(parts.path) or _VK_CLUB_RE.search(parts.path)
-    if not m:
-        return None
-    return f"vk.ru:club{abs(int(m.group(1)))}"
+def registry_host(key: str) -> str:
+    """Домен из ключа реестра: 'vk.ru/sundetiekb' → 'vk.ru'."""
+    return key.partition("/")[0]
 
 
 _SITE_NAME_RE = re.compile(r"^\s*Источник:\s*([^{}]+?)\s*\(\s*\{source_url\}")
@@ -159,7 +157,6 @@ def check_license(
     base_url: str,
     user_agent: str = _DEFAULT_USER_AGENT,
     registry_store=None,
-    source_url: str | None = None,
 ) -> LicenseCheckResult:
     """Реестр источников — в GAR (+ кэш при недоступности), ds ADR-0021 (#263).
     `registry_store` для тестов (см. tests/test_registry_store.py,
@@ -171,18 +168,18 @@ def check_license(
             reason="robots.txt запрещает обход для нашего user-agent",
         )
 
-    domain = normalize_domain(domain)
+    full_key = normalize_domain(domain)
     store = registry_store if registry_store is not None else GarRegistryStore()
-    community_key = community_key_for_url(source_url)
-    entry = store.get(community_key) if community_key else None
+    entry = store.get(full_key)
+    if entry is None and "/" in full_key:
+        # issue #473: нет записи по полному ключу → fallback на домен
+        entry = store.get(registry_host(full_key))
     if entry is None:
-        entry = store.get(domain)
-    if entry is None:
-        store.ensure(domain, default_attribution_template(domain))
+        store.ensure(full_key, default_attribution_template(full_key))
         return LicenseCheckResult(
             status=LicenseStatus.PENDING_MANUAL_REVIEW,
             reason=(
-                f"домен {domain} отсутствует в реестре источников (или реестр GAR недоступен) — "
+                f"домен {full_key} отсутствует в реестре источников (или реестр GAR недоступен) — "
                 "требуется ручная проверка ToS перед автосбором"
             ),
         )
@@ -196,4 +193,7 @@ def check_license(
         site_name=entry.get("site_name") or derive_site_name(entry.get("attribution_template")),
         is_aggregator=bool(entry.get("is_aggregator", False)),
         publish_permission=parse_publish_permission(entry.get("publish_permission")),
+        source_type=entry.get("source_type") or ("community" if "/" in full_key else "site"),
+        author=entry.get("author") or "",
+        city=entry.get("city") or "",
     )

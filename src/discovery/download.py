@@ -188,6 +188,9 @@ async def download_single(
             header_meta, fit_md = parse_header(fit_md)
 
         doc_id = base_name or doc_id_for(canon)
+        byline = license_result.byline()  # issue #474: «Автор | Город» над текстом
+        if byline:
+            fit_md = f"{byline}\n\n{fit_md}"
         md_path = out_dir / f"{doc_id}.md"
         md_path.write_text(fit_md, encoding="utf-8")
         title = strip_site_suffix((result.metadata or {}).get("title") or source.get("title", ""), license_result.site_name)  # issue #347

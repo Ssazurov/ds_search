@@ -24,6 +24,7 @@ from ..search.dates import parse_published
 from ..search.wp_api import wp_search
 from ..search.rss_search import rss_search
 from ..search.sitemap_search import sitemap_search
+from ..search.vk_search import vk_community_search, vk_search
 from .classify import classify
 from .config import Settings, load_settings
 from .dedup import dedup_candidates
@@ -86,7 +87,19 @@ def _search(chain: SearchProviderChain, query: str, doms: list[str], max_results
     и делятся между доменами поровну (не больше max_results в сумме)."""
     dates = {k: v for k, v in (("date_from", date_from), ("date_to", date_to)) if v}
     if not doms:
-        return chain.search(query, max_results=max_results, **dates)
+        try:
+            hits = chain.search(query, max_results=max_results, **dates)
+        except QuotaExceeded:
+            vk_hits = vk_search(query, max_results=max_results, date_from=date_from, date_to=date_to)
+            if not vk_hits:
+                raise  # ни один провайдер, ни VK — пробрасываем исходную ошибку
+            return vk_hits[:max_results]
+        # VK newsfeed.search — доп. источник по всей VK, не fallback (issue #463)
+        vk_hits = vk_search(query, max_results=max_results, date_from=date_from, date_to=date_to)
+        if vk_hits:
+            seen = {h.url for h in hits}
+            hits += [h for h in vk_hits if h.url not in seen][:max_results]
+        return hits[:max_results]
     per_domain = -(-max_results // len(doms))
     hits: list[SearchHit] = []
     seen: set[str] = set()
@@ -191,12 +204,15 @@ def run_search(
     domains: str | list[str] | None = None,
     date_from: datetime | None = None,
     date_to: datetime | None = None,
+    vk_community: str | None = None,
 ) -> dict:
     """Выполняет поиск, дедуплицирует находки и upsert-ит их в
     discovered_sources под новым search_run. `metadata` — необязательные
     suggested_direction/suggested_category/suggested_doc_type/
     suggested_target_audience из параметров поиска (issue #19 п.2),
-    проставляются на все находки этого запуска. Возвращает
+    проставляются на все находки этого запуска. `vk_community` (issue #464) —
+    сообщество VK (URL/screen_name/club123): если задано, ищем только по его
+    стене, `domains` и общий поиск игнорируются. Возвращает
     {"run_id", "status", "result_count", "found", "duplicates", "new",
     "with_date", "provider", "error"}."""
     settings = settings or load_settings()
@@ -208,7 +224,16 @@ def run_search(
         try:
             # провайдеры игнорируют период -> берём с запасом, фильтруем сами
             fetch_n = min(100, max_results * 5) if (date_from or date_to) else max_results
-            hits = _search(chain, query, doms, fetch_n, date_from, date_to)
+            if vk_community:
+                provider_name = "vk.wall"
+                hits = vk_community_search(query, vk_community, max_results=fetch_n,
+                                           date_from=date_from, date_to=date_to)
+                if hits is None:
+                    raise RuntimeError(
+                        f"VK: не удалось выполнить поиск по «{vk_community}» "
+                        "(проверьте VK_USER_TOKEN и адрес сообщества)")
+            else:
+                hits = _search(chain, query, doms, fetch_n, date_from, date_to)
             _enrich_dates(hits, date_from, date_to)
             hits = _filter_by_period(hits, date_from, date_to, keep_undated=False)[:max_results]
         except QuotaExceeded as exc:

@@ -38,9 +38,18 @@ class VkClient:
             raise VkAuthError(f"VK API {method}: {err.get('error_msg')} (code {err.get('error_code')})")
         return data["response"]
 
-    def wall_search(self, query: str, owner_id: int, count: int = 20) -> dict:
-        """Поиск по стене конкретного сообщества/пользователя (issue #464)."""
-        return self._call("wall.search", owner_id=owner_id, query=query, count=count)
+    def wall_search(self, query: str, count: int = 20, owner_id: int | None = None,
+                    domain: str | None = None) -> dict:
+        """Поиск по стене конкретного сообщества/пользователя (issue #464).
+        Задать owner_id (отрицательный для сообщества) или domain (screen_name)."""
+        if (owner_id is None) == (domain is None):
+            raise ValueError("wall_search: нужен ровно один из owner_id / domain")
+        params = {"query": query, "count": count}
+        if owner_id is not None:
+            params["owner_id"] = owner_id
+        else:
+            params["domain"] = domain
+        return self._call("wall.search", **params)
 
     def newsfeed_search(self, query: str, count: int = 20) -> dict:
         """Поиск по теме во всей VK (issue #463), требует user-token."""
