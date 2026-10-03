@@ -91,4 +91,6 @@ def collapse_multiline_tables(markdown: str) -> str:
         out.append(row)
         broken = True
         i = j
+    # html2text: "<b>Текст</b> <b>A</b>" -> "**Текст****A**" внутри таблиц
+    out = [l.replace("****", " ") if l.startswith("|") and "****" in l else l for l in out]
     return "\n".join(out)

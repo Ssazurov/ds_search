@@ -17,3 +17,8 @@ def test_collapse_multiline_table():
 def test_single_line_table_untouched():
     src = "| a | b |\n| --- | --- |\n| 1 | 2 |\n"
     assert _m.collapse_multiline_tables(src) == src
+
+
+def test_bold_artifact_in_table_header():
+    src = "|  **Текст****A**  |  **Текст Б**  |\n| --- | --- |\n| 1 | 2 |\n"
+    assert _m.collapse_multiline_tables(src).startswith("|  **Текст A**  |")
