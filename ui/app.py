@@ -18,7 +18,7 @@ from ui import (
     news_tab, notify, results_tab, search_tab, site_publish_tab, sources_tab,
     upload_tab,
 )
-from ui.theme import inject_theme
+from ui.theme import inject_theme, sidebar_brand
 
 # Название сайта — «Солнечный мир» (см. ds_site/app/layout.tsx).
 # Админка Streamlit — курация материалов этого сайта.
@@ -53,6 +53,7 @@ if "active_tab" not in st.session_state:
 # Навигация — боковое меню (issue #504). st.radio всегда отдаёт выбранное
 # значение, поэтому «запоминание последней вкладки» больше не нужно.
 # Состояние — в session_state (без JS), стартовая вкладка — из ?tab=.
+sidebar_brand()
 active = st.sidebar.radio(
     "Раздел",
     TABS,
