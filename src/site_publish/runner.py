@@ -61,6 +61,29 @@ def load_dropped() -> list[dict]:
         return []
 
 
+def aggregate_source_stats(items: list[dict]) -> dict[str, dict]:
+    """source_stats.json (домен/тип/опубликовано/отброшено) -> {домен: {total, published, dropped, types}} (#498)."""
+    out: dict[str, dict] = {}
+    for it in items:
+        d = out.setdefault(it.get("domain") or "", {"total": 0, "published": 0, "dropped": 0, "types": {}})
+        pub, drop = int(it.get("published") or 0), int(it.get("dropped") or 0)
+        d["published"] += pub
+        d["dropped"] += drop
+        d["total"] += pub + drop
+        t = d["types"].setdefault(it.get("type") or "?", {"published": 0, "dropped": 0})
+        t["published"] += pub
+        t["dropped"] += drop
+    return out
+
+
+def load_source_stats() -> dict[str, dict]:
+    path = ds_site_dir() / "data" / "export" / "source_stats.json"
+    try:
+        return aggregate_source_stats(json.loads(path.read_text(encoding="utf-8")).get("items", []))
+    except (OSError, ValueError):
+        return {}
+
+
 def find_node() -> str | None:
     """node из PATH или из nvm (Streamlit из `bash -lc` nvm может не видеть)."""
     found = shutil.which("node")
