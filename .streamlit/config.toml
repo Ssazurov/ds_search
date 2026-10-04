@@ -1,2 +1,7 @@
 [server]
 enableStaticServing = true
+
+[theme]
+base = "light"
+primaryColor = "#3b6fd1"
+font = "sans serif"
