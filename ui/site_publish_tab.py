@@ -25,6 +25,20 @@ def _counters(counts: list[dict]) -> None:
     st.dataframe(rows, use_container_width=True, hide_index=True)
 
 
+def _dropped() -> None:
+    rows = runner.load_dropped()
+    if not rows:
+        return
+    st.subheader("Отброшено по источникам")
+    st.dataframe([{
+        "Домен": r["domain"] or "(нет домена)",
+        "Причина": r["permission"],
+        "Материалов": r["count"],
+        "Разделы": ", ".join(r["types"]),
+    } for r in rows], use_container_width=True, hide_index=True)
+    st.caption("Разрешение источника задаётся во вкладке «Источники».")
+
+
 def render() -> None:
     st.header("Внешний сайт (GitHub Pages)")
     st.caption(
@@ -69,5 +83,6 @@ def render() -> None:
         st.error(f"{kind.capitalize()} завершилась с ошибкой (код {st_.exit_code}, старт {when}). См. лог.")
     if st_.counts:
         _counters(st_.counts)
+    _dropped()
     with st.expander("Лог", expanded=bool(st_.running or st_.exit_code)):
         st.code(st_.log or "(пусто)", language="text")
