@@ -227,7 +227,7 @@ def render() -> None:
     )
     left, right = st.columns([1, 1.4], gap="large")
     with left:
-        query = st.text_input("Поиск", placeholder="домен, например unicef.org", label_visibility="collapsed")
+        query = st.text_input("Поиск", placeholder="домен, например unicef.org", label_visibility="collapsed", key="src_search")
         shown = filter_rows(rows, flt, query)
         size = st.selectbox("На странице", _PAGE_SIZES, index=0)
         pages = max(1, -(-len(shown) // size))
