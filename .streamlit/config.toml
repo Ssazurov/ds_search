@@ -2,6 +2,9 @@
 enableStaticServing = true
 
 [theme]
-base = "light"
-primaryColor = "#3b6fd1"
+base = "dark"
+primaryColor = "#5b8def"
+backgroundColor = "#141821"
+secondaryBackgroundColor = "#1b212c"
+textColor = "#e7e9ee"
 font = "sans serif"
