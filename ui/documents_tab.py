@@ -18,6 +18,7 @@ from src.gar_ingest.client import GarPublishError
 from src.gar_ingest.documents import ingest_document, revoke_document
 from src.gar_ingest.paths import resolve_content_path
 from src.metadata.schema import label_of, load_dictionaries
+from src.metadata.tags import normalize_tags
 from src.news.db import has_published_digest, items_by_source_urls
 from ui import notify
 from ui.news_add import add_articles_as_news, summarize
@@ -594,6 +595,9 @@ def _render_metadata_form(selected_rows: list[dict]) -> None:
         else:
             st.caption("Категория — сначала выберите направление")
     age = st.selectbox("Age (возраст)", [""] + AGE_OPTIONS, key="batch_age")
+    tags_input = st.text_input(
+        "Теги (через запятую, issue #483)", key="batch_tags",
+        help="Заменяет текущие tags у всех выбранных документов целиком. Пусто — не менять.")
     needs_review_choice = st.selectbox(
         "Needs review (требует проверки)", ["не менять", "да", "нет"], key="batch_needs_review")
 
@@ -605,6 +609,8 @@ def _render_metadata_form(selected_rows: list[dict]) -> None:
             updates["category"] = category
         if age:
             updates["age"] = age
+        if tags_input.strip():
+            updates["tags"] = normalize_tags(tags_input)
         if needs_review_choice != "не менять":
             updates["needs_review"] = needs_review_choice == "да"
 

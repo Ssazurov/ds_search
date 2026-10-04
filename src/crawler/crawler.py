@@ -39,6 +39,7 @@ from ..discovery.download import _sanitize_filename
 from .slug import slugify
 from ..license.checker import LicenseCheckResult, LicenseStatus, check_license
 from ..metadata import classify as classify_mod
+from ..metadata import gar_mapping
 from ..metadata import gar_schema
 from ..metadata.meta_extract import extract_page_meta, strip_site_suffix
 from ..metadata.downsideup_header import parse_header
@@ -204,6 +205,14 @@ class SourceCrawler:
         for key in ("age", "target_audience", "doc_type"):
             if result.get(key) is not None:
                 meta[key] = result[key]
+
+        # issue #483, ADR-0015/ADR-0028: tags — опциональное multi-value
+        # поле, не участвует в classify()/needs_review. Per-source дефолт
+        # из gar_mapping.yaml применяется, только если meta.tags ещё пуст.
+        if not meta.get("tags"):
+            tags_default = gar_mapping.resolve_defaults(self.cfg.domain).get("tags")
+            if tags_default:
+                meta["tags"] = tags_default
 
         required = gar_schema.required_field_keys(fields)
         meta["needs_review"] = any(not meta.get(key) for key in required)
