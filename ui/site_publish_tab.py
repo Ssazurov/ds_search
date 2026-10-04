@@ -41,15 +41,15 @@ def render() -> None:
     )
     err = runner.check_env(dry)
     if err:
-        notify.report("site_publish", "error", "Ошибка окружения", details=[err])
+        notify.report("error", "Ошибка окружения", details=[err])
     if st.button("Пересобрать внешний сайт", type="primary",
                  disabled=bool(err) or st_.running or not (dry or confirm)):
         try:
             runner.start(dry_run=dry)
         except RuntimeError as exc:
-            notify.report("site_publish", "error", "Не удалось запустить пересборку", details=[str(exc)])
+            notify.report("error", "Не удалось запустить пересборку", details=[str(exc)])
         else:
-            notify.report("site_publish", "success", "Публикация на внешний сайт запущена",
+            notify.report("success", "Публикация на внешний сайт запущена",
                          stats={"тип": "пробный прогон" if dry else "публикация",
                                 "старт": datetime.fromtimestamp(runner.status().started_at or 0).strftime("%Y-%m-%d %H:%M:%S")})
             st.rerun()

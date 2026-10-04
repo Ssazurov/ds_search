@@ -145,6 +145,16 @@ def start(dry_run: bool = False) -> None:
     env["PATH"] = str(Path(node).parent) + os.pathsep + env.get("PATH", "")
     if os.environ.get("DS_SITE_GAR_URL"):  # в docker GAR — по имени сервиса, а не localhost из .env.local
         env["GAR_URL"] = os.environ["DS_SITE_GAR_URL"]
+    # Реестр источников передаём явным файлом: export-content.mjs не должен искать
+    # data/source_registry_cache.json относительно cwd (в docker путь другой).
+    from src.license.registry_store import GarRegistryStore
+
+    entries = GarRegistryStore().load_all()
+    if not entries:
+        raise RuntimeError("Реестр источников пуст (GAR недоступен и кэша нет)")
+    registry_file = STATE_DIR / "source_registry.json"
+    registry_file.write_text(json.dumps({"entries": entries}, ensure_ascii=False), encoding="utf-8")
+    env["SOURCE_REGISTRY_CACHE"] = str(registry_file)
     proc = subprocess.Popen(  # noqa: S603
         ["sh", "-c", sh], cwd=site, env=env, start_new_session=True,
         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
