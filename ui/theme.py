@@ -236,6 +236,24 @@ div.block-container { padding-top: 72px !important; }
 .st-key-tabmain [data-testid="stHeading"] h3 { padding: 0.25rem 0 !important; }
 .st-key-tabmain [data-baseweb="input"] input, .st-key-tabmain [data-baseweb="select"] > div { min-height: 34px; }
 .st-key-tabmain [data-testid="stCheckbox"], .st-key-tabmain [data-testid="stRadio"] { min-height: 0; }
+/* Строка под таблицей: подпись слева, шестерня «Колонки» справа */
+.st-key-tabmain [class*="st-key-colfoot_"] [data-testid="stHorizontalBlock"] { flex-wrap: nowrap !important; align-items: center; gap: 0.5rem !important; }
+.st-key-tabmain [class*="st-key-colfoot_"] [data-testid="stColumn"]:first-child { flex: 1 1 0 !important; min-width: 0 !important; }
+.st-key-tabmain [class*="st-key-colfoot_"] [data-testid="stColumn"]:last-child { flex: 0 0 auto !important; width: auto !important; min-width: 0 !important; display: flex; justify-content: flex-end; }
+.st-key-tabmain [class*="st-key-colfoot_"] [data-testid="stCaptionContainer"] { margin: 0; }
+.st-key-tabmain [class*="st-key-colfoot_"] button { min-height: 32px; padding: 2px 10px; }
+/* Компактные ряды: cmp_ — подпись слева, cmpv_ — подпись сверху; колонки по ширине содержимого, влево */
+.st-key-tabmain [class*="st-key-cmp"] [data-testid="stHorizontalBlock"] {
+  flex-wrap: wrap !important; justify-content: flex-start !important; gap: 0.5rem !important; align-items: flex-end; }
+.st-key-tabmain [class*="st-key-cmp_"] [data-testid="stHorizontalBlock"] { align-items: center; }
+.st-key-tabmain [class*="st-key-cmp"] [data-testid="stColumn"] { flex: 0 0 auto !important; width: auto !important; min-width: 0 !important; }
+.st-key-tabmain [class*="st-key-cmpv_"] [data-testid="stColumn"]:first-child { flex: 1 1 0 !important; min-width: 180px !important; }
+.st-key-tabmain [class*="st-key-cmp_"] [data-testid="stHorizontalBlock"] [data-testid="stColumn"] [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stDateInput"], [data-testid="stTimeInput"]) {
+  display: flex !important; flex-direction: row; align-items: center; gap: 8px; }
+.st-key-tabmain [class*="st-key-cmpv_"] [data-testid="stHorizontalBlock"] [data-testid="stColumn"] [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stDateInput"], [data-testid="stTimeInput"]) {
+  display: flex !important; flex-direction: column; align-items: stretch; gap: 2px; }
+.st-key-tabmain [class*="st-key-cmp"] [data-testid="stWidgetLabel"] { flex: 0 0 auto !important; width: auto !important; min-width: max-content !important; white-space: nowrap !important; }
+.st-key-tabmain [class*="st-key-cmp"] [data-testid="stElementContainer"] > [data-testid^="st"] > div:last-child { flex: 1 1 auto; min-width: 0; }
 """
 
 

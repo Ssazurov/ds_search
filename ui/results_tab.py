@@ -14,7 +14,7 @@ from src.discovery.config import Settings, load_settings
 from src.discovery.gar_client import GarDiscoveryClient
 from src.license.checker import check_license
 from ui.news_add import add_articles_as_news, summarize
-from ui.table_utils import COLUMN_LABELS, column_settings, datetime_column, link_column, localize, action_row
+from ui.table_utils import COLUMN_LABELS, column_settings, datetime_column, link_column, localize, action_row, table_slots
 from ui import notify
 
 _STATUS_OPTIONS = ["new", "approved", "rejected", "queued", "downloaded", "in_news"]
@@ -111,13 +111,23 @@ def _download(rows: list[dict], selected_ids: list, settings: Settings) -> None:
     st.rerun()
 
 
+_RES_KEYS = ("res_text", "res_status", "res_domain", "res_dups")
+
+
+def _reset_res_filters() -> None:
+    for k in _RES_KEYS:
+        st.session_state.pop(k, None)
+
+
 def render() -> None:
     settings = load_settings()
 
-    col1, col2, col3 = st.columns(3)
-    status_filter = col1.selectbox("Статус", [_NONE] + _STATUS_OPTIONS)
-    text_filter = col3.text_input("Полнотекстовый фильтр (title/snippet)")
-    show_duplicates = st.checkbox("Показывать дубли", value=False)
+    with st.container(key="cmpv_results"):
+        col3, col1, col2, col4 = st.columns(4)
+        text_filter = col3.text_input("Полнотекстовый фильтр (title/snippet)", key="res_text")
+        status_filter = col1.selectbox("Статус", [_NONE] + _STATUS_OPTIONS, width=150, key="res_status")
+        col4.button("Сбросить", key="res_filters_reset_btn", on_click=_reset_res_filters)
+    show_duplicates = st.checkbox("Показывать дубли", value=False, key="res_dups")
 
     try:
         with GarDiscoveryClient(settings) as client:
@@ -137,8 +147,9 @@ def render() -> None:
     domain_counts = Counter(r["domain"] for r in rows if r["domain"])
     domain_options = [_NONE] + sorted(domain_counts)
     domain_filter = col2.selectbox(
-        "Домен", domain_options,
+        "Домен", domain_options, key="res_domain",
         format_func=lambda d: f"Все ({len(rows)})" if d == _NONE else f"{d} ({domain_counts[d]})",
+        width=min(max([len(d) for d in domain_options] + [8]) * 9 + 90, 380),
     )
 
     if domain_filter != _NONE:
@@ -179,14 +190,15 @@ def render() -> None:
         insert_at = display_cols_final.index("title") + 1 if "title" in display_cols_final else len(display_cols_final)
         display_cols_final.insert(insert_at, "url")
     df_display = localize(df[display_cols_final]).rename(columns=column_labels)
+    tbl, cap_col, gear_col = table_slots("results")
     order, config, sort = column_settings(
         "results", {k: column_labels[k] for k in display_cols_final},
         {column_labels["url"]: link_column(),
          column_labels["source_published_at"]: datetime_column(column_labels["source_published_at"]),
-         column_labels["found_at"]: datetime_column(column_labels["found_at"])})
+         column_labels["found_at"]: datetime_column(column_labels["found_at"])}, host=gear_col)
     if sort:
         df_display = df_display.sort_values(sort[0], ascending=sort[1])
-    edited = st.data_editor(
+    edited = tbl.data_editor(
         df_display, hide_index=True, width="stretch",
         disabled=[c for c in df_display.columns if c != column_labels["select"]], key="results_editor",
         column_order=order, column_config=config,
@@ -194,7 +206,7 @@ def render() -> None:
     # Маппинг обратно на оригинальные имена для извлечения id
     selected_mask = edited[column_labels["select"]]
     selected_ids = df.loc[selected_mask, "id"].tolist() if "id" in df.columns else []
-    st.caption(f"Выбрано: {len(selected_ids)}")
+    cap_col.caption(f"Выбрано: {len(selected_ids)}")
 
     # Порядок кнопок (issue #430, #434): терминальные статусные действия →
     # очередь загрузки → скачивание → два родственных действия генерации

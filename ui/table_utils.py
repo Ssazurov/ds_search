@@ -97,7 +97,7 @@ def merge_settings(saved: dict | None, columns: list[str], pinned: tuple[str, ..
 
 
 def column_settings(table_key: str, columns: dict[str, str], base_config: dict | None = None,
-                    pinned: tuple[str, ...] = ("select", "title")) -> tuple[list[str], dict]:
+                    pinned: tuple[str, ...] = ("select", "title"), host=None) -> tuple[list[str], dict]:
     """Popover «Колонки» над таблицей. columns: технический ключ -> имя колонки в df
     (в порядке по умолчанию). Возвращает (column_order, column_config) для st.data_editor;
     в prefs хранятся только технические ключи."""
@@ -108,7 +108,7 @@ def column_settings(table_key: str, columns: dict[str, str], base_config: dict |
     names = {k: columns[k] for k in cur["order"]}
     by_name = {v: k for k, v in columns.items()}
 
-    with st.popover("⚙ Колонки"):
+    with (host if host is not None else st).popover("⚙", help="Колонки"):
         optional = [names[k] for k in cur["order"] if k not in pinned]
         shown = st.multiselect(
             "Показывать", optional, default=[names[k] for k in cur["order"] if k not in pinned and k not in cur["hidden"]],
@@ -156,6 +156,14 @@ def column_settings(table_key: str, columns: dict[str, str], base_config: dict |
         config[name] = {**(config.get(name) or {}), "width": w}
     sort = (columns[cur["sort"]["col"]], cur["sort"]["asc"]) if cur["sort"] else None
     return order, config, sort
+
+
+def table_slots(key: str):
+    """Слоты вокруг таблицы: (контейнер таблицы, колонка подписи слева, колонка шестерни справа)
+    в строке под таблицей. CSS `.st-key-colfoot_*` в ui/theme.py."""
+    tbl = st.container()
+    cap, gear = st.container(key=f"colfoot_{key}").columns([1, 0.05])
+    return tbl, cap, gear
 
 
 def action_row(n: int, key: str):

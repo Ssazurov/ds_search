@@ -22,7 +22,7 @@ from src.metadata.tags import normalize_tags
 from src.news.db import has_published_digest, items_by_source_urls
 from ui import notify
 from ui.news_add import add_articles_as_news, summarize
-from ui.table_utils import COLUMN_LABELS, column_settings, datetime_column, link_column, localize, action_row
+from ui.table_utils import COLUMN_LABELS, column_settings, datetime_column, link_column, localize, action_row, table_slots
 
 ROOT = Path(__file__).resolve().parents[1] / "data"
 RAW_ROOT = ROOT / "raw"
@@ -136,27 +136,30 @@ def _apply_filters(rows: list[dict]) -> list[dict]:
     directions = sorted({r["direction"] for r in rows if r["direction"]})
     domain_counts = Counter(r["domain"] for r in rows if r["domain"])
     total_count = len(rows)
-    c1, c2, c3, c4, c5, c6, c7, c8 = st.columns(8)
-    text = c1.text_input("Поиск (название/домен)", key="doc_filter_text").strip().lower()
-    status = c2.selectbox(
-        "В GAR", [_ALL, *_STATUS_FILTER], key="doc_filter_status",
-        format_func=lambda v: _STATUS_FILTER.get(v, _ALL))
-    doc_type_filter = c3.selectbox(
-        "Тип документа", [_ALL, *_DOC_TYPE_FILTER], key="doc_filter_doc_type",
-        format_func=lambda v: _DOC_TYPE_FILTER.get(v, _ALL))
-    domain_key = f"doc_filter_domain_v{st.session_state.get('doc_filter_domain_version', 0)}"
-    domain = c4.selectbox(
-        "Домен", [_ALL, *sorted(domain_counts, key=lambda d: (-domain_counts[d], d))], key=domain_key,
-        format_func=lambda d: f"Все ({total_count})" if d == _ALL else f"{d} ({domain_counts[d]})")
-    direction = c5.selectbox(
-        "Направление", [_ALL, *directions], key="doc_filter_direction",
-        format_func=lambda v: v if v == _ALL else label_of(dictionaries, "direction", v))
-    local = c6.selectbox("Локально", [_ALL, "Да", "Нет"], key="doc_filter_local")
-    gar_status = c7.selectbox(
-        "Статус GAR", [_ALL, *_GAR_STATUS_FILTER], key="doc_filter_gar_status",
-        format_func=lambda v: _GAR_STATUS_FILTER.get(v, _ALL))
-    c8.write("")  # пустой label для выравнивания
-    c8.button("Сбросить", key="doc_filters_reset_btn", on_click=_reset_filters)
+    domain_list = [_ALL, *sorted(domain_counts, key=lambda d: (-domain_counts[d], d))]
+    dom_w = min(max(len(d) for d in domain_list) * 9 + 90, 380)
+    with st.container(key="cmpv_docs"):
+        c1, c4, c3, c9, c8 = st.columns(5)
+        text = c1.text_input("Поиск (название/домен)", key="doc_filter_text").strip().lower()
+        domain_key = f"doc_filter_domain_v{st.session_state.get('doc_filter_domain_version', 0)}"
+        domain = c4.selectbox(
+            "Домен", domain_list, key=domain_key, width=dom_w,
+            format_func=lambda d: f"Все ({total_count})" if d == _ALL else f"{d} ({domain_counts[d]})")
+        doc_type_filter = c3.selectbox(
+            "Тип документа", [_ALL, *_DOC_TYPE_FILTER], key="doc_filter_doc_type", width=240,
+            format_func=lambda v: _DOC_TYPE_FILTER.get(v, _ALL))
+        with c9.popover("⚙️", help="Дополнительные фильтры"):
+            status = st.selectbox(
+                "В GAR", [_ALL, *_STATUS_FILTER], key="doc_filter_status",
+                format_func=lambda v: _STATUS_FILTER.get(v, _ALL))
+            direction = st.selectbox(
+                "Направление", [_ALL, *directions], key="doc_filter_direction",
+                format_func=lambda v: v if v == _ALL else label_of(dictionaries, "direction", v))
+            local = st.selectbox("Локально", [_ALL, "Да", "Нет"], key="doc_filter_local")
+            gar_status = st.selectbox(
+                "Статус GAR", [_ALL, *_GAR_STATUS_FILTER], key="doc_filter_gar_status",
+                format_func=lambda v: _GAR_STATUS_FILTER.get(v, _ALL))
+        c8.button("Сбросить", key="doc_filters_reset_btn", on_click=_reset_filters)
     filtered = rows
     if text:
         filtered = [r for r in filtered if text in r["title"].lower() or text in r["domain"].lower()]
@@ -509,10 +512,6 @@ def _render_metadata_form(selected_rows: list[dict]) -> None:
     if not selected_rows:
         return
 
-    st.subheader("Редактирование метаданных перед публикацией")
-    st.caption("publish_permission наследуется от домена автоматически при скачивании и здесь не меняется. "
-               "Пустое значение поля = не менять.")
-
     from src.metadata.schema import AGE_OPTIONS
     from src.metadata.gar_schema import (
         load_gar_schema, field_options, option_labels, category_options_for_direction,
@@ -527,7 +526,6 @@ def _render_metadata_form(selected_rows: list[dict]) -> None:
         notify.report("warning", "Справочник направлений GAR недоступен", details=[f"{exc}", "direction/category временно не редактируются"])
 
     loaded_count = sum(1 for r in selected_rows if r["gar_document_id"])
-    st.caption(f"Выбрано: {len(selected_rows)}, из них уже в GAR: {loaded_count} (для них уйдёт PATCH в GAR)")
 
     # автоподстановка direction/category/age/needs_review при смене состава выбора
     # (issue #336): для единичного выбора — всегда брать значения документа,
@@ -578,7 +576,8 @@ def _render_metadata_form(selected_rows: list[dict]) -> None:
     # (только по submit), поэтому список категорий не пересчитывался бы под
     # новое направление (issue #304). Обычные виджеты + обычная кнопка вместо
     # формы — заодно нет рамки, отделяющей «Направление» от остальных полей.
-    st.write("**Пакетное обновление выбранных документов**")
+    st.write("**Пакетное редактирование выбранных документов**")
+    st.caption(f"Выбрано: {len(selected_rows)}, из них уже в GAR: {loaded_count} (для них уйдёт PATCH в GAR)")
     direction = ""
     if directions:
         direction = st.selectbox(
@@ -594,12 +593,12 @@ def _render_metadata_form(selected_rows: list[dict]) -> None:
                 format_func=lambda v: v if not v else cat_labels.get(v, v))
         else:
             st.caption("Категория — сначала выберите направление")
-    age = st.selectbox("Age (возраст)", [""] + AGE_OPTIONS, key="batch_age")
+    age = st.selectbox("Возраст (Age)", [""] + AGE_OPTIONS, key="batch_age")
     tags_input = st.text_input(
-        "Теги (через запятую, issue #483)", key="batch_tags",
+        "Теги (через запятую)", key="batch_tags",
         help="Заменяет текущие tags у всех выбранных документов целиком. Пусто — не менять.")
     needs_review_choice = st.selectbox(
-        "Needs review (требует проверки)", ["не менять", "да", "нет"], key="batch_needs_review")
+        "Требует проверки (Needs review)", ["не менять", "да", "нет"], key="batch_needs_review")
 
     if st.button("Применить ко всем выбранным", key="batch_metadata_apply_btn"):
         updates = {}
@@ -649,6 +648,25 @@ def _archive_batch(rows: list[dict], archive: bool) -> None:
     try:
         st.session_state["gar_docs_cache"] = _fetch_gar_documents()
     except Exception:  # noqa: BLE001 — не роняем успешный архив из-за ошибки рефреша
+        st.session_state.pop("gar_docs_cache", None)
+    st.rerun()
+
+
+def _resend_batch(rows: list[dict]) -> None:
+    """Переотправка исправленного локального md в GAR: отзыв старого документа + повторная загрузка."""
+    progress = st.progress(0.0, text=f"0/{len(rows)}")
+    errors: list[str] = []
+    for i, row in enumerate(rows, start=1):
+        try:
+            revoke_document(row["doc_json_path"])
+            ingest_document(row["doc_json_path"])
+        except Exception as exc:  # noqa: BLE001 — не роняем весь батч на одной ошибке
+            errors.append(f"{_row_label(row)}: {exc} (если документа нет в GAR — «Загрузить в GAR»)")
+        progress.progress(i / len(rows), text=f"{i}/{len(rows)}")
+    notify.report_batch("Переотправлено в GAR", len(rows) - len(errors), len(rows), errors)
+    try:
+        st.session_state["gar_docs_cache"] = _fetch_gar_documents()
+    except Exception:  # noqa: BLE001
         st.session_state.pop("gar_docs_cache", None)
     st.rerun()
 
@@ -805,17 +823,18 @@ def render() -> None:
     df.insert(0, "select", False)
 
     # Кнопка "Колонки" и "Обновить список из GAR" в одной строке
-    col_settings, col_gar_refresh, col_gar_info = st.columns([1, 2, 5])
-    with col_settings:
-        order, config, sort = column_settings(
-            "documents", {k: labels[k] for k in ("select", "title", "url", "domain", "direction", "category",
-                                                 "doc_type", "clean", "gar", "error", "derived", "added",
-                                                 "md", "json")},
-            {labels["url"]: link_column(), labels["added"]: datetime_column(labels["added"]),
-             labels["md"]: st.column_config.LinkColumn(
-                 labels["md"], display_text=":material/description:", width="small"),
-             labels["json"]: st.column_config.LinkColumn(
-                 labels["json"], display_text=":material/data_object:", width="small")})
+    with st.container(key="cmp_garrow"):
+        col_gar_refresh, col_gar_info = st.columns(2)
+    tbl, cap_col, gear_col = table_slots("documents")
+    order, config, sort = column_settings(
+        "documents", {k: labels[k] for k in ("select", "title", "url", "domain", "direction", "category",
+                                             "doc_type", "clean", "gar", "error", "derived", "added",
+                                             "md", "json")},
+        {labels["url"]: link_column(), labels["added"]: datetime_column(labels["added"]),
+         labels["md"]: st.column_config.LinkColumn(
+             labels["md"], display_text=":material/description:", width="small"),
+         labels["json"]: st.column_config.LinkColumn(
+             labels["json"], display_text=":material/data_object:", width="small")}, host=gear_col)
     if col_gar_refresh.button("Обновить список из GAR", key="gar_docs_refresh_btn"):
         try:
             st.session_state["gar_docs_cache"] = _fetch_gar_documents()
@@ -841,13 +860,13 @@ def render() -> None:
     df_display = localize(df).rename(columns=labels)
     if sort:
         df_display = df_display.sort_values(sort[0], ascending=sort[1])
-    edited = st.data_editor(
+    edited = tbl.data_editor(
         df_display, hide_index=True, width="stretch",
         disabled=[c for c in labels.values() if c != labels["select"]], key="doc_table_editor",
         column_order=order, column_config=config,
     )
     selected_rows = [filtered[i] for i in edited.index[edited[labels["select"]]]]
-    st.caption(
+    cap_col.caption(
         f"Всего: {len(df)}, очищено: {int(df['clean'].sum())}, "
         f"в GAR: {sum(r['status'] == 'loaded' for r in filtered)}, выбрано: {len(selected_rows)}"
     )
@@ -911,15 +930,20 @@ def render() -> None:
     gar_only = [r for r in selected_rows if r["gar_document_id"]]
     all_have_gar = len(gar_only) == len(selected_rows) and selected_rows
     archivable = [r for r in selected_rows if r["gar_document_id"]]
+    resendable = [r for r in gar_only if r.get("doc_json_path") and r.get("content_path")]
 
     # Кнопки прижаты к правому краю
     with_url = [r for r in selected_rows if r.get("url")]
     # Порядок кнопок (issue #432): статусные действия → две кнопки генерации
     # черновика «В пересказ» / «В новости» справа, без переключателя «Формат».
-    b1, b2, b3, b4, b5, b6, b7 = action_row(7, "documents")
+    b1, b8, b2, b3, b4, b5, b6, b7 = action_row(8, "documents")
     if b1.button(f"Загрузить в GAR ({len(not_loaded)})", disabled=not not_loaded,
                  key="ingest_selected_btn"):
         _ingest_batch(not_loaded)
+    if b8.button(f"Переотправить в GAR ({len(resendable)})", disabled=not resendable,
+                 key="resend_to_gar_btn",
+                 help="Заменить документ в GAR текущим локальным md (старый отзывается, затем грузится заново)"):
+        _resend_batch(resendable)
     if b2.button(f"Удалить из GAR ({len(gar_only)})", disabled=not all_have_gar,
                  key="delete_from_gar_btn"):
         st.session_state["confirm_delete_from_gar"] = True

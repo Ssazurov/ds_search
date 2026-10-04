@@ -1,6 +1,7 @@
 """Вкладка «Внешний сайт»: кнопка пересборки ds_site на GitHub Pages (ds_search#225, ADR-0018)."""
 from __future__ import annotations
 
+import html
 from datetime import datetime
 
 import streamlit as st
@@ -45,17 +46,25 @@ def _dropped() -> None:
     saved = st.session_state.setdefault("dp_saved", {})
     st.subheader("Отброшено по источникам")
     st.caption("Правка пишет в реестр источников; в сайт попадёт после следующей пересборки.")
+    def _txt(r: dict) -> str:
+        return f"{r['domain'] or '(нет домена)'} · {r['count']} материалов · {', '.join(r['types'])} · {r['permission']}"
+
+    text_w = max(len(_txt(r)) for r in rows[:_MAX_EDIT_ROWS])
     for r in rows[:_MAX_EDIT_ROWS]:
         dom, n = r["domain"], r["count"]
         cur = saved.get(dom, r["permission"])
-        c0, c1, c2, c3 = st.columns([3, 3, 1.3, 1.7])
-        c0.markdown(f"**{dom or '(нет домена)'}** · {n} материалов · {', '.join(r['types'])} · `{r['permission']}`")
+        row = st.container(key=f"cmp_dp_{dom or 'none'}")
+        c0, c1, c2, c3 = row.columns(4)
+        c0.markdown(
+            f'<div style="width:{text_w}ch;max-width:60vw"><b>{html.escape(r["domain"] or "(нет домена)")}</b> · {n} материалов · '
+            f'{html.escape(", ".join(r["types"]))} · <code>{html.escape(r["permission"])}</code></div>',
+            unsafe_allow_html=True)
         if not dom:
             continue
         new = c1.selectbox(
             "Разрешение", _PERMS, index=_PERMS.index(cur) if cur in _PERMS else 0,
             format_func=lambda v: PUBLISH_PERMISSION_LABELS[PublishPermission(v)],
-            key=f"dp_sel_{dom}", label_visibility="collapsed",
+            key=f"dp_sel_{dom}", label_visibility="collapsed", width=240,
         )
         if new != cur and new in PUBLISHABLE:
             c0.caption(f"+{n} материалов после пересборки")
@@ -67,7 +76,7 @@ def _dropped() -> None:
             else:
                 saved[dom] = new
                 st.rerun()
-        c3.button("В Источники", key=f"dp_open_{dom}", on_click=_open_source, args=(dom,))
+        c3.button("В источник", key=f"dp_open_{dom}", on_click=_open_source, args=(dom,))
     if len(rows) > _MAX_EDIT_ROWS:
         st.caption(f"Показаны первые {_MAX_EDIT_ROWS} из {len(rows)} источников; остальные — во вкладке «Источники».")
 

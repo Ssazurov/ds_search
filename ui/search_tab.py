@@ -56,11 +56,13 @@ def _date_range() -> tuple[datetime | None, datetime | None]:
     st.session_state.setdefault("sr_to_date", now.date())
     st.session_state.setdefault("sr_to_time", now.time().replace(second=0, microsecond=0))
     st.caption("Период дат (необязательно). Достаточно одной границы; очистите поле даты, чтобы убрать её.")
-    c1, c2, c3, c4 = st.columns(4)
-    d_from = c1.date_input("От (дата)", value=None, key="sr_from_date")
-    t_from = c2.time_input("От (время)", value=time(0, 0), key="sr_from_time")
-    d_to = c3.date_input("До (дата)", key="sr_to_date")
-    t_to = c4.time_input("До (время)", key="sr_to_time")
+    with st.container(key="cmp_dates"):
+        c1, c2, c3, c4 = st.columns(4)
+        d_from = c1.date_input("От", value=None, key="sr_from_date", width=190)
+        t_from = c2.time_input("От (время)", value=time(0, 0), key="sr_from_time",
+                               label_visibility="collapsed", width=100)
+        d_to = c3.date_input("До", key="sr_to_date", width=190)
+        t_to = c4.time_input("До (время)", key="sr_to_time", label_visibility="collapsed", width=100)
     dt_from = datetime.combine(d_from, t_from) if d_from else None
     dt_to = datetime.combine(d_to, t_to) if d_to else None
     if dt_from and dt_to and dt_from > dt_to:
@@ -168,10 +170,14 @@ def render() -> None:
             notify.report("error", "Ошибка запуска поиска", details=[str(exc)])
 
     st.divider()
-    st.subheader("Сохранить как пресет")
-    preset_name = st.text_input("Имя пресета", value=preset.get("name", ""))
-    pcol1, pcol2 = st.columns(2)
-    if pcol1.button("Сохранить пресет") and preset_name.strip():
+    with st.container(key="cmp_preset"):
+        pcols = st.columns(4 if chosen != _NONE else 3)
+        pcols[0].markdown("Сохранить как пресет")
+        preset_name = pcols[1].text_input("Имя пресета", value=preset.get("name", ""),
+                                          label_visibility="collapsed", width=260)
+        do_save = pcols[2].button("Сохранить", key="preset_save_btn")
+        do_delete = chosen != _NONE and pcols[3].button("Удалить пресет", key="preset_del_btn")
+    if do_save and preset_name.strip():
         save_preset({
             "name": preset_name.strip(),
             "query": query,
@@ -183,7 +189,7 @@ def render() -> None:
         })
         notify.toast("Пресет сохранён")
         st.rerun()
-    if chosen != _NONE and pcol2.button("Удалить текущий пресет"):
+    if do_delete:
         delete_preset(chosen)
         notify.toast("Пресет удалён")
         st.rerun()

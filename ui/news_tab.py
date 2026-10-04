@@ -17,15 +17,28 @@ import streamlit as st
 
 from src.news import db, digest_check, overlap, publish
 from src.news.manual import DEFAULT_SOURCE_NAME, create_manual_draft
+from src.metadata.schema import label_of, load_dictionaries
 from ui import notify
-from ui.table_utils import column_settings, link_column, action_row
+from ui.table_utils import column_settings, link_column, action_row, table_slots
 
 CHANNEL_OPTIONS = ["telegram"]
 STATUS_LABELS = {"draft": "Черновик", "published": "Опубликовано", "rejected": "Отклонено"}
 FORMAT_LABELS = {"news": "Новость", "digest": "Пересказ"}
 _ALL = "Все"
+_NEWS_FILTER_KEYS = ("news_search", "news_direction", "news_category", "news_status", "news_format_filter",
+                     "news_source")
+
+
+def _on_news_direction() -> None:
+    st.session_state["news_category"] = _ALL
+
+
+def _reset_news_filters() -> None:
+    for k in _NEWS_FILTER_KEYS:
+        st.session_state.pop(k, None)
 _TABLE_LABELS = {
-    "select": "Выбор", "status": "Статус", "format": "Формат", "title": "Заголовок", "source_name": "Источник",
+    "select": "Выбор", "status": "Статус", "format": "Формат", "direction": "Направление", "category": "Категория",
+    "title": "Заголовок", "source_name": "Источник",
     "url": "Ссылка", "created_at": "Создано", "published_at": "Публикация", "gar": "В GAR",
 }
 
@@ -56,18 +69,17 @@ def _render_taxonomy(item: dict) -> tuple[str, str]:
     dkey, ckey = f"dir_{iid}", f"cat_{iid}"
     cur_dir = item.get("direction") or ""
     cur_cat = item.get("category") or ""
-    c1, c2 = st.columns(2)
-    direction = c1.selectbox(
+    direction = st.selectbox(
         "Направление", [""] + directions, key=dkey,
         index=([""] + directions).index(cur_dir) if cur_dir in directions else 0,
         format_func=lambda v: v if not v else dir_labels.get(v, v))
     if not direction:
-        c2.caption("Категория — сначала выберите направление")
+        st.caption("Категория — сначала выберите направление")
         return "", ""
     cats = category_options_for_direction(fields, direction)
     if st.session_state.get(ckey) not in (None, "", *cats):
         del st.session_state[ckey]  # смена направления → старая категория невалидна
-    category = c2.selectbox(
+    category = st.selectbox(
         "Категория", [""] + cats, key=ckey,
         index=([""] + cats).index(cur_cat) if cur_cat in cats else 0,
         format_func=lambda v: v if not v else cat_labels.get(v, v))
@@ -186,14 +198,14 @@ def _render_item(item: dict) -> None:
             _render_original(item, new_body)
         _render_digest_report(ev, item, new_body)
 
-    cols = action_row(4, "news_item")
+    cols = action_row(2, "news_item")
     if cols[0].button("Сохранить", key=f"save_{item['id']}"):
         db.update_news_item(item["id"], payload)
         notify.report("success", "Сохранено")
         st.rerun()
     if item["status"] != "published" and cols[1].button(
-        "Опубликовать", key=f"pub_{item['id']}", disabled=blocked,
-        help="Чеклист пересказа не пройден" if blocked else None,
+        "Опубликовать в GAR", key=f"pub_{item['id']}", disabled=blocked,
+        help="Чеклист пересказа не пройден" if blocked else "Статус «Опубликована» и загрузка в GAR",
     ):
         if is_digest:
             db.update_news_item(item["id"], payload)  # публикуем ровно то, что проверено на экране
@@ -220,22 +232,6 @@ def _render_item(item: dict) -> None:
         st.rerun()
     elif item["status"] == "published" and item.get("publish_error"):
         notify.report("error", "GAR ingestion не удался", details=[item['publish_error']])
-    if item["status"] != "rejected" and cols[2].button("Отклонить", key=f"rej_{item['id']}"):
-        err = _reject_item(item)
-        if err:
-            notify.report("error", "Не удалось отозвать документ из GAR",
-                          details=["Статус не изменён", err])
-        st.rerun()
-    if cols[3].button("Удалить", key=f"del_{item['id']}"):
-        if item.get("gar_document_id"):
-            try:
-                publish.revoke_news_item(item["id"])
-            except publish.GarPublishError as exc:
-                notify.report("error", "Не удалось отозвать документ из GAR",
-                             details=["Запись не удалена", str(exc)])
-                st.stop()
-        db.delete_news_item(item["id"])
-        st.rerun()
 
 
 def _publish_batch(items: list[dict]) -> None:
@@ -389,21 +385,44 @@ def render() -> None:
         _render_digest_queue()
         return
 
-    c1, c2, c3 = st.columns([1, 1, 2])
-    status_filter = c1.selectbox(
-        "Статус", [_ALL] + list(STATUS_LABELS.keys()),
-        format_func=lambda s: _ALL if s == _ALL else STATUS_LABELS[s],
-    )
-    format_filter = c2.selectbox(
-        "Формат", [_ALL] + list(FORMAT_LABELS.keys()),
-        format_func=lambda f: _ALL if f == _ALL else FORMAT_LABELS[f], key="news_format_filter",
-    )
-    search = c3.text_input("Поиск (заголовок/источник)", key="news_search").strip().lower()
+    dictionaries = load_dictionaries()
+    base = db.list_news_items()
+    dirs = sorted({i["direction"] for i in base if i.get("direction")})
+    srcs = sorted({i["source_name"] for i in base if i.get("source_name")})
+    with st.container(key="cmpv_news"):
+        c3, c4, c5, c9, c8 = st.columns(5)
+        search = c3.text_input("Поиск (заголовок/источник)", key="news_search").strip().lower()
+        direction_filter = c4.selectbox(
+            "Направление", [_ALL, *dirs], key="news_direction", width=220, on_change=_on_news_direction,
+            format_func=lambda v: v if v == _ALL else label_of(dictionaries, "direction", v))
+        cur_dir = st.session_state.get("news_direction", _ALL)
+        cats = sorted({i["category"] for i in base if i.get("category")
+                       and (cur_dir == _ALL or i.get("direction") == cur_dir)})
+        if st.session_state.get("news_category", _ALL) not in (_ALL, *cats):
+            st.session_state["news_category"] = _ALL
+        category_filter = c5.selectbox(
+            "Категория", [_ALL, *cats], key="news_category", width=220,
+            format_func=lambda v: v if v == _ALL else label_of(dictionaries, "category", v))
+        with c9.popover("⚙️", help="Дополнительные фильтры"):
+            status_filter = st.selectbox(
+                "Статус", [_ALL] + list(STATUS_LABELS.keys()), key="news_status",
+                format_func=lambda s: _ALL if s == _ALL else STATUS_LABELS[s])
+            format_filter = st.selectbox(
+                "Формат", [_ALL] + list(FORMAT_LABELS.keys()), key="news_format_filter",
+                format_func=lambda f: _ALL if f == _ALL else FORMAT_LABELS[f])
+            source_filter = st.selectbox("Источник", [_ALL, *srcs], key="news_source")
+        c8.button("Сбросить", key="news_filters_reset_btn", on_click=_reset_news_filters)
     status = None if status_filter == _ALL else status_filter
 
     items = db.list_news_items(status=status)  # уже ORDER BY created_at DESC
     if format_filter != _ALL:
         items = [i for i in items if (i.get("format") or "news") == format_filter]
+    if direction_filter != _ALL:
+        items = [i for i in items if i.get("direction") == direction_filter]
+    if category_filter != _ALL:
+        items = [i for i in items if i.get("category") == category_filter]
+    if source_filter != _ALL:
+        items = [i for i in items if i.get("source_name") == source_filter]
     if search:
         items = [
             i for i in items
@@ -416,6 +435,8 @@ def render() -> None:
     df = pd.DataFrame([{
         "status": STATUS_LABELS.get(i["status"], i["status"]),
         "format": FORMAT_LABELS.get(i.get("format") or "news", i.get("format")),
+        "direction": label_of(dictionaries, "direction", i["direction"]) if i.get("direction") else "",
+        "category": label_of(dictionaries, "category", i["category"]) if i.get("category") else "",
         "title": i["title"] or "(без заголовка)",
         "source_name": i.get("source_name") or "",
         "url": i.get("source_url") or None,
@@ -426,26 +447,42 @@ def render() -> None:
     } for i in items])
     df.insert(0, "select", False)
 
+    tbl, cap_col, gear_col = table_slots("news")
     order, config, sort = column_settings(
-        "news", _TABLE_LABELS, {_TABLE_LABELS["url"]: link_column()})
+        "news", _TABLE_LABELS, {_TABLE_LABELS["url"]: link_column()}, host=gear_col)
     df_display = df.rename(columns=_TABLE_LABELS)
     if sort:
         df_display = df_display.sort_values(sort[0], ascending=sort[1])
-    edited = st.data_editor(
+    edited = tbl.data_editor(
         df_display, hide_index=True, width="stretch",
         disabled=[c for c in _TABLE_LABELS.values() if c != _TABLE_LABELS["select"]],
         key="news_table_editor", column_order=order, column_config=config,
     )
     selected = [items[i] for i in edited.index[edited[_TABLE_LABELS["select"]]]]
-    st.caption(f"Всего: {len(items)}, выбрано: {len(selected)}")
+    cap_col.caption(f"Всего: {len(items)}, выбрано: {len(selected)}")
 
     b1, b2, b3 = action_row(3, "news")
-    if b1.button(f"Опубликовать выбранные ({len(selected)})", disabled=not selected, key="news_pub_selected"):
+    if b1.button(f"Опубликовать в GAR ({len(selected)})", disabled=not selected, key="news_pub_selected",
+                 help="Статус «Опубликована» и загрузка в GAR"):
         _publish_batch(selected)
-    if b2.button("Отклонить выбранные", disabled=not selected, key="news_rej_selected"):
+    if b2.button(f"Отклонить ({len(selected)})", disabled=not selected, key="news_rej_selected",
+                 help="Отозвать из GAR; записи остаются со статусом «Отклонена»"):
         _reject_batch(selected)
-    if b3.button("Удалить выбранные", disabled=not selected, key="news_del_selected"):
-        _delete_batch(selected)
+    if b3.button(f"Удалить везде ({len(selected)})", disabled=not selected, key="news_del_selected",
+                 help="Отозвать из GAR (если загружены) и удалить записи без возможности восстановления"):
+        st.session_state["confirm_delete_news"] = True
+        st.rerun()
+    if st.session_state.get("confirm_delete_news") and selected:
+        st.warning(f"Удалить везде: {len(selected)} шт.? Загруженные будут отозваны из GAR, записи удалены безвозвратно.")
+        cc1, cc2 = action_row(2, "news_confirm")
+        if cc1.button("Да, удалить", key="news_del_yes"):
+            st.session_state.pop("confirm_delete_news", None)
+            _delete_batch(selected)
+        if cc2.button("Отмена", key="news_del_no"):
+            st.session_state.pop("confirm_delete_news", None)
+            st.rerun()
+    elif not selected:
+        st.session_state.pop("confirm_delete_news", None)
 
     st.divider()
     if len(selected) == 1:
