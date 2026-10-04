@@ -43,6 +43,41 @@ div.block-container { padding-top: 2.5rem !important; }
 """
 
 
+# Боковое меню — как Sidebar.tsx в gar-admin-ui: 212px, правый бордер,
+# пункты 13.5px без маркеров, активный — фон + синяя полоса слева.
+_SIDEBAR = """
+[data-testid="stSidebar"] { width: 212px !important; min-width: 212px !important; }
+[data-testid="stSidebar"] > div:first-child { width: 212px !important; }
+[data-testid="stSidebar"] { border-right: 1px solid rgba(128,128,128,0.25); }
+[data-testid="stSidebar"] [data-testid="stSidebarHeader"] { display: none; }
+[data-testid="stSidebar"] .gar-brand { display: flex; align-items: center; gap: 8px;
+  padding: 26px 10px 20px; }
+[data-testid="stSidebar"] .gar-brand b { font-size: 14px; font-weight: 600; }
+[data-testid="stSidebar"] .gar-brand span { font-size: 11px; opacity: 0.6; }
+[data-testid="stSidebar"] .gar-group { font-size: 10.5px; text-transform: uppercase;
+  letter-spacing: 0.3px; opacity: 0.6; padding: 14px 10px 4px; }
+[data-testid="stSidebar"] [data-testid="stRadio"] > label { display: none; }
+[data-testid="stSidebar"] [role="radiogroup"] { gap: 2px; }
+[data-testid="stSidebar"] [role="radiogroup"] > label {
+  padding: 9px 10px; margin: 0; border-radius: 6px; border-left: 2px solid transparent;
+  font-size: 13.5px; opacity: 0.75; transition: background .15s; }
+[data-testid="stSidebar"] [role="radiogroup"] > label:hover {
+  background: rgba(128,128,128,0.12); opacity: 1; }
+[data-testid="stSidebar"] [role="radiogroup"] > label:has(input:checked) {
+  background: rgba(59,111,209,0.12); border-left-color: #3b6fd1; opacity: 1; font-weight: 600; }
+[data-testid="stSidebar"] [role="radiogroup"] [data-baseweb="radio"] { display: none; }
+"""
+
+
 def inject_theme() -> None:
     """Подключает шрифты IBM Plex и базовые правила. Вызывать после st.set_page_config."""
-    st.markdown(f"<style>{_FONT_FACES}{_RULES}</style>", unsafe_allow_html=True)
+    st.markdown(f"<style>{_FONT_FACES}{_RULES}{_SIDEBAR}</style>", unsafe_allow_html=True)
+
+
+def sidebar_brand() -> None:
+    """Шапка бокового меню: логотип-бренд как в GAR console."""
+    st.sidebar.markdown(
+        '<div class="gar-brand"><b>Солнечный мир</b><span>администрирование</span></div>'
+        '<div class="gar-group">Разделы</div>',
+        unsafe_allow_html=True,
+    )
