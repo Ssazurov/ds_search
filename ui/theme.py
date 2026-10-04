@@ -189,19 +189,33 @@ _NAV = """
   display: flex; align-items: center; padding: 0 20px; pointer-events: none;
   font-size: 13px; color: var(--sub); }
 .gar-topbar b { font-weight: 500; color: var(--text); margin-left: 4px; }
-div.block-container { padding-top: 74px !important; }
-/* Пагинация */
-.st-key-pager [data-testid="stHorizontalBlock"] { gap: 4px !important; justify-content: center; }
-.st-key-pager button { min-height: 32px !important; padding: 0 !important; font-size: 13px !important; border-radius: 6px !important; }
-.st-key-pager .pg-gap { text-align: center; color: var(--dim); line-height: 32px; }
-.st-key-pager [data-testid="stBaseButton-primary"] { font-weight: 600 !important; }
-.st-key-pager [data-testid="stCaptionContainer"] { margin: 0; }
-.st-key-pager [data-testid="stSegmentedControl"] { justify-content: flex-end; }
+div.block-container { padding-top: 28px !important; }
+/* Меню: текст пунктов слева */
+[class*="st-key-nav"] button > div, [class*="st-key-nav"] button [data-testid="stMarkdownContainer"] {
+  justify-content: flex-start !important; text-align: left !important; width: 100%; }
+/* Пагинация: компактные кнопки в ряд */
+.st-key-pgnums [data-testid="stHorizontalBlock"] { gap: 4px !important; justify-content: flex-start; flex-wrap: nowrap; }
+.st-key-pgnums [data-testid="stColumn"] { flex: 0 0 auto !important; width: auto !important; min-width: 0 !important; }
+.st-key-pgnums button { min-width: 34px; height: 32px; min-height: 32px !important; padding: 0 8px !important;
+  font-size: 13px !important; border-radius: 6px !important; }
+.st-key-pgnums [data-testid="stBaseButton-primary"] { font-weight: 600 !important; }
+.st-key-pgnums .pg-gap { color: var(--dim); padding: 0 2px; line-height: 32px; }
+.st-key-pgfoot { margin-top: 4px; }
+.st-key-pgfoot [data-testid="stCaptionContainer"] { margin: 0; }
+.st-key-pgfoot [data-testid="stButtonGroup"] { justify-content: flex-end; gap: 4px; }
+.st-key-pgfoot [data-testid^="stBaseButton-segmented"] { min-width: 38px; padding: 4px 10px !important;
+  font-size: 12px !important; border-radius: 6px !important; }
+/* Список источников: компактные строки, текст слева */
+[class*="st-key-pick_"] button { justify-content: flex-start !important; padding: 6px 12px !important; min-height: 32px !important; }
+[class*="st-key-pick_"] button > div { justify-content: flex-start !important; width: 100%; text-align: left !important; }
+[class*="st-key-pick_"] button p { font-size: 13px !important; }
+.st-key-tabmain [data-testid="stBaseLinkButton-secondary"], .st-key-tabmain [data-testid="stBaseLinkButton-primary"] {
+  min-height: 32px !important; padding: 6px 10px !important; border-radius: 6px !important; font-size: 13px !important; }
 
 /* Все вкладки: подпись слева от поля (компактно по вертикали).
    Без подписи (collapsed) — исключены по ключам src_search, dp_sel_*. */
 .st-key-tabmain [data-testid="stElementContainer"]:not([class*="st-key-src_search"]):not([class*="st-key-dp_sel_"]) > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stNumberInput"], [data-testid="stTextArea"], [data-testid="stMultiSelect"], [data-testid="stDateInput"], [data-testid="stTimeInput"]) {
-  display: grid !important; grid-template-columns: 150px minmax(0, 1fr); column-gap: 12px; align-items: center; }
+  display: grid !important; grid-template-columns: 180px minmax(0, 1fr); column-gap: 12px; align-items: center; }
 .st-key-tabmain [data-testid="stColumn"] [data-testid="stElementContainer"]:not([class*="st-key-src_search"]):not([class*="st-key-dp_sel_"]) > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stNumberInput"], [data-testid="stTextArea"], [data-testid="stMultiSelect"], [data-testid="stDateInput"], [data-testid="stTimeInput"]) {
   grid-template-columns: 110px minmax(0, 1fr); }
 .st-key-tabmain [data-testid="stTextArea"], .st-key-tabmain [data-testid="stMultiSelect"] { align-items: start !important; }
