@@ -69,9 +69,52 @@ _SIDEBAR = """
 """
 
 
+# Компоненты — по gar-admin-ui: Card (panel, border, radius 8px, padding 18/20),
+# Button (primary — синяя заливка; ghost — рамка; md 13px, sm 12px, radius 6px),
+# заголовки 14px semibold, подписи 12px.
+_COMPONENTS = """
+html, body, [data-testid="stApp"] { font-size: 14px; }
+div.block-container { padding: 2.5rem 1.75rem 3rem !important; max-width: none !important; }
+h1 { font-size: 20px !important; }
+h2 { font-size: 16px !important; }
+h3 { font-size: 14px !important; }
+[data-testid="stMarkdownContainer"] p, [data-testid="stCaptionContainer"] { font-size: 13px; }
+[data-testid="stCaptionContainer"] { opacity: 0.7; }
+/* Card: контейнеры с рамкой */
+[data-testid="stVerticalBlockBorderWrapper"] > div > div[data-testid="stVerticalBlock"] { gap: 0.75rem; }
+div[data-testid="stVerticalBlockBorderWrapper"]:has(> div > div > div[data-testid="stVerticalBlock"]) { border-radius: 8px !important; }
+/* Button primary / ghost (sm по умолчанию) */
+[data-testid="stBaseButton-primary"], button[kind="primary"] {
+  background: #3b6fd1 !important; color: #fff !important; border: none !important;
+  border-radius: 6px !important; font-weight: 500 !important; font-size: 13px !important;
+  padding: 7px 14px !important; min-height: 0 !important; }
+[data-testid="stBaseButton-secondary"], button[kind="secondary"] {
+  background: transparent !important; border: 1px solid rgba(128,128,128,0.35) !important;
+  border-radius: 6px !important; font-weight: 500 !important; font-size: 13px !important;
+  padding: 7px 14px !important; min-height: 0 !important; }
+[data-testid="stBaseButton-primary"]:hover, button[kind="primary"]:hover { opacity: 0.9; }
+[data-testid="stBaseButton-primary"]:disabled, [data-testid="stBaseButton-secondary"]:disabled { opacity: 0.5; }
+/* Поля ввода */
+[data-baseweb="input"], [data-baseweb="select"] > div, [data-baseweb="textarea"] {
+  border-radius: 6px !important; font-size: 13px !important; }
+[data-testid="stTextArea"] textarea, [data-testid="stNumberInput"] input { font-size: 13px !important; }
+/* Вкладки st.tabs */
+[data-baseweb="tab-list"] { gap: 4px; }
+[data-baseweb="tab"] { font-size: 13px !important; font-weight: 500 !important; padding: 8px 12px !important; }
+[data-baseweb="tab-highlight"] { background: #3b6fd1 !important; }
+/* Таблицы, метрики, алерты */
+[data-testid="stDataFrame"], [data-testid="stTable"] { border-radius: 8px; }
+[data-testid="stMetricValue"] { font-weight: 600; font-size: 22px !important; }
+[data-testid="stMetricLabel"] { font-size: 12px !important; opacity: 0.7; }
+[data-testid="stAlert"] { border-radius: 6px; font-size: 13px; }
+[data-testid="stExpander"] summary { font-size: 13px; font-weight: 500; }
+"""
+
+
 def inject_theme() -> None:
     """Подключает шрифты IBM Plex и базовые правила. Вызывать после st.set_page_config."""
-    st.markdown(f"<style>{_FONT_FACES}{_RULES}{_SIDEBAR}</style>", unsafe_allow_html=True)
+    st.markdown(f"<style>{_FONT_FACES}{_RULES}{_SIDEBAR}{_COMPONENTS}</style>", unsafe_allow_html=True)
+
 
 
 def sidebar_brand() -> None:
