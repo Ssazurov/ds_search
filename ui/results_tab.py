@@ -124,7 +124,7 @@ def render() -> None:
 
     with st.container(key="cmpv_results"):
         col3, col1, col2, col4 = st.columns(4)
-        text_filter = col3.text_input("Полнотекстовый фильтр (title/snippet)", key="res_text")
+        text_filter = col3.text_input("Полнотекстовый фильтр", key="res_text")
         status_filter = col1.selectbox("Статус", [_NONE] + _STATUS_OPTIONS, width=150, key="res_status")
         col4.button("Сбросить", key="res_filters_reset_btn", on_click=_reset_res_filters)
     show_duplicates = st.checkbox("Показывать дубли", value=False, key="res_dups")

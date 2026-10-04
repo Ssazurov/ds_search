@@ -222,9 +222,9 @@ div.block-container { padding-top: 72px !important; }
 
 /* Все вкладки: подпись слева от поля (компактно по вертикали).
    Без подписи (collapsed) — исключены по ключам src_search, dp_sel_*. */
-.st-key-tabmain [data-testid="stElementContainer"]:not([class*="st-key-src_search"]):not([class*="st-key-dp_sel_"]) > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stNumberInput"], [data-testid="stTextArea"], [data-testid="stMultiSelect"], [data-testid="stDateInput"], [data-testid="stTimeInput"]) {
+.st-key-tabmain [data-testid="stElementContainer"]:not([class*="st-key-src_search"]):not([class*="st-key-dp_sel_"]) > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stNumberInput"], [data-testid="stTextArea"], [data-testid="stMultiSelect"], [data-testid="stDateInput"], [data-testid="stTimeInput"], [data-testid="stRadio"]) {
   display: grid !important; grid-template-columns: 180px minmax(0, 1fr); column-gap: 12px; align-items: center; }
-.st-key-tabmain [data-testid="stColumn"] [data-testid="stElementContainer"]:not([class*="st-key-src_search"]):not([class*="st-key-dp_sel_"]) > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stNumberInput"], [data-testid="stTextArea"], [data-testid="stMultiSelect"], [data-testid="stDateInput"], [data-testid="stTimeInput"]) {
+.st-key-tabmain [data-testid="stColumn"] [data-testid="stElementContainer"]:not([class*="st-key-src_search"]):not([class*="st-key-dp_sel_"]) > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stNumberInput"], [data-testid="stTextArea"], [data-testid="stMultiSelect"], [data-testid="stDateInput"], [data-testid="stTimeInput"], [data-testid="stRadio"]) {
   grid-template-columns: 110px minmax(0, 1fr); }
 .st-key-tabmain [data-testid="stTextArea"], .st-key-tabmain [data-testid="stMultiSelect"] { align-items: start !important; }
 .st-key-tabmain [data-testid="stWidgetLabel"] { margin: 0 !important; min-height: 0 !important; }
@@ -232,6 +232,50 @@ div.block-container { padding-top: 72px !important; }
 .st-key-tabmain [data-testid="stVerticalBlock"] { gap: 0.4rem !important; }
 .st-key-tabmain [data-testid="stHorizontalBlock"] { gap: 0.75rem !important; }
 .st-key-tabmain hr { margin: 0.5rem 0 !important; }
+/* Загрузка: «Файл документа» | имя файла | кнопка «Выбрать» в одной строке */
+.st-key-upl_file_row [data-testid="stHorizontalBlock"] {
+  display: grid !important; grid-template-columns: 180px minmax(0, 1fr) auto; column-gap: 12px; align-items: center; }
+.st-key-upl_file_row [data-testid="stColumn"] { width: auto !important; flex: none !important; min-width: 0 !important; }
+.st-key-tabmain .st-key-upl_file_row [data-testid="stColumn"] [data-testid="stElementContainer"] > [data-testid="stTextInput"][data-testid="stTextInput"][data-testid="stTextInput"][data-testid="stTextInput"] {
+  display: block !important; }
+.st-key-upl_file_row [data-testid="stFileUploader"] > :not([data-testid="stFileUploaderDropzone"]):not(:has([data-testid="stFileUploaderDropzone"])) {
+  display: none !important; }
+.st-key-upl_file_row [data-testid="stFileUploaderDropzone"] {
+  padding: 0 !important; border: none !important; background: transparent !important; }
+.st-key-upl_file_row [data-testid="stFileUploaderDropzoneInstructions"] { display: none !important; }
+.st-key-upl_file_row [data-testid="stFileUploaderDropzone"] {
+  display: flex !important; align-items: center; min-height: 0 !important; margin: 0 !important; }
+.st-key-upl_file_row [data-testid="stFileUploaderDropzone"] button {
+  height: 34px !important; min-height: 34px !important; box-sizing: border-box; margin: 0 !important; padding: 0 16px !important;
+  display: inline-flex !important; align-items: center; justify-content: center; line-height: 1 !important; }
+.st-key-upl_file_row [data-testid="stFileUploaderDropzone"] button > * { display: none !important; }
+.st-key-upl_file_row [data-testid="stFileUploaderDropzone"] button::after {
+  content: "Выбрать"; font-family: inherit; font-size: 12px; font-weight: 400; line-height: 1; }
+.st-key-upl_file_row [data-testid="stMarkdownContainer"] p {
+  font-size: 12px !important; color: var(--sub) !important; margin: 0 !important; line-height: 1.2; }
+.st-key-upl_file_row [data-testid="stElementContainer"] { margin: 0 !important; }
+/* Кнопки в рядах фильтров («Сбросить», периоды): высота = высоте поля (34px), по центру/низу строки */
+.st-key-tabmain [class*="st-key-cmp"] [data-testid="stHorizontalBlock"] button {
+  height: 34px !important; min-height: 34px !important; box-sizing: border-box; padding: 0 14px !important;
+  display: inline-flex !important; align-items: center; justify-content: center; line-height: 1 !important; }
+.st-key-tabmain [class*="st-key-cmpv_"] [data-testid="stHorizontalBlock"] { align-items: flex-end !important; }
+.st-key-tabmain [data-testid="stElementContainer"]:has(.srcdetail-mark) { display: none !important; }
+.st-key-tabmain .st-key-src_filter[data-testid="stElementContainer"] > [data-testid="stRadio"][data-testid="stRadio"][data-testid="stRadio"] {
+  display: block !important; }
+.st-key-src_filter [role="radiogroup"] { flex-wrap: nowrap !important; white-space: nowrap; }
+.st-key-tabmain [data-testid="stColumn"]:has(.srcdetail-mark) { padding-right: 1.75rem; }
+.st-key-tabmain [data-testid="stColumn"]:has(.srcdetail-mark) [data-testid="stColumn"]:first-child [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stSelectbox"]) {
+  grid-template-columns: 175px minmax(0, 1fr) !important; }
+/* Источники: карточка домена — подписи в одну строку, интервалы как на вкладке «Поиск» */
+.st-key-tabmain [data-testid="stColumn"]:has(.srcdetail-mark) [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stTextArea"], [data-testid="stNumberInput"]) {
+  grid-template-columns: 175px minmax(0, 1fr) !important; }
+.st-key-tabmain [data-testid="stColumn"]:has(.srcdetail-mark) [data-testid="stWidgetLabel"] {
+  white-space: nowrap !important; min-width: max-content; }
+.st-key-tabmain [data-testid="stColumn"]:has(.srcdetail-mark) [data-testid="stColumn"] [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stSelectbox"]) {
+  grid-template-columns: 70px minmax(0, 1fr) !important; }
+.st-key-tabmain [data-testid="stColumn"]:has(.srcdetail-mark) [data-testid="stVerticalBlock"] { gap: 0.4rem !important; }
+.st-key-tabmain [data-testid="stColumn"]:has(.srcdetail-mark) [data-testid="stElementContainer"] { margin: 0 !important; }
+.st-key-tabmain [data-testid="stColumn"]:has(.srcdetail-mark) [data-testid="stCheckbox"] { min-height: 34px; display: flex; align-items: center; }
 .st-key-tabmain [data-testid="stHeading"] h1, .st-key-tabmain [data-testid="stHeading"] h2,
 .st-key-tabmain [data-testid="stHeading"] h3 { padding: 0.25rem 0 !important; }
 .st-key-tabmain [data-baseweb="input"] input, .st-key-tabmain [data-baseweb="select"] > div { min-height: 34px; }
@@ -248,9 +292,9 @@ div.block-container { padding-top: 72px !important; }
 .st-key-tabmain [class*="st-key-cmp_"] [data-testid="stHorizontalBlock"] { align-items: center; }
 .st-key-tabmain [class*="st-key-cmp"] [data-testid="stColumn"] { flex: 0 0 auto !important; width: auto !important; min-width: 0 !important; }
 .st-key-tabmain [class*="st-key-cmpv_"] [data-testid="stColumn"]:first-child { flex: 1 1 0 !important; min-width: 180px !important; }
-.st-key-tabmain [class*="st-key-cmp_"] [data-testid="stHorizontalBlock"] [data-testid="stColumn"] [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stDateInput"], [data-testid="stTimeInput"]) {
+.st-key-tabmain [class*="st-key-cmp_"] [data-testid="stHorizontalBlock"] [data-testid="stColumn"] [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stDateInput"], [data-testid="stTimeInput"], [data-testid="stRadio"]) {
   display: flex !important; flex-direction: row; align-items: center; gap: 8px; }
-.st-key-tabmain [class*="st-key-cmpv_"] [data-testid="stHorizontalBlock"] [data-testid="stColumn"] [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stDateInput"], [data-testid="stTimeInput"]) {
+.st-key-tabmain [class*="st-key-cmpv_"] [data-testid="stHorizontalBlock"] [data-testid="stColumn"] [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stDateInput"], [data-testid="stTimeInput"], [data-testid="stRadio"]) {
   display: flex !important; flex-direction: column; align-items: stretch; gap: 2px; }
 .st-key-tabmain [class*="st-key-cmp"] [data-testid="stWidgetLabel"] { flex: 0 0 auto !important; width: auto !important; min-width: max-content !important; white-space: nowrap !important; }
 .st-key-tabmain [class*="st-key-cmp"] [data-testid="stElementContainer"] > [data-testid^="st"] > div:last-child { flex: 1 1 auto; min-width: 0; }

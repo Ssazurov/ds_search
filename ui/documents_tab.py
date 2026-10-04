@@ -576,6 +576,7 @@ def _render_metadata_form(selected_rows: list[dict]) -> None:
     # (только по submit), поэтому список категорий не пересчитывался бы под
     # новое направление (issue #304). Обычные виджеты + обычная кнопка вместо
     # формы — заодно нет рамки, отделяющей «Направление» от остальных полей.
+    st.divider()
     st.write("**Пакетное редактирование выбранных документов**")
     st.caption(f"Выбрано: {len(selected_rows)}, из них уже в GAR: {loaded_count} (для них уйдёт PATCH в GAR)")
     direction = ""
@@ -600,7 +601,21 @@ def _render_metadata_form(selected_rows: list[dict]) -> None:
     needs_review_choice = st.selectbox(
         "Требует проверки (Needs review)", ["не менять", "да", "нет"], key="batch_needs_review")
 
-    if st.button("Применить ко всем выбранным", key="batch_metadata_apply_btn"):
+    one = selected_rows[0] if len(selected_rows) == 1 else None
+    show_revoke = bool(one and one.get("url") and _has_published_digest_for_url(one["url"]))
+    cols = action_row(1 + bool(one) + show_revoke, "doc_batch_apply")
+    i = 0
+    if one:
+        if cols[i].button("🔄 Перезагрузить из источника", key="doc_reload_btn"):
+            _reload_from_source_ui(one)
+        i += 1
+    if show_revoke:
+        if cols[i].button("📤 Снять полный текст", key="doc_revoke_btn",
+                          help="Отозвать оригинал из GAR (опубликован пересказ)"):
+            st.session_state["confirm_revoke_document"] = True
+            st.rerun()
+        i += 1
+    if cols[i].button("Применить к выбранным", key="batch_metadata_apply_btn"):
         updates = {}
         if direction:
             updates["direction"] = direction
@@ -628,6 +643,29 @@ def _render_metadata_form(selected_rows: list[dict]) -> None:
 
             notify.report_batch("Обновлено", len(selected_rows) - len(errors), len(selected_rows), errors)
             st.rerun()
+
+
+def _reload_from_source_ui(row: dict) -> None:
+    """issue #300: перезагрузка одного документа из источника."""
+    try:
+        if row["gar_document_id"]:
+            rep = _reload_from_source(row["gar_document_id"])
+            changed, preserved = rep.get("changed_fields"), rep.get("preserved_fields")
+            notify.report(
+                "success", f"Перезагружено из источника: {_row_label(row)}",
+                {"изменено полей": len(changed or []), "сохранено полей": len(preserved or []),
+                 "контент заменён": "да" if rep.get("content_replaced") else "нет"},
+                details=[f"Изменено: {', '.join(map(str, changed))}"] if changed else None)
+            st.session_state.pop("gar_docs_cache", None)
+        elif row["doc_json_path"] is not None:
+            _refresh_local_content_for_row(row)
+            notify.report("success", f"Контент перекачан из источника: {_row_label(row)}")
+        else:
+            notify.report("info", f"Нет ни GAR-документа, ни локального файла: {_row_label(row)}")
+        st.rerun()
+    except GarPublishError as exc:
+        notify.report("error", "Не удалось перезагрузить из источника",
+                      details=[f"{_row_label(row)}: {exc}"])
 
 
 def _archive_batch(rows: list[dict], archive: bool) -> None:
@@ -871,60 +909,6 @@ def render() -> None:
         f"в GAR: {sum(r['status'] == 'loaded' for r in filtered)}, выбрано: {len(selected_rows)}"
     )
 
-    # issue #286: форма редактирования метаданных перед публикацией
-    if selected_rows:
-        _render_metadata_form(selected_rows)
-
-        # issue #300 / расширение: кнопка перезагрузки из источника — всегда
-        # для одного выбранного документа, независимо от статуса в GAR.
-        # С gar_document_id — полный reload (metadata+content через
-        # ds_ingestion). Без него — только перекачка локального контента
-        # (документ ещё не загружен/ошибка/digest_only), сам reload в GAR
-        # произойдёт при следующей загрузке.
-        if len(selected_rows) == 1:
-            row = selected_rows[0]
-            c1, c2 = st.columns(2)
-            if c1.button("🔄 Перезагрузить из источника", key="doc_reload_btn"):
-                try:
-                    if row["gar_document_id"]:
-                        rep = _reload_from_source(row["gar_document_id"])
-                        changed, preserved = rep.get("changed_fields"), rep.get("preserved_fields")
-                        notify.report(
-                            "success", f"Перезагружено из источника: {_row_label(row)}",
-                            {"изменено полей": len(changed or []), "сохранено полей": len(preserved or []),
-                             "контент заменён": "да" if rep.get("content_replaced") else "нет"},
-                            details=[f"Изменено: {', '.join(map(str, changed))}"] if changed else None)
-                        st.session_state.pop("gar_docs_cache", None)
-                    elif row["doc_json_path"] is not None:
-                        _refresh_local_content_for_row(row)
-                        notify.report("success", f"Контент перекачан из источника: {_row_label(row)}")
-                    else:
-                        notify.report("info", f"Нет ни GAR-документа, ни локального файла: {_row_label(row)}")
-                    st.rerun()
-                except GarPublishError as exc:
-                    notify.report("error", "Не удалось перезагрузить из источника",
-                                  details=[f"{_row_label(row)}: {exc}"])
-
-            # issue #427: кнопка «Снять полный текст» для документа с опубликованным digest
-            if row.get("url") and _has_published_digest_for_url(row["url"]):
-                if c2.button("📤 Снять полный текст", key="doc_revoke_btn",
-                            help="Отозвать оригинал из GAR (опубликован пересказ)"):
-                    st.session_state["confirm_revoke_document"] = True
-                    st.rerun()
-
-        # issue #438: ручной сброс авто-статуса digest_only — на случай,
-        # если всё же нужно догрузить полный текст статьи в GAR
-        if len(selected_rows) == 1 and selected_rows[0]["status"] == "digest_only" \
-                and selected_rows[0]["doc_json_path"] is not None:
-            row = selected_rows[0]
-            if st.button("♻️ Снять digest_only (догрузить полный текст)", key="doc_digest_only_dismiss_btn",
-                         help="Статья помечена как «только пересказ» — есть опубликованная новость/"
-                              "дайджест по этому source_url. Снимите, если всё же нужно загрузить "
-                              "полный текст статьи в GAR."):
-                _update_document_metadata(row["doc_json_path"], {"digest_only_dismissed": True})
-                notify.report("success", f"Статус digest_only снят: {_row_label(row)}")
-                st.rerun()
-
     # issue #299: кнопки удаления с явной семантикой и подтверждением
     not_loaded = [r for r in selected_rows if not r["gar_document_id"]]
     gar_only = [r for r in selected_rows if r["gar_document_id"]]
@@ -987,3 +971,21 @@ def render() -> None:
         if cc2.button("Отмена", key="confirm_revoke_no"):
             st.session_state["confirm_revoke_document"] = False
             st.rerun()
+
+    # issue #286: форма редактирования метаданных перед публикацией
+    if selected_rows:
+        _render_metadata_form(selected_rows)
+
+        # issue #438: ручной сброс авто-статуса digest_only — на случай,
+        # если всё же нужно догрузить полный текст статьи в GAR
+        if len(selected_rows) == 1 and selected_rows[0]["status"] == "digest_only" \
+                and selected_rows[0]["doc_json_path"] is not None:
+            row = selected_rows[0]
+            if st.button("♻️ Снять digest_only (догрузить полный текст)", key="doc_digest_only_dismiss_btn",
+                         help="Статья помечена как «только пересказ» — есть опубликованная новость/"
+                              "дайджест по этому source_url. Снимите, если всё же нужно загрузить "
+                              "полный текст статьи в GAR."):
+                _update_document_metadata(row["doc_json_path"], {"digest_only_dismissed": True})
+                notify.report("success", f"Статус digest_only снят: {_row_label(row)}")
+                st.rerun()
+

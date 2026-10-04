@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from collections import Counter
-from datetime import datetime, time
+from datetime import date, datetime, time, timedelta
 
 import streamlit as st
 
@@ -50,6 +50,28 @@ def _build_chain() -> SearchProviderChain:
     return SearchProviderChain([FirecrawlProvider(), BraveProvider(), TavilyProvider()])
 
 
+def _set_period(days: int = 0, months: int = 0) -> None:
+    """Пресет периода: «От» — сегодня минус период в 00:00:00, «До» — сейчас."""
+    now = datetime.now()
+    start = now.date()
+    if months:
+        m = start.month - months
+        y = start.year + (m - 1) // 12
+        m = (m - 1) % 12 + 1
+        nxt = date(y + (m == 12), m % 12 + 1, 1)
+        start = start.replace(year=y, month=m, day=min(start.day, (nxt - timedelta(days=1)).day))
+    else:
+        start = start - timedelta(days=days)
+    st.session_state["sr_from_date"] = start
+    st.session_state["sr_from_time"] = time(0, 0)
+    st.session_state["sr_to_date"] = now.date()
+    st.session_state["sr_to_time"] = now.time().replace(second=0, microsecond=0)
+
+
+_PERIODS = [("1 дн", dict(days=1)), ("3 дн", dict(days=3)), ("Неделя", dict(days=7)),
+            ("2 нед", dict(days=14)), ("Месяц", dict(months=1))]
+
+
 def _date_range() -> tuple[datetime | None, datetime | None]:
     """Необязательный период дат. «До» по умолчанию — сейчас; любую границу можно очистить."""
     now = datetime.now()
@@ -57,12 +79,15 @@ def _date_range() -> tuple[datetime | None, datetime | None]:
     st.session_state.setdefault("sr_to_time", now.time().replace(second=0, microsecond=0))
     st.caption("Период дат (необязательно). Достаточно одной границы; очистите поле даты, чтобы убрать её.")
     with st.container(key="cmp_dates"):
-        c1, c2, c3, c4 = st.columns(4)
+        c1, c2, c3, c4, *pc = st.columns(4 + len(_PERIODS), vertical_alignment="center")
         d_from = c1.date_input("От", value=None, key="sr_from_date", width=190)
         t_from = c2.time_input("От (время)", value=time(0, 0), key="sr_from_time",
                                label_visibility="collapsed", width=100)
         d_to = c3.date_input("До", key="sr_to_date", width=190)
         t_to = c4.time_input("До (время)", key="sr_to_time", label_visibility="collapsed", width=100)
+        for col, (lbl, kw) in zip(pc, _PERIODS):
+            col.button(lbl, key=f"sr_period_{lbl}", on_click=_set_period, kwargs=kw,
+                       help="От сегодня минус период, с 00:00:00, до текущего момента")
     dt_from = datetime.combine(d_from, t_from) if d_from else None
     dt_to = datetime.combine(d_to, t_to) if d_to else None
     if dt_from and dt_to and dt_from > dt_to:

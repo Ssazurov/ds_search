@@ -127,7 +127,7 @@ def _render_item(item: dict) -> None:
     Пересказ (format=digest, ds_search#421): слева оригинал с подсветкой
     совпадений, справа редактируемый черновик; чеклист блокирует публикацию."""
     is_digest = item.get("format") == "digest"
-    st.subheader(item["title"] or "(без заголовка)")
+    st.write("**Редактирование выбранной записи**")
     st.caption(f"{item['source_url']} · создано {item['created_at']}"
                + (" · формат: пересказ" if is_digest else ""))
     if is_digest:

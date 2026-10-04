@@ -163,9 +163,9 @@ def _render_detail(domain: str, registry: dict, row: dict) -> None:
         key=f"attr_{domain}",
     )
     site_name = st.text_input(
-        "Название сайта (срезается с конца title)",
+        "Название сайта",
         value=entry.get("site_name") or "",
-        help="Например: Православный журнал «Фома». Пусто — title не меняется.",
+        help="Срезается с конца title. Например: Православный журнал «Фома». Пусто — title не меняется.",
         key=f"site_{domain}",
     )
     notes = st.text_area("Заметки", value=entry.get("notes", ""), key=f"notes_{domain}")
@@ -254,18 +254,20 @@ def render() -> None:
     by_domain = {r["domain"]: r for r in rows}
 
     flt = st.radio(
-        "Фильтр", list(_FILTERS), horizontal=True, label_visibility="collapsed",
+        "Фильтр", list(_FILTERS), horizontal=True, label_visibility="collapsed", key="src_filter",
         format_func=lambda k: f"{_FILTERS[k]} · {len(filter_rows(rows, k, ''))}",
     )
     left, right = st.columns([1, 1.4], gap="large")
     with left:
         # Ширина колонки — по самому длинному названию (CSS ch + кнопка «↗»)
-        _n = max((len(r["domain"]) + (2 if r["aggregator"] else 0) for r in rows), default=20) + 16
+        _n = max((len(r["domain"]) + (3 if r["aggregator"] else 0) + len(str(r.get("materials", 0)))
+                  + len(str(r["count"])) + 10 for r in rows), default=20)
         st.markdown(
             f"<span class='srcleft-mark'></span><style>[data-testid='stColumn']:has(.srcleft-mark)"
-            f"{{flex:0 0 calc({_n}ch + 96px) !important;width:calc({_n}ch + 96px) !important;"
+            f"{{flex:0 0 calc({_n}ch + 88px) !important;width:calc({_n}ch + 88px) !important;"
             f"min-width:0 !important}}</style>", unsafe_allow_html=True)
-        query = st.text_input("Поиск", placeholder="домен, например unicef.org", label_visibility="collapsed", key="src_search")
+        qc, _qpad = st.columns([8, 1], vertical_alignment="center")
+        query = qc.text_input("Поиск", placeholder="домен, например unicef.org", label_visibility="collapsed", key="src_search")
         shown = filter_rows(rows, flt, query)
         size = st.session_state.get("src_size") or _PAGE_SIZES[0]
         pages = max(1, -(-len(shown) // size))
@@ -287,6 +289,7 @@ def render() -> None:
             cl.link_button("↗", site_url(r["domain"]), help="Открыть сайт источника")
         _pager(page, pages, len(shown), len(rows))
     with right:
+        st.markdown("<span class='srcdetail-mark'></span>", unsafe_allow_html=True)
         if sel in by_domain:
             _render_detail(sel, registry, by_domain[sel])
         else:

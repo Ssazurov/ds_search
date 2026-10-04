@@ -34,7 +34,7 @@ def _render_queue() -> None:
         return
 
     if not rows:
-        st.info("Очередь пуста (нет queued/error находок)")
+        st.info("Очередь пуста")
         return
 
     for source in rows:
@@ -157,7 +157,12 @@ def _render_manual() -> None:
     mode = st.radio("Способ", ["Файл", "Ссылка"], horizontal=True)
 
     if mode == "Файл":
-        uploaded = st.file_uploader("Файл документа")
+        with st.container(key="upl_file_row"):
+            lc, nc, bc = st.columns(3)
+            lc.markdown("Файл документа")
+            uploaded = bc.file_uploader("Файл документа", label_visibility="collapsed", key="upl_file")
+            nc.text_input("Имя файла", value=uploaded.name if uploaded else "", disabled=True,
+                          placeholder="Файл не выбран", label_visibility="collapsed")
         title = st.text_input("Заголовок (обязательно)")
         direction = (
             st.selectbox("Направление", directions, format_func=lambda v: label_of(dictionaries, "direction", v))
@@ -181,7 +186,7 @@ def _render_add_news() -> None:
     from ui.news_add import format_selector
 
     st.subheader("Загрузка новости")
-    st.caption("Штатная загрузка одной новости по URL (issue #183) — та же "
+    st.caption("Штатная загрузка одной новости по URL — та же "
                "проверка лицензии домена и LLM-классификация, что и автосбор.")
     news_url = st.text_input("Ссылка на новость", key="add_news_url")
     dictionaries = load_dictionaries()
