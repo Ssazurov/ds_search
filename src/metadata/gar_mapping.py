@@ -25,13 +25,17 @@ def resolve_defaults(
     domain: str,
     dest_dir: str | None = None,
     mapping: dict[str, dict[str, Any]] | None = None,
-) -> dict[str, str]:
+) -> dict[str, str | list[str]]:
     """Дефолты для источника: domain-уровень + domain/dest_dir поверх него.
     Отсутствие записи для домена — пустой словарь (не ошибка), выше по
     пайплайну это просто означает "дефолтов нет, полагаемся на LLM/needs_review".
+
+    "tags" (issue #483, ADR-0015/ADR-0028) — multi-value поле: значение
+    на domain/dest_dir уровне заменяет domain-уровень целиком (не слияние
+    списков), как и остальные поля.
     """
     mapping = mapping if mapping is not None else load_mapping()
-    result: dict[str, str] = dict(mapping.get(domain, {}))
+    result: dict[str, str | list[str]] = dict(mapping.get(domain, {}))
     if dest_dir:
         specific = mapping.get(f"{domain}/{dest_dir}")
         if specific:
@@ -51,6 +55,9 @@ def validate_mapping(
     for source_key, defaults in mapping.items():
         direction_value = defaults.get("direction")
         for field_key, value in defaults.items():
+            if field_key == "tags":
+                # multi-value, freeform (не select-справочник GAR) — пропускаем
+                continue
             if field_key == "category":
                 valid = (
                     gar_schema.category_options_for_direction(gar_fields, direction_value)

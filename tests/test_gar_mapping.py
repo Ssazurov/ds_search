@@ -65,3 +65,19 @@ def test_real_gar_mapping_yaml_parses():
     mapping = gar_mapping.load_mapping()
     assert "downsideup.org" in mapping
     assert "downsideup.org/family_support" in mapping
+
+
+def test_resolve_defaults_tags_is_list_passthrough():
+    """issue #483: tags — multi-value, не сливается поэлементно."""
+    mapping = {
+        "example.org": {"tags": ["a", "b"]},
+        "example.org/sub": {"tags": ["c"]},
+    }
+    assert gar_mapping.resolve_defaults("example.org", mapping=mapping)["tags"] == ["a", "b"]
+    assert gar_mapping.resolve_defaults("example.org", "sub", mapping=mapping)["tags"] == ["c"]
+
+
+def test_validate_mapping_skips_tags():
+    """tags — freeform, не select-справочник GAR, не должен флагиться."""
+    mapping = {"example.org": {"tags": ["anything-not-in-schema"]}}
+    assert gar_mapping.validate_mapping(mapping, FAKE_FIELDS) == []

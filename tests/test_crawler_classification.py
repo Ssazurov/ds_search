@@ -86,3 +86,45 @@ def test_apply_classification_age_fallback_when_unclassified(tmp_path, monkeypat
     result = crawler._apply_classification({"direction": "d", "category": "c"}, "t", "x")
     assert result["age"] == gar_schema.FALLBACK_AGE
     assert result["needs_review"] is True
+
+
+def test_apply_classification_applies_tags_default_from_gar_mapping(tmp_path, monkeypatch):
+    """issue #483, ADR-0015/ADR-0028: tags — опционален, не влияет на needs_review."""
+    crawler = _make_crawler(tmp_path)
+    monkeypatch.setattr(gar_schema, "load_gar_schema", lambda: FIELDS)
+    monkeypatch.setattr(
+        "src.crawler.crawler.classify_mod.classify",
+        lambda title, text, fields, domain=None: {
+            "age": "0-3", "target_audience": "parents", "doc_type": "article",
+            "direction": "methodology", "category": "basic",
+            "needs_review": False, "source": "llm",
+        },
+    )
+    monkeypatch.setattr(
+        "src.crawler.crawler.gar_mapping.resolve_defaults",
+        lambda domain, mapping=None: {"tags": ["сон", "эпилепсия"]},
+    )
+    meta = {"direction": "methodology", "category": "basic"}
+    result = crawler._apply_classification(meta, "title", "text")
+    assert result["tags"] == ["сон", "эпилепсия"]
+    assert result["needs_review"] is False
+
+
+def test_apply_classification_does_not_override_existing_tags(tmp_path, monkeypatch):
+    crawler = _make_crawler(tmp_path)
+    monkeypatch.setattr(gar_schema, "load_gar_schema", lambda: FIELDS)
+    monkeypatch.setattr(
+        "src.crawler.crawler.classify_mod.classify",
+        lambda title, text, fields, domain=None: {
+            "age": "0-3", "target_audience": "parents", "doc_type": "article",
+            "direction": "methodology", "category": "basic",
+            "needs_review": False, "source": "llm",
+        },
+    )
+    monkeypatch.setattr(
+        "src.crawler.crawler.gar_mapping.resolve_defaults",
+        lambda domain, mapping=None: {"tags": ["default-tag"]},
+    )
+    meta = {"direction": "methodology", "category": "basic", "tags": ["existing"]}
+    result = crawler._apply_classification(meta, "title", "text")
+    assert result["tags"] == ["existing"]

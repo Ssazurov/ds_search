@@ -8,6 +8,10 @@
 # (более специфичный, побеждает при слиянии). Значения должны быть
 # активными опциями из словаря метаданных GAR (см. gar_schema.py
 # field_options()/category_options_for_direction() для сверки).
+#
+# "tags" (issue #483, ADR-0015/ADR-0028) — исключение: multi-value,
+# свободный список строк (не select-справочник GAR, validate_mapping
+# его не проверяет). Пример: tags: ["эпилепсия", "сон"].
 sources:
   "downsideup.org":
     direction: razvitie-i-navyki
