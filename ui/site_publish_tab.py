@@ -5,7 +5,9 @@ from datetime import datetime
 
 import streamlit as st
 
+from src.license.checker import PUBLISH_PERMISSION_LABELS, PublishPermission
 from src.site_publish import runner
+from src.site_publish.permissions import PUBLISHABLE, set_publish_permission
 from ui import notify
 
 SITE_URL = "https://ssazurov.github.io/ds_site/"
@@ -25,18 +27,47 @@ def _counters(counts: list[dict]) -> None:
     st.dataframe(rows, use_container_width=True, hide_index=True)
 
 
+_PERMS = [p.value for p in PublishPermission]
+_MAX_EDIT_ROWS = 30
+
+
+def _open_source(domain: str) -> None:
+    st.session_state["dom_sel"] = domain
+    st.session_state["active_tab"] = "Источники"
+
+
 def _dropped() -> None:
     rows = runner.load_dropped()
     if not rows:
         return
+    saved = st.session_state.setdefault("dp_saved", {})
     st.subheader("Отброшено по источникам")
-    st.dataframe([{
-        "Домен": r["domain"] or "(нет домена)",
-        "Причина": r["permission"],
-        "Материалов": r["count"],
-        "Разделы": ", ".join(r["types"]),
-    } for r in rows], use_container_width=True, hide_index=True)
-    st.caption("Разрешение источника задаётся во вкладке «Источники».")
+    st.caption("Правка пишет в реестр источников; в сайт попадёт после следующей пересборки.")
+    for r in rows[:_MAX_EDIT_ROWS]:
+        dom, n = r["domain"], r["count"]
+        cur = saved.get(dom, r["permission"])
+        c0, c1, c2, c3 = st.columns([3, 3, 1.3, 1.7])
+        c0.markdown(f"**{dom or '(нет домена)'}** · {n} · {', '.join(r['types'])} · `{r['permission']}`")
+        if not dom:
+            continue
+        new = c1.selectbox(
+            "Разрешение", _PERMS, index=_PERMS.index(cur) if cur in _PERMS else 0,
+            format_func=lambda v: PUBLISH_PERMISSION_LABELS[PublishPermission(v)],
+            key=f"dp_sel_{dom}", label_visibility="collapsed",
+        )
+        if new != cur and new in PUBLISHABLE:
+            c0.caption(f"+{n} материалов после пересборки")
+        if c2.button("Сохранить", key=f"dp_save_{dom}", disabled=new == cur):
+            try:
+                set_publish_permission(dom, new)
+            except Exception as exc:  # noqa: BLE001 - показать пользователю
+                notify.report("error", f"Не удалось сохранить {dom}", details=[str(exc)])
+            else:
+                saved[dom] = new
+                st.rerun()
+        c3.button("В Источники", key=f"dp_open_{dom}", on_click=_open_source, args=(dom,))
+    if len(rows) > _MAX_EDIT_ROWS:
+        st.caption(f"Показаны первые {_MAX_EDIT_ROWS} из {len(rows)} источников; остальные — во вкладке «Источники».")
 
 
 def render() -> None:
