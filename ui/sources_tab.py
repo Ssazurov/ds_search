@@ -134,7 +134,6 @@ def _render_detail(domain: str, registry: dict, row: dict) -> None:
     if row["aggregator"]:
         head += "  :violet[агрегатор]"
     st.markdown(head)
-    st.link_button("Открыть сайт ↗", site_url(domain))
     mat = row.get("mat")
     st.caption(f"Материалов в GAR: {row.get('materials', 0)} · Находок поиска: {row['count']}")
     if mat:
@@ -295,13 +294,13 @@ def render() -> None:
             st.info("Доменов пока нет")
 
     st.divider()
-    with st.expander("Добавить домен"):
-        new_domain = st.text_input("Домен (например, example.org)")
-        if st.button("Добавить", disabled=not new_domain.strip()):
-            nd = normalize_domain(new_domain)
-            registry[nd] = {"status": "pending_manual_review", "notes": "",
-                            "attribution_template": default_attribution_template(nd),
-                            "publish_permission": PublishPermission.NOT_SET.value}
-            save_entry(nd, registry[nd])
-            st.session_state["dom_sel"] = nd
-            st.rerun()
+    c_in, c_btn = st.columns([4, 1], vertical_alignment="center")
+    new_domain = c_in.text_input("Добавить домен", placeholder="example.org")
+    if c_btn.button("Добавить", disabled=not new_domain.strip(), width="stretch"):
+        nd = normalize_domain(new_domain)
+        registry[nd] = {"status": "pending_manual_review", "notes": "",
+                        "attribution_template": default_attribution_template(nd),
+                        "publish_permission": PublishPermission.NOT_SET.value}
+        save_entry(nd, registry[nd])
+        st.session_state["dom_sel"] = nd
+        st.rerun()

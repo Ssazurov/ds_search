@@ -194,6 +194,7 @@ div.block-container { padding-top: 56px !important; }
 [data-testid="stSidebar"] .gar-brand { justify-content: flex-start !important; text-align: left; padding: 26px 10px 20px; }
 [data-testid="stSidebar"] [data-testid="stMarkdownContainer"]:has(.gar-brand) { text-align: left; }
 [data-testid="stElementContainer"]:has(.srcleft-mark) { display: none; }
+[data-testid="stElementContainer"]:has(.gar-topbar) { position: absolute; }
 /* Источники: правая колонка занимает остаток, без переноса вниз */
 [data-testid="stHorizontalBlock"]:has(> [data-testid="stColumn"] .srcleft-mark) { flex-wrap: nowrap !important; }
 [data-testid="stColumn"]:has(.srcleft-mark) + [data-testid="stColumn"] { flex: 1 1 0 !important; width: auto !important; min-width: 0 !important; }
@@ -239,5 +240,5 @@ div.block-container { padding-top: 56px !important; }
 
 
 def topbar(page: str) -> None:
-    """Хлебные крошки как Topbar.tsx в gar-admin-ui: «Солнечный мир / Раздел»."""
-    st.markdown(f'<div class="gar-topbar">Солнечный мир&nbsp;/ <b>{page}</b></div>', unsafe_allow_html=True)
+    """Название вкладки в верхней панели (слева от Deploy)."""
+    st.markdown(f'<div class="gar-topbar"><b>{page}</b></div>', unsafe_allow_html=True)
