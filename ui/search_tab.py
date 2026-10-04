@@ -69,7 +69,6 @@ def _date_range() -> tuple[datetime | None, datetime | None]:
 
 
 def render() -> None:
-    st.header("Параметры поиска")
     dictionaries = load_dictionaries()
     presets = load_presets()
     preset_names = [_NONE] + [p["name"] for p in presets]

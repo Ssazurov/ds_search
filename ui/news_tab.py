@@ -381,7 +381,6 @@ def _render_digest_queue() -> None:
 
 
 def render() -> None:
-    st.header("Новости")
     db.init_db()
     _render_manual_form()
     _render_bulk_digest_form()

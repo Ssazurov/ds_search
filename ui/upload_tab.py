@@ -206,7 +206,6 @@ def _render_add_news() -> None:
 
 
 def render() -> None:
-    st.header("Загрузка")
     _render_queue()
     st.divider()
     _render_manual()

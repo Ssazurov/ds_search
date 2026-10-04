@@ -16,7 +16,6 @@ _FUNNEL_STATUSES = ["new", "approved", "queued", "downloading", "downloaded", "r
 
 
 def render() -> None:
-    st.header("Дашборд")
     settings = load_settings()
     try:
         with GarDiscoveryClient(settings) as client:
