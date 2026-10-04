@@ -18,30 +18,13 @@ from ui import (
     news_tab, notify, results_tab, search_tab, site_publish_tab, sources_tab,
     upload_tab,
 )
+from ui.theme import inject_theme
 
 # Название сайта — «Солнечный мир» (см. ds_site/app/layout.tsx).
 # Админка Streamlit — курация материалов этого сайта.
 st.set_page_config(page_title="Солнечный мир (администрирование)", layout="wide")
+inject_theme()  # GAR-стиль: шрифты IBM Plex, отступы (issue #504)
 st.title("Солнечный мир — администрирование материалов")
-
-# Отступ сверху: уменьшаем padding-top block-container в 2 раза
-# (Streamlit дефолт 5rem -> 2.5rem), чтобы контент не «парил» под хедером.
-st.markdown(
-    """
-    <style>
-      div.block-container { padding-top: 2.5rem !important; }
-      /* ряды кнопок действий под таблицами: вправо, равные малые промежутки */
-      [class*="st-key-actions_"] [data-testid="stHorizontalBlock"] {
-        justify-content: flex-end; gap: 0.5rem !important; flex-wrap: wrap;
-      }
-      [class*="st-key-actions_"] [data-testid="stColumn"] {
-        flex: 0 0 auto !important; width: auto !important; min-width: 0 !important;
-      }
-      [class*="st-key-actions_"] button { white-space: nowrap; }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
 
 TABS = [
     "Справочники", "Поиск", "Результаты", "Загрузка", "Документы", "Новости",
@@ -61,31 +44,22 @@ _RENDER = {
     "Внешний сайт": site_publish_tab.render,
 }
 
-# Запоминание открытой вкладки (issue #275).
-#
-# ВАЖНО: st.tabs() принципиально не подходит для этого — у него нет параметра
-# для программного выбора активной вкладки, а его внутренняя DOM-разметка
-# (BaseWeb) — деталь реализации, которая меняется между версиями Streamlit;
-# JS-хаки поверх неё (клики по data-baseweb="tab" через components.v1.html)
-# трижды не сработали из-за гонок/несовпадения разметки. Вместо этого
-# используем st.segmented_control — управляемый Python-виджет, чьё состояние
-# задаётся через st.session_state без единой строчки JS.
+# Запоминание открытой вкладки (issue #275). Виджет навигации — st.radio в
+# боковом меню (issue #504); его состояние задаётся через session_state без JS.
 _qp_tab = st.query_params.get("tab")
 if "active_tab" not in st.session_state:
     st.session_state["active_tab"] = _qp_tab if _qp_tab in TABS else TABS[0]
 
-selected = st.segmented_control(
+# Навигация — боковое меню (issue #504). st.radio всегда отдаёт выбранное
+# значение, поэтому «запоминание последней вкладки» больше не нужно.
+# Состояние — в session_state (без JS), стартовая вкладка — из ?tab=.
+active = st.sidebar.radio(
     "Раздел",
     TABS,
     key="active_tab",
     label_visibility="collapsed",
 )
-
-# selection_mode по умолчанию "single" — повторный клик по уже выбранному
-# пункту снимает выбор (вернёт None). В этом случае остаёмся на последней
-# известной вкладке, не трогая ключ виджета (Streamlit запрещает менять
-# st.session_state виджета после его инстанцирования в этом же прогоне).
-active = selected if selected is not None else st.session_state.get("_last_active_tab", TABS[0])
+# notify.py читает последнюю активную вкладку для сообщений слота.
 st.session_state["_last_active_tab"] = active
 
 if st.query_params.get("tab") != active:
