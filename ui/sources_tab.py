@@ -107,6 +107,12 @@ def filter_rows(rows: list[dict], flt: str, query: str) -> list[dict]:
     return out
 
 
+def site_url(domain: str) -> str:
+    """Адрес для кнопки «Открыть сайт»: https://домен[/путь] (ключ сообщества domain/path тоже годится)."""
+    d = (domain or "").strip().strip("/")
+    return d if d.startswith(("http://", "https://")) else f"https://{d}"
+
+
 def _row_label(r: dict) -> str:
     mark = "🟡" if r["pending"] else ("🔴" if r["status"] == "deny" else "🟢")
     tail = " 🔁" if r["aggregator"] else ""
@@ -123,6 +129,7 @@ def _render_detail(domain: str, registry: dict, row: dict) -> None:
     if row["aggregator"]:
         head += "  :violet[агрегатор]"
     st.markdown(head)
+    st.link_button("Открыть сайт ↗", site_url(domain))
     st.caption(f"Находок: {row['count']}")
     status = st.selectbox(
         "Статус", _STATUSES,
@@ -218,10 +225,12 @@ def render() -> None:
         if sel not in by_domain and rows:
             sel = st.session_state["dom_sel"] = (chunk or rows)[0]["domain"]
         for r in chunk:
-            if st.button(_row_label(r), key=f"pick_{r['domain']}", width="stretch",
+            cb, cl = st.columns([8, 1], vertical_alignment="center")
+            if cb.button(_row_label(r), key=f"pick_{r['domain']}", width="stretch",
                          type="primary" if r["domain"] == sel else "secondary"):
                 st.session_state["dom_sel"] = r["domain"]
                 st.rerun()
+            cl.link_button("↗", site_url(r["domain"]), help="Открыть сайт источника")
         st.caption(f"{len(shown)} из {len(rows)} · стр. {page} из {pages}")
     with right:
         if sel in by_domain:
