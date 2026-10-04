@@ -228,20 +228,22 @@ def _pager(page: int, pages: int, shown: int, total: int) -> None:
                     items.append("gap")
                 items.append(n)
             items.append("next")
-            for col, it in zip(st.columns(len(items), gap="small"), items):
-                if it == "gap":
-                    col.markdown("<div class='pg-gap'>…</div>", unsafe_allow_html=True)
-                elif it == "prev":
-                    col.button("‹", key="pg_prev", disabled=page <= 1, on_click=_set_page, args=(page - 1,), width="stretch")
-                elif it == "next":
-                    col.button("›", key="pg_next", disabled=page >= pages, on_click=_set_page, args=(page + 1,), width="stretch")
-                else:
-                    col.button(str(it), key=f"pg_{it}", on_click=_set_page, args=(it,), width="stretch",
-                               type="primary" if it == page else "secondary")
-        c1, c2 = st.columns([1, 1], vertical_alignment="center")
-        c1.caption(f"{shown} из {total} · стр. {page} из {pages}")
-        c2.segmented_control("На странице", _PAGE_SIZES, default=_PAGE_SIZES[0], key="src_size",
-                             label_visibility="collapsed")
+            with st.container(key="pgnums"):
+                for col, it in zip(st.columns(len(items), gap="small"), items):
+                    if it == "gap":
+                        col.markdown("<div class='pg-gap'>…</div>", unsafe_allow_html=True)
+                    elif it == "prev":
+                        col.button("‹", key="pg_prev", disabled=page <= 1, on_click=_set_page, args=(page - 1,))
+                    elif it == "next":
+                        col.button("›", key="pg_next", disabled=page >= pages, on_click=_set_page, args=(page + 1,))
+                    else:
+                        col.button(str(it), key=f"pg_{it}", on_click=_set_page, args=(it,),
+                                   type="primary" if it == page else "secondary")
+        with st.container(key="pgfoot"):
+            c1, c2 = st.columns([3, 2], vertical_alignment="center")
+            c1.caption(f"{shown} из {total} · стр. {page} из {pages}")
+            c2.segmented_control("На странице", _PAGE_SIZES, default=_PAGE_SIZES[0], key="src_size",
+                                 label_visibility="collapsed")
 
 
 def render() -> None:
