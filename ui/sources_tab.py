@@ -120,7 +120,8 @@ def site_url(domain: str) -> str:
 def _row_label(r: dict) -> str:
     mark = "🟡" if r["pending"] else ("🔴" if r["status"] == "deny" else "🟢")
     tail = " 🔁" if r["aggregator"] else ""
-    return f"{mark} {r['domain']}{tail} · 📄{r.get('materials', 0)} · 🔎{r['count']}"
+    return (f"{mark} {r['domain']}{tail} "
+            f":gray[:material/description: {r.get('materials', 0)} · :material/search: {r['count']}]")
 
 
 
@@ -260,6 +261,12 @@ def render() -> None:
     )
     left, right = st.columns([1, 1.4], gap="large")
     with left:
+        # Ширина колонки — по самому длинному названию (CSS ch + кнопка «↗»)
+        _n = max((len(r["domain"]) + (2 if r["aggregator"] else 0) for r in rows), default=20) + 16
+        st.markdown(
+            f"<span class='srcleft-mark'></span><style>[data-testid='stColumn']:has(.srcleft-mark)"
+            f"{{flex:0 0 calc({_n}ch + 96px) !important;width:calc({_n}ch + 96px) !important;"
+            f"min-width:0 !important}}</style>", unsafe_allow_html=True)
         query = st.text_input("Поиск", placeholder="домен, например unicef.org", label_visibility="collapsed", key="src_search")
         shown = filter_rows(rows, flt, query)
         size = st.session_state.get("src_size") or _PAGE_SIZES[0]
