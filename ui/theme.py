@@ -190,6 +190,13 @@ _NAV = """
   font-size: 13px; color: var(--sub); }
 .gar-topbar b { font-weight: 500; color: var(--text); margin-left: 4px; }
 div.block-container { padding-top: 74px !important; }
+/* Пагинация */
+.st-key-pager [data-testid="stHorizontalBlock"] { gap: 4px !important; justify-content: center; }
+.st-key-pager button { min-height: 32px !important; padding: 0 !important; font-size: 13px !important; border-radius: 6px !important; }
+.st-key-pager .pg-gap { text-align: center; color: var(--dim); line-height: 32px; }
+.st-key-pager [data-testid="stBaseButton-primary"] { font-weight: 600 !important; }
+.st-key-pager [data-testid="stCaptionContainer"] { margin: 0; }
+.st-key-pager [data-testid="stSegmentedControl"] { justify-content: flex-end; }
 
 /* Все вкладки: подпись слева от поля (компактно по вертикали).
    Без подписи (collapsed) — исключены по ключам src_search, dp_sel_*. */

@@ -213,6 +213,37 @@ def _render_detail(domain: str, registry: dict, row: dict) -> None:
         st.rerun()
 
 
+def _set_page(p: int) -> None:
+    st.session_state["src_page"] = p
+
+
+def _pager(page: int, pages: int, shown: int, total: int) -> None:
+    """Постраничная навигация: ‹ 1 … 4 [5] 6 … 20 › + размер страницы + счётчик."""
+    with st.container(key="pager"):
+        if pages > 1:
+            nums = sorted({1, pages, page - 1, page, page + 1} & set(range(1, pages + 1)))
+            items: list = ["prev"]
+            for k, n in enumerate(nums):
+                if k and n - nums[k - 1] > 1:
+                    items.append("gap")
+                items.append(n)
+            items.append("next")
+            for col, it in zip(st.columns(len(items), gap="small"), items):
+                if it == "gap":
+                    col.markdown("<div class='pg-gap'>…</div>", unsafe_allow_html=True)
+                elif it == "prev":
+                    col.button("‹", key="pg_prev", disabled=page <= 1, on_click=_set_page, args=(page - 1,), width="stretch")
+                elif it == "next":
+                    col.button("›", key="pg_next", disabled=page >= pages, on_click=_set_page, args=(page + 1,), width="stretch")
+                else:
+                    col.button(str(it), key=f"pg_{it}", on_click=_set_page, args=(it,), width="stretch",
+                               type="primary" if it == page else "secondary")
+        c1, c2 = st.columns([1, 1], vertical_alignment="center")
+        c1.caption(f"{shown} из {total} · стр. {page} из {pages}")
+        c2.segmented_control("На странице", _PAGE_SIZES, default=_PAGE_SIZES[0], key="src_size",
+                             label_visibility="collapsed")
+
+
 def render() -> None:
     st.header("Источники / домены")
     st.caption("Реестр ToS-статусов — источники в GAR (issue #3, ADR-0021). "
@@ -229,9 +260,13 @@ def render() -> None:
     with left:
         query = st.text_input("Поиск", placeholder="домен, например unicef.org", label_visibility="collapsed", key="src_search")
         shown = filter_rows(rows, flt, query)
-        size = st.selectbox("На странице", _PAGE_SIZES, index=0)
+        size = st.session_state.get("src_size") or _PAGE_SIZES[0]
         pages = max(1, -(-len(shown) // size))
-        page = st.number_input("Страница", 1, pages, 1) if pages > 1 else 1
+        sig = (flt, query, size)
+        if st.session_state.get("src_sig") != sig:
+            st.session_state["src_sig"] = sig
+            st.session_state["src_page"] = 1
+        page = min(max(1, st.session_state.get("src_page", 1)), pages)
         chunk = shown[(page - 1) * size: page * size]
         sel = st.session_state.get("dom_sel")
         if sel not in by_domain and rows:
@@ -243,7 +278,7 @@ def render() -> None:
                 st.session_state["dom_sel"] = r["domain"]
                 st.rerun()
             cl.link_button("↗", site_url(r["domain"]), help="Открыть сайт источника")
-        st.caption(f"{len(shown)} из {len(rows)} · стр. {page} из {pages}")
+        _pager(page, pages, len(shown), len(rows))
     with right:
         if sel in by_domain:
             _render_detail(sel, registry, by_domain[sel])
