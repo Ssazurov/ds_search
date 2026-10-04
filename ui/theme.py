@@ -113,8 +113,8 @@ div[data-testid="stVerticalBlockBorderWrapper"]:has(> div > div > div[data-testi
 
 # Палитра и компоненты 1:1 с gar-admin-ui (app/globals.css, ui/Button|Card|Field).
 _GAR = """
-:root { --bg:#141821; --panel:#1b212c; --panel2:#202733; --border:#2a3142; --text:#e7e9ee;
-  --sub:#8b93a5; --dim:#5b6478; --blue:#5b8def; --green:#3ecf8e; --amber:#e0a94e; --red:#e5555f; }
+:root { --bg:#f4f5f7; --panel:#ffffff; --panel2:#eef0f4; --border:#dde1e8; --text:#1a2030;
+  --sub:#596178; --dim:#8991a3; --blue:#3b6fd1; --green:#1f9d6c; --amber:#b9791f; --red:#c73b45; }
 [data-testid="stApp"], [data-testid="stAppViewContainer"], [data-testid="stMain"] {
   background: var(--bg) !important; color: var(--text); }
 [data-testid="stHeader"] { background: var(--bg) !important; height: 52px;
@@ -134,7 +134,7 @@ div[data-testid="stVerticalBlockBorderWrapper"] > div { padding: 18px 20px; }
 [data-testid="stMetric"] { padding: 18px 20px; }
 /* Button */
 [data-testid="stBaseButton-primary"], button[kind="primary"] { background: var(--blue) !important;
-  color: #0e1116 !important; padding: 8px 14px !important; line-height: 1 !important; }
+  color: #ffffff !important; padding: 8px 14px !important; line-height: 1 !important; }
 [data-testid="stBaseButton-secondary"], button[kind="secondary"] { background: transparent !important;
   border: 1px solid var(--border) !important; color: var(--text) !important; padding: 8px 14px !important; line-height: 1 !important; }
 [data-testid="stBaseButton-secondary"]:hover { border-color: var(--sub) !important; }
