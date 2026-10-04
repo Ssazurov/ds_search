@@ -161,14 +161,38 @@ hr { border-color: var(--border) !important; }
 
 def inject_theme() -> None:
     """Подключает шрифты IBM Plex и базовые правила. Вызывать после st.set_page_config."""
-    st.markdown(f"<style>{_FONT_FACES}{_RULES}{_SIDEBAR}{_COMPONENTS}{_GAR}</style>", unsafe_allow_html=True)
+    st.markdown(f"<style>{_FONT_FACES}{_RULES}{_SIDEBAR}{_COMPONENTS}{_GAR}{_NAV}</style>", unsafe_allow_html=True)
 
 
 
 def sidebar_brand() -> None:
     """Шапка бокового меню: логотип-бренд как в GAR console."""
     st.sidebar.markdown(
-        '<div class="gar-brand"><b>Солнечный мир</b><span>администрирование</span></div>'
-        '<div class="gar-group">Разделы</div>',
+        '<div class="gar-brand"><b>Солнечный мир</b></div>',
         unsafe_allow_html=True,
     )
+
+
+_NAV = """
+[class*="st-key-nav"] { margin: 0 !important; }
+[data-testid="stSidebar"] [data-testid="stSidebarUserContent"] { padding: 0 12px; }
+[class*="st-key-nav"] button { width: 100%; justify-content: flex-start !important; text-align: left;
+  background: transparent !important; border: none !important; border-left: 2px solid transparent !important;
+  border-radius: 6px !important; padding: 9px 10px !important; min-height: 0 !important;
+  font-size: 13.5px !important; font-weight: 400 !important; color: var(--sub) !important; box-shadow: none !important; }
+[class*="st-key-nav"] button p { font-size: 13.5px !important; }
+[class*="st-key-nav"] button:hover { background: var(--panel2) !important; color: var(--text) !important; }
+[class*="st-key-navon"] button { background: var(--panel2) !important; color: var(--text) !important;
+  border-left-color: var(--blue) !important; }
+[data-testid="stSidebar"] [data-testid="stVerticalBlock"] { gap: 2px; }
+.gar-topbar { position: fixed; top: 0; left: 212px; right: 0; height: 52px; z-index: 999991;
+  display: flex; align-items: center; padding: 0 20px; pointer-events: none;
+  font-size: 13px; color: var(--sub); }
+.gar-topbar b { font-weight: 500; color: var(--text); margin-left: 4px; }
+div.block-container { padding-top: 74px !important; }
+"""
+
+
+def topbar(page: str) -> None:
+    """Хлебные крошки как Topbar.tsx в gar-admin-ui: «Солнечный мир / Раздел»."""
+    st.markdown(f'<div class="gar-topbar">Солнечный мир&nbsp;/ <b>{page}</b></div>', unsafe_allow_html=True)

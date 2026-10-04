@@ -18,13 +18,12 @@ from ui import (
     news_tab, notify, results_tab, search_tab, site_publish_tab, sources_tab,
     upload_tab,
 )
-from ui.theme import inject_theme, sidebar_brand
+from ui.theme import inject_theme, sidebar_brand, topbar
 
 # Название сайта — «Солнечный мир» (см. ds_site/app/layout.tsx).
 # Админка Streamlit — курация материалов этого сайта.
-st.set_page_config(page_title="Солнечный мир (администрирование)", layout="wide")
+st.set_page_config(page_title="Солнечный мир", layout="wide")
 inject_theme()  # GAR-стиль: шрифты IBM Plex, отступы (issue #504)
-st.title("Солнечный мир — администрирование материалов")
 
 TABS = [
     "Справочники", "Поиск", "Результаты", "Загрузка", "Документы", "Новости",
@@ -54,12 +53,19 @@ if "active_tab" not in st.session_state:
 # значение, поэтому «запоминание последней вкладки» больше не нужно.
 # Состояние — в session_state (без JS), стартовая вкладка — из ?tab=.
 sidebar_brand()
-active = st.sidebar.radio(
-    "Раздел",
-    TABS,
-    key="active_tab",
-    label_visibility="collapsed",
-)
+if "active_tab" not in st.session_state:
+    st.session_state["active_tab"] = TABS[0]
+
+
+def _go(tab: str) -> None:
+    st.session_state["active_tab"] = tab
+
+
+active = st.session_state["active_tab"]
+for _i, _t in enumerate(TABS):
+    st.sidebar.button(_t, key=f"navon_{_i}" if _t == active else f"nav_{_i}",
+                      on_click=_go, args=(_t,), use_container_width=True)
+topbar(active)
 # notify.py читает последнюю активную вкладку для сообщений слота.
 st.session_state["_last_active_tab"] = active
 
