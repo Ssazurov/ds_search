@@ -190,6 +190,16 @@ _NAV = """
   font-size: 13px; color: var(--sub); }
 .gar-topbar b { font-weight: 500; color: var(--text); margin-left: 4px; }
 div.block-container { padding-top: 74px !important; }
+
+/* Вкладка «Источники»: подпись слева от поля (компактно по вертикали) */
+.st-key-tabsrc [data-testid="stElementContainer"]:not([class*="st-key-src_search"]) > [data-testid="stTextInput"],
+.st-key-tabsrc [data-testid="stElementContainer"] > [data-testid="stSelectbox"],
+.st-key-tabsrc [data-testid="stElementContainer"] > [data-testid="stNumberInput"],
+.st-key-tabsrc [data-testid="stElementContainer"] > [data-testid="stTextArea"] {
+  display: grid !important; grid-template-columns: 150px minmax(0, 1fr); column-gap: 12px; align-items: center; }
+.st-key-tabsrc [data-testid="stTextArea"] { align-items: start !important; }
+.st-key-tabsrc [data-testid="stWidgetLabel"] { margin: 0 !important; min-height: 0 !important; }
+.st-key-tabsrc [data-testid="stVerticalBlock"] { gap: 0.4rem !important; }
 """
 
 
