@@ -5,6 +5,7 @@ from datetime import datetime
 
 import streamlit as st
 
+from src.license.registry_store import GarRegistryStore
 from src.license.checker import PUBLISH_PERMISSION_LABELS, PublishPermission
 from src.site_publish import runner
 from src.site_publish.permissions import PUBLISHABLE, set_publish_permission
@@ -32,6 +33,7 @@ _MAX_EDIT_ROWS = 30
 
 
 def _open_source(domain: str) -> None:
+    GarRegistryStore().ensure(domain)  # нет в реестре -> заготовка, иначе во вкладке «Источники» домена не будет
     st.session_state["dom_sel"] = domain
     st.session_state["active_tab"] = "Источники"
 
