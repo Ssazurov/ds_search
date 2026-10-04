@@ -39,6 +39,28 @@ def ds_site_dir() -> Path:
     return Path(os.environ.get("DS_SITE_DIR") or ROOT.parent / "ds_site")
 
 
+def aggregate_dropped(items: list[dict]) -> list[dict]:
+    """dropped.json (домен/тип/причина/число) -> строки по (домен, причина), по убыванию числа (#489)."""
+    acc: dict[tuple[str, str], dict] = {}
+    for it in items:
+        key = (it.get("domain") or "", it.get("permission") or "not_set")
+        row = acc.setdefault(key, {"domain": key[0], "permission": key[1], "count": 0, "types": []})
+        row["count"] += int(it.get("count") or 0)
+        t = it.get("type")
+        if t and t not in row["types"]:
+            row["types"].append(t)
+    return sorted(acc.values(), key=lambda r: (-r["count"], r["domain"]))
+
+
+def load_dropped() -> list[dict]:
+    """Отброшенные материалы последней выгрузки; [] если файла нет или он битый."""
+    path = ds_site_dir() / "data" / "export" / "dropped.json"
+    try:
+        return aggregate_dropped(json.loads(path.read_text(encoding="utf-8")).get("items", []))
+    except (OSError, ValueError):
+        return []
+
+
 def find_node() -> str | None:
     """node из PATH или из nvm (Streamlit из `bash -lc` nvm может не видеть)."""
     found = shutil.which("node")
