@@ -19,7 +19,7 @@ from crawl4ai.deep_crawling.scorers import KeywordRelevanceScorer
 from crawl4ai.content_filter_strategy import PruningContentFilter
 from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
 
-from .md_tables import collapse_multiline_tables
+from .md_tables import collapse_multiline_tables, merge_adjacent_emphasis
 from .structure import normalize_headings_for_url
 
 # Базовые паттерны, не зависящие от источника: бинарные файлы и пагинация
@@ -89,6 +89,7 @@ def _clean_markdown_tables(markdown: str) -> str:
     html2text генерирует "|  \\n" вместо "|\\n", что ломает рендеринг."""
     # Находим строки таблиц (содержат | и заканчиваются пробелами перед \n)
     markdown = collapse_multiline_tables(markdown)  # issue #460
+    markdown = merge_adjacent_emphasis(markdown)  # битые **a****b**
     return re.sub(r'(\|[^\n]*?) +\n', r'\1\n', markdown)
 
 

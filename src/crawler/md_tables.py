@@ -94,3 +94,29 @@ def collapse_multiline_tables(markdown: str) -> str:
     # html2text: "<b>Текст</b> <b>A</b>" -> "**Текст****A**" внутри таблиц
     out = [l.replace("****", " ") if l.startswith("|") and "****" in l else l for l in out]
     return "\n".join(out)
+
+
+
+# html2text: соседние <b>a</b><b>b</b> -> "**a****b**" (и "_a_****_b_" для <b><i>).
+_ADJ_EMPH_RE = re.compile(r'(?P<l>[^\s*_])(?P<u1>_?)\*\*\*\*(?P<u2>_?)(?P<r>[^\s*_])')
+_CYR_RE = re.compile(r'[А-Яа-яЁё]')
+
+
+def _adj_repl(m):
+    l, u1, u2, r = m.group('l'), m.group('u1'), m.group('u2'), m.group('r')
+    if bool(u1) != bool(u2):
+        return m.group(0)  # несбалансированный курсив — не трогаем
+    if r in ',.;:!?)»…':
+        sep = ''
+    elif l.isalpha() and r.isalpha() and not (_CYR_RE.match(l) or _CYR_RE.match(r)):
+        sep = ''  # латиница: слово разрезано тегами (And****roid)
+    else:
+        sep = ' '
+    return l + sep + r
+
+
+def merge_adjacent_emphasis(markdown: str) -> str:
+    """Склеивает соседние bold-спаны: '**Новая жизнь****, любовь**' -> '**Новая жизнь, любовь**'."""
+    if '****' not in markdown:
+        return markdown
+    return _ADJ_EMPH_RE.sub(_adj_repl, markdown)
