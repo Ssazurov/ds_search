@@ -17,6 +17,7 @@ from src.license.checker import (
     PUBLISH_PERMISSION_LABELS, LicenseStatus, PublishPermission,
     normalize_domain, parse_publish_permission,
 )
+from src.site_publish import runner
 from ui import notify
 
 _STATUSES = [s.value for s in LicenseStatus if s != LicenseStatus.PENDING_MANUAL_REVIEW]
@@ -27,6 +28,7 @@ STATUS_LABELS = {
     "attribution_required": "Разрешено со ссылкой на источник",
     "deny": "Запрещено",
 }
+_TYPE_LABELS = {"articles": "Статьи", "news": "Новости", "glossary": "Глоссарий", "links": "Ссылки"}
 _PAGE_SIZES = [10, 20, 50]
 _FILTERS = {"all": "Все", "pending": "Не проверен", "found": "Есть находки", "agg": "Агрегаторы",
             "community": "Сообщества"}
@@ -60,7 +62,7 @@ def _dismiss_domain(domain: str) -> None:
                 client.update_discovered_source(r["id"], status="rejected")
 
 
-def build_rows(registry: dict, counts: Counter) -> list[dict]:
+def build_rows(registry: dict, counts: Counter, stats: dict | None = None) -> list[dict]:
     """Строки списка: сначала непроверенные с находками, затем по числу находок и алфавиту.
     Сообщества (ключ domain/path, issue #473) выводятся сразу под своим доменом (issue #474)."""
     rows = []
@@ -72,6 +74,8 @@ def build_rows(registry: dict, counts: Counter) -> list[dict]:
             "base": domain.split("/", 1)[0],
             "is_community": is_community,
             "count": counts.get(domain, 0),
+            "materials": (stats or {}).get(domain, {}).get("total", 0),
+            "mat": (stats or {}).get(domain),
             "pending": entry.get("status") not in _STATUSES,
             "aggregator": bool(entry.get("is_aggregator")),
             "status": entry.get("status"),
@@ -116,7 +120,7 @@ def site_url(domain: str) -> str:
 def _row_label(r: dict) -> str:
     mark = "🟡" if r["pending"] else ("🔴" if r["status"] == "deny" else "🟢")
     tail = " 🔁" if r["aggregator"] else ""
-    return f"{mark} {r['domain']}{tail} · {r['count']}"
+    return f"{mark} {r['domain']}{tail} · 📄{r.get('materials', 0)} · 🔎{r['count']}"
 
 
 
@@ -130,7 +134,15 @@ def _render_detail(domain: str, registry: dict, row: dict) -> None:
         head += "  :violet[агрегатор]"
     st.markdown(head)
     st.link_button("Открыть сайт ↗", site_url(domain))
-    st.caption(f"Находок: {row['count']}")
+    mat = row.get("mat")
+    st.caption(f"Материалов в GAR: {row.get('materials', 0)} · Находок поиска: {row['count']}")
+    if mat:
+        st.dataframe([{
+            "Тип": _TYPE_LABELS.get(t, t), "Всего": v["published"] + v["dropped"],
+            "Опубликовано": v["published"], "Отброшено": v["dropped"],
+        } for t, v in mat["types"].items()], hide_index=True, width="stretch")
+        if mat["dropped"]:
+            st.caption("Отброшены из-за разрешения источника — задайте «Разрешение на публикацию» ниже.")
     status = st.selectbox(
         "Статус", _STATUSES,
         index=_STATUSES.index(entry.get("status")) if not pending else None,
@@ -206,7 +218,7 @@ def render() -> None:
     st.caption("Реестр ToS-статусов — источники в GAR (issue #3, ADR-0021). "
                "Новые домены попадают сюда автоматически со статусом «не проверен».")
     registry = _load_registry()
-    rows = build_rows(registry, _domain_counts())
+    rows = build_rows(registry, _domain_counts(), runner.load_source_stats())
     by_domain = {r["domain"]: r for r in rows}
 
     flt = st.radio(

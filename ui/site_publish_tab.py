@@ -49,7 +49,7 @@ def _dropped() -> None:
         dom, n = r["domain"], r["count"]
         cur = saved.get(dom, r["permission"])
         c0, c1, c2, c3 = st.columns([3, 3, 1.3, 1.7])
-        c0.markdown(f"**{dom or '(нет домена)'}** · {n} · {', '.join(r['types'])} · `{r['permission']}`")
+        c0.markdown(f"**{dom or '(нет домена)'}** · {n} материалов · {', '.join(r['types'])} · `{r['permission']}`")
         if not dom:
             continue
         new = c1.selectbox(
