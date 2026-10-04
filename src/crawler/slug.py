@@ -29,3 +29,8 @@ def norm_domain(domain: str) -> str:
     """Каноничный домен источника: lower, без порта и без ведущего www. (issue #400)."""
     host = (domain or "").lower().strip().split("@")[-1].split(":")[0]
     return host.removeprefix("www.")
+
+
+def transliterate(text: str) -> str:
+    """Символ-в-символ транслитерация кириллицы в латиницу, прочие символы не трогает."""
+    return "".join(_MAP.get(c, c) for c in text.lower())
