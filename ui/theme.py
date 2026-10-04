@@ -190,6 +190,10 @@ _NAV = """
   font-size: 13px; color: var(--sub); }
 .gar-topbar b { font-weight: 500; color: var(--text); margin-left: 4px; }
 div.block-container { padding-top: 28px !important; }
+/* Бренд слева, как пункты меню */
+[data-testid="stSidebar"] .gar-brand { justify-content: flex-start !important; text-align: left; padding: 26px 10px 20px; }
+[data-testid="stSidebar"] [data-testid="stMarkdownContainer"]:has(.gar-brand) { text-align: left; }
+[data-testid="stElementContainer"]:has(.srcleft-mark) { display: none; }
 /* Меню: текст пунктов слева */
 [class*="st-key-nav"] button > div, [class*="st-key-nav"] button [data-testid="stMarkdownContainer"] {
   justify-content: flex-start !important; text-align: left !important; width: 100%; }
