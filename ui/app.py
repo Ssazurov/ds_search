@@ -75,7 +75,7 @@ if st.query_params.get("tab") != active:
 # Slot для сообщений (issue #366): создаём контейнер до рендера вкладки,
 # чтобы сообщения, добавленные во время рендера, появились вверху.
 slot = st.container()
-with st.container(key="tabsrc" if active == "Источники" else "tabgen"):
+with st.container(key="tabmain"):
     _RENDER[active]()
 with slot:
     notify.render_messages(active)
