@@ -14,7 +14,6 @@ from ui import notify
 
 
 def render() -> None:
-    st.header("Статус агентов")
 
     settings = load_settings()
     try:

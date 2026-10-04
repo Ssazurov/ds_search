@@ -11,7 +11,6 @@ from ui import notify
 
 
 def render() -> None:
-    st.header("Справочники")
     st.caption(
         "Источник правды — GAR (датасет sindrom-dauna). Направления и категории редактируются "
         "только там; здесь — просмотр. После правок в GAR нажмите «Обновить из GAR»."

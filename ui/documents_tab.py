@@ -715,7 +715,6 @@ def _render_recrawl_batch() -> None:
 
 
 def render() -> None:
-    st.header("Документы")
     _render_recrawl_batch()
 
     rows = _scan_raw()

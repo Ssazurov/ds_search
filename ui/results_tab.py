@@ -112,7 +112,6 @@ def _download(rows: list[dict], selected_ids: list, settings: Settings) -> None:
 
 
 def render() -> None:
-    st.header("Результаты поиска")
     settings = load_settings()
 
     col1, col2, col3 = st.columns(3)

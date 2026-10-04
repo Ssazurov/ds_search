@@ -188,8 +188,8 @@ _NAV = """
 .gar-topbar { position: fixed; top: 0; left: 212px; right: 0; height: 52px; z-index: 999991;
   display: flex; align-items: center; padding: 0 20px; pointer-events: none;
   font-size: 13px; color: var(--sub); }
-.gar-topbar b { font-weight: 500; color: var(--text); margin-left: 4px; }
-div.block-container { padding-top: 56px !important; }
+.gar-topbar b { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; color: var(--text); }
+div.block-container { padding-top: 40px !important; }
 /* Бренд слева, как пункты меню */
 [data-testid="stSidebar"] .gar-brand { justify-content: flex-start !important; text-align: left; padding: 26px 10px 20px; }
 [data-testid="stSidebar"] [data-testid="stMarkdownContainer"]:has(.gar-brand) { text-align: left; }

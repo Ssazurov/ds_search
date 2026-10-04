@@ -247,7 +247,6 @@ def _pager(page: int, pages: int, shown: int, total: int) -> None:
 
 
 def render() -> None:
-    st.header("Источники / домены")
     st.caption("Реестр ToS-статусов — источники в GAR (issue #3, ADR-0021). "
                "Новые домены попадают сюда автоматически со статусом «не проверен».")
     registry = _load_registry()
