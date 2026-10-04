@@ -111,9 +111,57 @@ div[data-testid="stVerticalBlockBorderWrapper"]:has(> div > div > div[data-testi
 """
 
 
+# Палитра и компоненты 1:1 с gar-admin-ui (app/globals.css, ui/Button|Card|Field).
+_GAR = """
+:root { --bg:#141821; --panel:#1b212c; --panel2:#202733; --border:#2a3142; --text:#e7e9ee;
+  --sub:#8b93a5; --dim:#5b6478; --blue:#5b8def; --green:#3ecf8e; --amber:#e0a94e; --red:#e5555f; }
+[data-testid="stApp"], [data-testid="stAppViewContainer"], [data-testid="stMain"] {
+  background: var(--bg) !important; color: var(--text); }
+[data-testid="stHeader"] { background: var(--bg) !important; height: 52px;
+  border-bottom: 1px solid var(--border); }
+[data-testid="stSidebar"] { background: var(--bg) !important; border-right: 1px solid var(--border) !important; }
+[data-testid="stSidebar"] .gar-brand span, [data-testid="stSidebar"] .gar-group { color: var(--dim); opacity: 1; }
+[data-testid="stSidebar"] [role="radiogroup"] > label { color: var(--sub); opacity: 1; }
+[data-testid="stSidebar"] [role="radiogroup"] > label:hover { background: var(--panel); color: var(--text); }
+[data-testid="stSidebar"] [role="radiogroup"] > label:has(input:checked) {
+  background: var(--panel2); border-left-color: var(--blue); color: var(--text); }
+/* Card */
+div[data-testid="stVerticalBlockBorderWrapper"]:has(> div > div > div[data-testid="stVerticalBlock"]),
+[data-testid="stExpander"], [data-testid="stMetric"] {
+  background: var(--panel) !important; border: 1px solid var(--border) !important; border-radius: 8px !important; }
+div[data-testid="stVerticalBlockBorderWrapper"] > div { padding: 18px 20px; }
+[data-testid="stExpander"] details, [data-testid="stExpander"] summary { background: transparent !important; }
+[data-testid="stMetric"] { padding: 18px 20px; }
+/* Button */
+[data-testid="stBaseButton-primary"], button[kind="primary"] { background: var(--blue) !important;
+  color: #0e1116 !important; padding: 8px 14px !important; line-height: 1 !important; }
+[data-testid="stBaseButton-secondary"], button[kind="secondary"] { background: transparent !important;
+  border: 1px solid var(--border) !important; color: var(--text) !important; padding: 8px 14px !important; line-height: 1 !important; }
+[data-testid="stBaseButton-secondary"]:hover { border-color: var(--sub) !important; }
+/* Field */
+[data-baseweb="input"], [data-baseweb="select"] > div, [data-baseweb="textarea"], [data-baseweb="base-input"] {
+  background: var(--panel) !important; border: 1px solid var(--border) !important; color: var(--text) !important; }
+[data-baseweb="input"]:focus-within, [data-baseweb="select"] > div:focus-within, [data-baseweb="textarea"]:focus-within {
+  box-shadow: 0 0 0 2px var(--blue) !important; }
+input, textarea { color: var(--text) !important; }
+/* Tabs */
+[data-baseweb="tab-list"] { border-bottom: 1px solid var(--border); }
+[data-baseweb="tab"] { color: var(--sub) !important; background: transparent !important; }
+[aria-selected="true"][data-baseweb="tab"] { color: var(--text) !important; }
+[data-baseweb="tab-highlight"] { background: var(--blue) !important; }
+[data-baseweb="tab-border"] { background: var(--border) !important; }
+/* Текст */
+[data-testid="stCaptionContainer"] { color: var(--dim) !important; opacity: 1 !important; font-size: 12px !important; }
+[data-testid="stMetricLabel"] { color: var(--sub); opacity: 1 !important; }
+[data-testid="stDataFrame"] { border: 1px solid var(--border); border-radius: 8px; }
+[data-testid="stAlert"] { background: var(--panel2) !important; border: 1px solid var(--border); }
+hr { border-color: var(--border) !important; }
+"""
+
+
 def inject_theme() -> None:
     """Подключает шрифты IBM Plex и базовые правила. Вызывать после st.set_page_config."""
-    st.markdown(f"<style>{_FONT_FACES}{_RULES}{_SIDEBAR}{_COMPONENTS}</style>", unsafe_allow_html=True)
+    st.markdown(f"<style>{_FONT_FACES}{_RULES}{_SIDEBAR}{_COMPONENTS}{_GAR}</style>", unsafe_allow_html=True)
 
 
 
