@@ -189,7 +189,7 @@ _NAV = """
   display: flex; align-items: center; padding: 0 20px; pointer-events: none;
   font-size: 13px; color: var(--sub); }
 .gar-topbar b { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; color: var(--text); }
-div.block-container { padding-top: 40px !important; }
+div.block-container { padding-top: 72px !important; }
 /* Бренд слева, как пункты меню */
 [data-testid="stSidebar"] .gar-brand { justify-content: flex-start !important; text-align: left; padding: 26px 10px 20px; }
 [data-testid="stSidebar"] [data-testid="stMarkdownContainer"]:has(.gar-brand) { text-align: left; }
