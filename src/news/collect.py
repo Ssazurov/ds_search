@@ -85,6 +85,7 @@ async def _collect_one(
     direction: str | None = None,
     category: str | None = None,
     fmt: str = "news",
+    local_meta: dict | None = None,
 ) -> str:
     """Скачивает источник и создаёт LLM-черновик. Возвращает статус для
     статистики: 'drafted' | 'license_denied' | 'download_failed' |
@@ -94,14 +95,25 @@ async def _collect_one(
     domain = urlsplit(hit.url).netloc.lower()
     source = {"url": hit.url, "domain": domain, "title": hit.title}
 
-    try:
-        meta = await download_single(source, data_root=data_root)
-    except DownloadError as exc:
-        if "license status" in str(exc):
-            logger.info("источник %s пропущен (лицензия): %s", hit.url, exc)
-            return "license_denied"
-        logger.warning("download_single не смог скачать %s: %s", hit.url, exc)
-        return "download_failed"
+    if local_meta and local_meta.get("content_path") and Path(local_meta["content_path"]).is_file():
+        # уже сохранённый документ (вкладка «Документы»): не перекачиваем —
+        # SPA/VK-посты отдают thin content при повторной загрузке
+        meta = {
+            "content_path": local_meta["content_path"],
+            "source_url": local_meta.get("source_url") or hit.url,
+            "title": local_meta.get("title") or hit.title,
+            "publish_date": local_meta.get("publish_date") or "",
+            "is_aggregator": bool(local_meta.get("is_aggregator")),
+        }
+    else:
+        try:
+            meta = await download_single(source, data_root=data_root)
+        except DownloadError as exc:
+            if "license status" in str(exc):
+                logger.info("источник %s пропущен (лицензия): %s", hit.url, exc)
+                return "license_denied"
+            logger.warning("download_single не смог скачать %s: %s", hit.url, exc)
+            return "download_failed"
 
     content_path = Path(meta["content_path"])
     if content_path.suffix == ".pdf":
@@ -175,6 +187,7 @@ async def add_single_url(
     direction: str | None = None,
     category: str | None = None,
     fmt: str = "news",
+    local_meta: dict | None = None,
 ) -> str:
     """Штатная загрузка одной новости по ссылке пользователя (issue #183).
 
@@ -189,6 +202,7 @@ async def add_single_url(
     hit = SearchHit(url=url, title=title, snippet="")
     return await _collect_one(
         hit, llm_config, data_root, db_path, direction=direction, category=category, fmt=fmt,
+        local_meta=local_meta,
     )
 
 
