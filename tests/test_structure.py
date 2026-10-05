@@ -20,3 +20,13 @@ def test_visual_article_subheading_becomes_h2():
 def test_unknown_source_is_unchanged():
     html = '<div class="sln-news-wrap"><p><b>Почему это важно?</b></p></div>'
     assert normalize_headings_for_url(html, "https://example.org/a") == html
+
+
+def test_headings_shift_up_when_h2_skipped():
+    html = "<h1>T</h1><h3>A</h3><p>x</p><h4>B</h4>"
+    assert normalize_headings_for_url(html, "https://downsideup.org/a") == "<h1>T</h1><h2>A</h2><p>x</p><h3>B</h3>"
+
+
+def test_headings_not_shifted_when_h2_present():
+    html = "<h2>A</h2><h3>B</h3>"
+    assert normalize_headings_for_url(html, "https://example.org/a") == html

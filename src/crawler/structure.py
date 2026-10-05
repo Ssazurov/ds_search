@@ -144,8 +144,30 @@ def detect_structure_profile(url: str) -> StructureProfile | None:
     return next((profile for domain, profile in PROFILES.items() if host == domain or host.endswith("." + domain)), None)
 
 
+_HEADING_TAG_RE = re.compile(r"<(/?)h([2-6])(?=[\s>/])", re.I)
+
+
+def shift_headings_up(html: str, top: int = 2) -> str:
+    """Shift h2-h6 so the shallowest sub-heading becomes ``h<top>`` (h1 untouched).
+
+    Sites that skip h2 (e.g. downsideup.org uses h3 for sections) otherwise
+    produce a Markdown outline starting at ``###``.
+    """
+    if not html:
+        return html
+    levels = [int(m.group(2)) for m in _HEADING_TAG_RE.finditer(html) if not m.group(1)]
+    if not levels or min(levels) <= top:
+        return html
+    shift = min(levels) - top
+    return _HEADING_TAG_RE.sub(lambda m: f"<{m.group(1)}h{int(m.group(2)) - shift}", html)
+
+
 def normalize_headings(html: str, profile: StructureProfile | None = None) -> str:
-    """Add semantic headings while retaining all meaningful source content."""
+    """Add semantic headings, then shift heading levels so sections start at h2."""
+    return shift_headings_up(_apply_profile(html, profile))
+
+
+def _apply_profile(html: str, profile: StructureProfile | None) -> str:
     if not html or profile is None:
         return html
     parser = _TreeParser()
