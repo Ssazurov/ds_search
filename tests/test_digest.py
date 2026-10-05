@@ -68,7 +68,7 @@ def test_build_prompt_digest_requires_template():
 
 
 def _fake_llm(payload: dict, seen: dict | None = None):
-    def _call(prompt, cfg):
+    def _call(prompt, cfg, **kwargs):
         if seen is not None:
             seen["cfg"] = cfg
         return json.dumps(payload, ensure_ascii=False)

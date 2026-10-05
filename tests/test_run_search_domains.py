@@ -27,6 +27,8 @@ def test_search_per_domain_filters_and_splits(monkeypatch):
 
     # WP REST API недоступен -> fallback на chain (без сети в тесте)
     monkeypatch.setattr(rs, "wp_search", lambda *a, **k: None)
+    monkeypatch.setattr(rs, "rss_search", lambda *a, **k: None)
+    monkeypatch.setattr(rs, "sitemap_search", lambda *a, **k: None)
 
     class FakeChain:
         def __init__(self):

@@ -18,8 +18,8 @@ def _row() -> dict[str, str]:
     return {m.group(0).split(".")[0]: m.group(1) for m in _BUTTON_RE.finditer(SRC)}
 
 
-def test_action_row_has_seven_columns():
-    assert 'action_row(7, "documents")' in SRC
+def test_action_row_has_eight_columns():
+    assert 'action_row(8, "documents")' in SRC
 
 
 def test_button_order():
@@ -31,6 +31,7 @@ def test_button_order():
         "b5": "Из архива ({len(archivable)})",
         "b6": "В пересказ ({len(with_url)})",
         "b7": "В новости ({len(with_url)})",
+        "b8": "Переотправить в GAR ({len(resendable)})",
     }
 
 
