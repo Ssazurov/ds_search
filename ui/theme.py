@@ -297,6 +297,18 @@ details [data-baseweb="input"]:focus-within,
 details [data-baseweb="textarea"]:focus-within,
 [data-testid="stForm"] [data-baseweb="textarea"]:focus-within { border-color: var(--blue) !important; box-shadow: 0 0 0 1px var(--blue) inset !important; }
 .st-key-manual_draft[data-testid="stForm"] { border: none !important; padding: 0 !important; }
+/* Streamlit 1.64: рамку поля рисует *RootElement (не data-baseweb) */
+[data-testid="stExpander"] [data-testid$="RootElement"],
+details [data-testid$="RootElement"],
+[data-testid="stForm"] [data-testid$="RootElement"] {
+  border: 1px solid #c3c8d2 !important; background: #fff !important; border-radius: 6px !important; }
+[data-testid="stExpander"] [data-testid$="RootElement"]:focus-within,
+details [data-testid$="RootElement"]:focus-within,
+[data-testid="stForm"] [data-testid$="RootElement"]:focus-within { border-color: var(--blue) !important; }
+/* Все поля приложения: видимая светлосерая граница (Streamlit 1.64 рисует её на *RootElement / NumberInputContainer) */
+[data-testid$="RootElement"], [data-testid="stNumberInputContainer"] {
+  border: 1px solid #c3c8d2 !important; border-radius: 6px !important; }
+[data-testid$="RootElement"]:focus-within, [data-testid="stNumberInputContainer"]:focus-within { border-color: var(--blue) !important; }
 /* Источники: карточка домена — подписи в одну строку, интервалы как на вкладке «Поиск» */
 .st-key-tabmain [data-testid="stColumn"]:has(.srcdetail-mark) [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stTextArea"], [data-testid="stNumberInput"]) {
   grid-template-columns: 175px minmax(0, 1fr) !important; }
