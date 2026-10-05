@@ -281,7 +281,7 @@ details [data-baseweb="textarea"],
 [data-testid="stExpander"] [data-baseweb="select"] > div,
 details [data-baseweb="select"] > div,
 [data-testid="stForm"] [data-baseweb="select"] > div {
-  border: 1px solid #c3c8d2 !important; box-shadow: 0 0 0 1px #c3c8d2 inset !important; background: #fff !important; }
+  border: 1px solid var(--border) !important; box-shadow: 0 0 0 1px var(--border) inset !important; background: #fff !important; }
 [data-testid="stExpander"] [data-baseweb="base-input"],
 details [data-baseweb="base-input"],
 [data-testid="stForm"] [data-baseweb="base-input"],
@@ -302,7 +302,7 @@ details [data-baseweb="textarea"]:focus-within,
 [data-testid="stExpander"] [data-testid$="RootElement"],
 details [data-testid$="RootElement"],
 [data-testid="stForm"] [data-testid$="RootElement"] {
-  border: 1px solid #c3c8d2 !important; background: #fff !important; border-radius: 6px !important; }
+  border: 1px solid var(--border) !important; background: #fff !important; border-radius: 6px !important; }
 [data-testid="stExpander"] [data-testid$="RootElement"]:focus-within,
 details [data-testid$="RootElement"]:focus-within,
 [data-testid="stForm"] [data-testid$="RootElement"]:focus-within { border-color: var(--blue) !important; }
@@ -313,13 +313,17 @@ details [data-testid$="RootElement"],
 details [data-testid="stNumberInputContainer"],
 [data-testid="stForm"] [data-testid$="RootElement"],
 [data-testid="stForm"] [data-testid="stNumberInputContainer"] {
-  border: 1px solid #c3c8d2 !important; border-radius: 6px !important; }
+  border: 1px solid var(--border) !important; border-radius: 6px !important; }
 [data-testid="stExpander"] [data-testid$="RootElement"]:focus-within,
 [data-testid="stExpander"] [data-testid="stNumberInputContainer"]:focus-within,
 details [data-testid$="RootElement"]:focus-within,
 details [data-testid="stNumberInputContainer"]:focus-within,
 [data-testid="stForm"] [data-testid$="RootElement"]:focus-within,
 [data-testid="stForm"] [data-testid="stNumberInputContainer"]:focus-within { border-color: var(--blue) !important; }
+[data-testid="stExpander"] [data-testid="stForm"], details [data-testid="stForm"] { border: none !important; padding: 0 !important; }
+/* Числовые поля: рамка как у кнопок (1px var(--border), радиус 6px) */
+[data-testid="stNumberInputContainer"][data-testid="stNumberInputContainer"][data-testid="stNumberInputContainer"] { border: 1px solid var(--border) !important; border-radius: 6px !important; }
+[data-testid="stNumberInputContainer"][data-testid="stNumberInputContainer"][data-testid="stNumberInputContainer"]:focus-within { border-color: var(--blue) !important; }
 /* Источники: карточка домена — подписи в одну строку, интервалы как на вкладке «Поиск» */
 .st-key-tabmain [data-testid="stColumn"]:has(.srcdetail-mark) [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stTextArea"], [data-testid="stNumberInput"]) {
   grid-template-columns: 175px minmax(0, 1fr) !important; }
