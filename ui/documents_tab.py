@@ -737,9 +737,11 @@ def _to_news_batch(rows: list[dict], fmt: str = "news") -> None:
         with st.spinner(f"Генерация черновиков: {len(with_url)}…"):
             results = add_articles_as_news(
                 [{"url": r["url"], "title": r.get("title") or "",
-                  **({"local_meta": {"content_path": r["content_path"], "source_url": r["url"],
-                                     "title": r.get("title") or ""}}
-                     if r.get("content_path") else {})} for r in with_url], fmt=fmt)
+                  **({"local_meta": {"content_path": str(resolve_content_path(
+                                         r["doc_json_path"], r["content_path"])),
+                                     "source_url": r["url"], "title": r.get("title") or ""}}
+                     if r.get("content_path") and r.get("doc_json_path") else {})}
+                 for r in with_url], fmt=fmt)
         outcome = summarize(results)
         ok, stats = outcome.ok, outcome.stats
         errors = outcome.errors + errors
