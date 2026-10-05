@@ -306,14 +306,20 @@ details [data-testid$="RootElement"],
 [data-testid="stExpander"] [data-testid$="RootElement"]:focus-within,
 details [data-testid$="RootElement"]:focus-within,
 [data-testid="stForm"] [data-testid$="RootElement"]:focus-within { border-color: var(--blue) !important; }
-/* Все поля приложения: видимая светлосерая граница (Streamlit 1.64 рисует её на *RootElement / NumberInputContainer) */
-[data-testid$="RootElement"], [data-testid="stNumberInputContainer"] {
+/* Серая граница полей — только на белом фоне (раскрывающиеся блоки); вне их поля стоят на сером фоне без неё */
+[data-testid="stExpander"] [data-testid$="RootElement"],
+[data-testid="stExpander"] [data-testid="stNumberInputContainer"],
+details [data-testid$="RootElement"],
+details [data-testid="stNumberInputContainer"],
+[data-testid="stForm"] [data-testid$="RootElement"],
+[data-testid="stForm"] [data-testid="stNumberInputContainer"] {
   border: 1px solid #c3c8d2 !important; border-radius: 6px !important; }
-[data-testid$="RootElement"]:focus-within, [data-testid="stNumberInputContainer"]:focus-within { border-color: var(--blue) !important; }
-[data-testid="stExpander"] [data-testid="stForm"], details [data-testid="stForm"] { border: none !important; padding: 0 !important; }
-/* Единый интервал между строками полей (как Направление/Категория на «Поиске») */
-.st-key-tabmain [data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stNumberInput"], [data-testid="stTextArea"], [data-testid="stMultiSelect"], [data-testid="stDateInput"], [data-testid="stTimeInput"], [data-testid="stRadio"], [data-testid="stCheckbox"])),
-.st-key-tabmain [data-testid="stForm"] [data-testid="stVerticalBlock"] { gap: 14px !important; row-gap: 14px !important; }
+[data-testid="stExpander"] [data-testid$="RootElement"]:focus-within,
+[data-testid="stExpander"] [data-testid="stNumberInputContainer"]:focus-within,
+details [data-testid$="RootElement"]:focus-within,
+details [data-testid="stNumberInputContainer"]:focus-within,
+[data-testid="stForm"] [data-testid$="RootElement"]:focus-within,
+[data-testid="stForm"] [data-testid="stNumberInputContainer"]:focus-within { border-color: var(--blue) !important; }
 /* Источники: карточка домена — подписи в одну строку, интервалы как на вкладке «Поиск» */
 .st-key-tabmain [data-testid="stColumn"]:has(.srcdetail-mark) [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stTextArea"], [data-testid="stNumberInput"]) {
   grid-template-columns: 175px minmax(0, 1fr) !important; }
