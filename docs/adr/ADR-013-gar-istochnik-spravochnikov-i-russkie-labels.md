@@ -9,7 +9,7 @@
 
 ## Решение
 1. Правки справочников делаются только в GAR. Вкладка «Справочники» в ds_search — read-only + кнопка «Обновить из GAR».
-2. `load_dictionaries()` берёт данные из `gar_schema` (кэш `gar_schema_cache.json`, TTL 24ч, принудительное обновление кнопкой); `categories.yaml` — только офлайн-фолбэк, `sync_from_gar` сохраняет и labels.
+2. `load_dictionaries()` берёт данные из `gar_schema` (кэш `gar_schema_cache.json`, TTL 24ч, принудительное обновление кнопкой); `categories.yaml` — статичный офлайн-фолбэк (не пишется); `sync_from_gar` обновляет только кэш (#540).
 3. Единый хелпер `label_of(field, value)` (fallback — сам value) + `format_func` во всех `st.selectbox`, фильтрах и таблицах (Загрузка, Поиск, Результаты, Документы, Материалы, Новости, Источники).
 4. В метаданных документов, RAG и GAR по-прежнему хранится `value` (slug); меняется только отображение.
 

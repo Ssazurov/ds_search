@@ -1,4 +1,7 @@
-"""Обратная синхронизация: GAR metadata-fields → config/categories.yaml.
+"""Обновление локального кэша GAR-схемы (config/gar_schema_cache.json, в .gitignore).
+
+categories.yaml — статичный офлайн-фолбэк, сюда НЕ пишем: `load_dictionaries()`
+накладывает directions+labels из кэша поверх (ADR-013).
 
 Использование:
     cd ds_search && .venv/bin/python -m src.metadata.sync_from_gar [--dry-run]
@@ -7,22 +10,14 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
-import tempfile
-from pathlib import Path
-
-import yaml
 
 from .gar_schema import (
     GarSchemaError,
     load_gar_schema,
-    field_options,
     option_labels,
     category_options_for_direction,
 )
-
-_CATEGORIES_PATH = Path(__file__).resolve().parents[2] / "config" / "categories.yaml"
 
 
 def _build_directions(fields: dict) -> dict[str, list[str]]:
@@ -37,54 +32,24 @@ def _build_directions(fields: dict) -> dict[str, list[str]]:
         if not opt.get("active", True):
             continue
         value = opt["value"]
-        categories = category_options_for_direction(fields, value)
-        directions[value] = categories
+        directions[value] = category_options_for_direction(fields, value)
     return directions
 
 
-def sync_from_gar(path: Path = _CATEGORIES_PATH, dry_run: bool = False) -> None:
-    """Overwrite directions section in categories.yaml with GAR data."""
-    fields = load_gar_schema(force_refresh=True)
+def sync_from_gar(dry_run: bool = False) -> None:
+    """Принудительно обновить кэш GAR-схемы (dry_run — только вывести JSON)."""
+    fields = load_gar_schema(force_refresh=True)  # fetch + save_cache
     gar_directions = _build_directions(fields)
-
-    original = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    if not isinstance(original, dict):
-        raise ValueError("categories.yaml root must be a map")
-
-    original["directions"] = gar_directions
-    original["labels"] = option_labels(fields)
-
     if dry_run:
-        print(json.dumps({"directions": gar_directions, "labels": original["labels"]},
+        print(json.dumps({"directions": gar_directions, "labels": option_labels(fields)},
                          ensure_ascii=False, indent=2))
         return
-
-    temporary: str | None = None
-    try:
-        with tempfile.NamedTemporaryFile(
-            mode="w", encoding="utf-8", dir=path.parent, prefix=f".{path.name}.", suffix=".tmp", delete=False
-        ) as f:
-            temporary = f.name
-            yaml.safe_dump(original, f, allow_unicode=True, sort_keys=False)
-        with open(temporary, encoding="utf-8") as f:
-            written = yaml.safe_load(f)
-        if not isinstance(written, dict):
-            raise ValueError("Сохранённый YAML должен быть объектом")
-        os.replace(temporary, path)
-        temporary = None
-    finally:
-        if temporary:
-            try:
-                os.unlink(temporary)
-            except FileNotFoundError:
-                pass
-
-    print(f"OK: directions обновлены из GAR ({len(gar_directions)} направлений)")
+    print(f"OK: кэш GAR обновлён ({len(gar_directions)} направлений)")
 
 
 def _cli() -> None:
-    parser = argparse.ArgumentParser(description="Обратная синхронизация GAR → categories.yaml")
-    parser.add_argument("--dry-run", action="store_true", help="только вывести JSON, не писать файл")
+    parser = argparse.ArgumentParser(description="Обновить кэш GAR-схемы (categories.yaml не меняется)")
+    parser.add_argument("--dry-run", action="store_true", help="только вывести JSON")
     args = parser.parse_args()
     try:
         sync_from_gar(dry_run=args.dry_run)
