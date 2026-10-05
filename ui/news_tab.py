@@ -232,6 +232,7 @@ def _render_item(item: dict) -> None:
                          details=[f"Статус возвращён в черновик: {exc}"])
         st.rerun()
     if item.get("gar_document_id") and cols[1].button("Переотправить в GAR", key=f"repub_{item['id']}"):
+        db.update_news_item(item["id"], payload)  # отправляем ровно то, что на экране
         try:
             publish.publish_news_item(item["id"], force=True)
             notify.report("success", "Переотправлено в GAR")
@@ -240,40 +241,6 @@ def _render_item(item: dict) -> None:
         st.rerun()
     elif item["status"] == "published" and item.get("publish_error"):
         notify.report("error", "GAR ingestion не удался", details=[item['publish_error']])
-
-
-def _on_batch_direction() -> None:
-    st.session_state["news_bt_cat"] = ""
-
-
-def _render_taxonomy_batch(selected: list[dict]) -> None:
-    """Пакетная смена направления/категории (ds_search#543): SQLite + PATCH в GAR."""
-    from src.metadata.gar_schema import (
-        load_gar_schema, field_options, option_labels, category_options_for_direction,
-    )
-    try:
-        fields = load_gar_schema()
-    except Exception as exc:  # noqa: BLE001
-        notify.report("warning", "Справочник направлений GAR недоступен", details=[str(exc)])
-        return
-    dir_labels = option_labels(fields).get("direction", {})
-    cat_labels = option_labels(fields).get("category", {})
-    with st.expander(f"Сменить направление/категорию ({len(selected)})"):
-        in_gar = sum(1 for i in selected if i.get("gar_document_id"))
-        st.caption(f"Из выбранных в GAR: {in_gar} (для них уйдёт PATCH)")
-        direction = st.selectbox(
-            "Новое направление", [""] + field_options(fields, "direction"), key="news_bt_dir",
-            on_change=_on_batch_direction, format_func=lambda v: dir_labels.get(v, v))
-        category = ""
-        if direction:
-            category = st.selectbox(
-                "Новая категория", [""] + category_options_for_direction(fields, direction),
-                key="news_bt_cat", format_func=lambda v: cat_labels.get(v, v))
-        if st.button("Применить", key="news_bt_apply", disabled=not direction):
-            ok, errors = taxonomy.apply_taxonomy(selected, direction, category)
-            notify.report(notify.outcome_level(ok, len(selected)), "Направление/категория",
-                          stats={"успешно": ok, "всего": len(selected)}, details=errors)
-            st.rerun()
 
 
 def _publish_batch(items: list[dict]) -> None:
@@ -514,8 +481,6 @@ def render() -> None:
                  help="Отозвать из GAR (если загружены) и удалить записи без возможности восстановления"):
         st.session_state["confirm_delete_news"] = True
         st.rerun()
-    if selected:
-        _render_taxonomy_batch(selected)
     if st.session_state.get("confirm_delete_news") and selected:
         st.warning(f"Удалить везде: {len(selected)} шт.? Загруженные будут отозваны из GAR, записи удалены безвозвратно.")
         cc1, cc2 = action_row(2, "news_confirm")
