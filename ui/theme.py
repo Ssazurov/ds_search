@@ -40,6 +40,7 @@ div.block-container { padding-top: 2.5rem !important; }
 [class*="st-key-actions_"] [data-testid="stColumn"] {
   flex: 0 0 auto !important; width: auto !important; min-width: 0 !important; }
 [class*="st-key-actions_"] button { white-space: nowrap; }
+[class*="st-key-actions_left_"] [data-testid="stHorizontalBlock"] { justify-content: flex-start; }
 """
 
 

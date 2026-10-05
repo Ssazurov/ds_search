@@ -328,7 +328,7 @@ def _render_bulk_digest_form() -> None:
             "config/digest_bulk.yaml — становятся черновиками-пересказами."
         )
         limit = st.number_input("Лимит за прогон (0 — без лимита)", min_value=0, value=20, key="bulk_digest_limit")
-        c1, c2 = st.columns(2)
+        c1, c2 = st.container(key="actions_left_bulk").columns(2)
         if c1.button("Посчитать кандидатов (dry-run)", key="bulk_digest_dry"):
             stats = bulk_digest(dry_run=True)
             notify.report("info", "Кандидатов найдено", stats=stats.as_dict())
