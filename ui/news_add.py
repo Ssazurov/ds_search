@@ -49,8 +49,11 @@ def add_articles_as_news(
     results = []
     for a in articles:
         label = a.get("title") or a["url"]
+        kw = dict(extra)
+        if a.get("local_meta"):
+            kw["local_meta"] = a["local_meta"]
         try:
-            status = asyncio.run(add(a["url"], title=a.get("title") or "", **extra))
+            status = asyncio.run(add(a["url"], title=a.get("title") or "", **kw))
         except Exception as exc:  # noqa: BLE001
             status = f"Ошибка: {exc}"
         results.append((label, status))

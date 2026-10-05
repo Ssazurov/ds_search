@@ -43,3 +43,36 @@ def test_summarize_mixed():
 def test_summarize_empty():
     out = summarize([])
     assert out.finalized == [] and out.ok == 0 and out.stats == {}
+
+
+def test_local_meta_passed_to_add():
+    from ui.news_add import add_articles_as_news
+    calls = []
+
+    async def fake_add(url, title="", **kw):
+        calls.append(kw)
+        return "drafted"
+
+    add_articles_as_news(
+        [{"url": "u1", "title": "t", "local_meta": {"content_path": "/x.md"}}, {"url": "u2"}],
+        add=fake_add)
+    assert calls[0] == {"local_meta": {"content_path": "/x.md"}}
+    assert calls[1] == {}
+
+
+def test_collect_one_uses_local_content_without_download(tmp_path, monkeypatch):
+    import asyncio
+    from src.news import collect
+
+    md = tmp_path / "a.md"
+    md.write_text("текст поста", encoding="utf-8")
+
+    async def boom(*a, **k):
+        raise AssertionError("download_single не должен вызываться")
+
+    monkeypatch.setattr(collect, "download_single", boom)
+    monkeypatch.setattr(collect, "generate_draft", lambda src, **k: (_ for _ in ()).throw(RuntimeError("stop")))
+    hit = collect.SearchHit(url="https://vk.ru/wall-1_1", title="T", snippet="")
+    res = asyncio.run(collect._collect_one(
+        hit, None, tmp_path, tmp_path / "db.sqlite", local_meta={"content_path": str(md)}))
+    assert res == "llm_failed"  # дошли до LLM, скачивания не было
