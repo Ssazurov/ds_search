@@ -311,6 +311,9 @@ details [data-testid$="RootElement"]:focus-within,
   border: 1px solid #c3c8d2 !important; border-radius: 6px !important; }
 [data-testid$="RootElement"]:focus-within, [data-testid="stNumberInputContainer"]:focus-within { border-color: var(--blue) !important; }
 [data-testid="stExpander"] [data-testid="stForm"], details [data-testid="stForm"] { border: none !important; padding: 0 !important; }
+/* Единый интервал между строками полей (как Направление/Категория на «Поиске») */
+.st-key-tabmain [data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stNumberInput"], [data-testid="stTextArea"], [data-testid="stMultiSelect"], [data-testid="stDateInput"], [data-testid="stTimeInput"], [data-testid="stRadio"], [data-testid="stCheckbox"])),
+.st-key-tabmain [data-testid="stForm"] [data-testid="stVerticalBlock"] { gap: 14px !important; row-gap: 14px !important; }
 /* Источники: карточка домена — подписи в одну строку, интервалы как на вкладке «Поиск» */
 .st-key-tabmain [data-testid="stColumn"]:has(.srcdetail-mark) [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stTextArea"], [data-testid="stNumberInput"]) {
   grid-template-columns: 175px minmax(0, 1fr) !important; }
@@ -318,7 +321,7 @@ details [data-testid$="RootElement"]:focus-within,
   white-space: nowrap !important; min-width: max-content; }
 .st-key-tabmain [data-testid="stColumn"]:has(.srcdetail-mark) [data-testid="stColumn"] [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stSelectbox"]) {
   grid-template-columns: 70px minmax(0, 1fr) !important; }
-.st-key-tabmain [data-testid="stColumn"]:has(.srcdetail-mark) [data-testid="stVerticalBlock"] { gap: 0.4rem !important; }
+.st-key-tabmain [data-testid="stColumn"]:has(.srcdetail-mark) [data-testid="stVerticalBlock"] { gap: 14px !important; }
 .st-key-tabmain [data-testid="stColumn"]:has(.srcdetail-mark) [data-testid="stElementContainer"] { margin: 0 !important; }
 .st-key-tabmain [data-testid="stColumn"]:has(.srcdetail-mark) [data-testid="stCheckbox"] { min-height: 34px; display: flex; align-items: center; }
 .st-key-tabmain [data-testid="stHeading"] h1, .st-key-tabmain [data-testid="stHeading"] h2,
