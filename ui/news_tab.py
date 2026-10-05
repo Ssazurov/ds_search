@@ -15,7 +15,7 @@ from datetime import datetime
 import pandas as pd
 import streamlit as st
 
-from src.news import db, digest_check, overlap, publish
+from src.news import db, digest_check, overlap, publish, taxonomy
 from src.news.manual import DEFAULT_SOURCE_NAME, create_manual_draft
 from src.metadata.schema import label_of, load_dictionaries
 from ui import notify
@@ -200,6 +200,14 @@ def _render_item(item: dict) -> None:
 
     cols = action_row(2, "news_item")
     if cols[0].button("Сохранить", key=f"save_{item['id']}"):
+        tax_changed = (payload["direction"] != item.get("direction")
+                       or payload["category"] != item.get("category"))
+        if item.get("gar_document_id") and tax_changed and payload["direction"]:
+            ok, errors = taxonomy.apply_taxonomy(
+                [item], payload["direction"], payload["category"] or "")
+            if errors:
+                notify.report("error", "PATCH в GAR не удался, изменения не сохранены", details=errors)
+                st.rerun()
         db.update_news_item(item["id"], payload)
         notify.report("success", "Сохранено")
         st.rerun()
@@ -232,6 +240,40 @@ def _render_item(item: dict) -> None:
         st.rerun()
     elif item["status"] == "published" and item.get("publish_error"):
         notify.report("error", "GAR ingestion не удался", details=[item['publish_error']])
+
+
+def _on_batch_direction() -> None:
+    st.session_state["news_bt_cat"] = ""
+
+
+def _render_taxonomy_batch(selected: list[dict]) -> None:
+    """Пакетная смена направления/категории (ds_search#543): SQLite + PATCH в GAR."""
+    from src.metadata.gar_schema import (
+        load_gar_schema, field_options, option_labels, category_options_for_direction,
+    )
+    try:
+        fields = load_gar_schema()
+    except Exception as exc:  # noqa: BLE001
+        notify.report("warning", "Справочник направлений GAR недоступен", details=[str(exc)])
+        return
+    dir_labels = option_labels(fields).get("direction", {})
+    cat_labels = option_labels(fields).get("category", {})
+    with st.expander(f"Сменить направление/категорию ({len(selected)})"):
+        in_gar = sum(1 for i in selected if i.get("gar_document_id"))
+        st.caption(f"Из выбранных в GAR: {in_gar} (для них уйдёт PATCH)")
+        direction = st.selectbox(
+            "Новое направление", [""] + field_options(fields, "direction"), key="news_bt_dir",
+            on_change=_on_batch_direction, format_func=lambda v: dir_labels.get(v, v))
+        category = ""
+        if direction:
+            category = st.selectbox(
+                "Новая категория", [""] + category_options_for_direction(fields, direction),
+                key="news_bt_cat", format_func=lambda v: cat_labels.get(v, v))
+        if st.button("Применить", key="news_bt_apply", disabled=not direction):
+            ok, errors = taxonomy.apply_taxonomy(selected, direction, category)
+            notify.report(notify.outcome_level(ok, len(selected)), "Направление/категория",
+                          stats={"успешно": ok, "всего": len(selected)}, details=errors)
+            st.rerun()
 
 
 def _publish_batch(items: list[dict]) -> None:
@@ -472,6 +514,8 @@ def render() -> None:
                  help="Отозвать из GAR (если загружены) и удалить записи без возможности восстановления"):
         st.session_state["confirm_delete_news"] = True
         st.rerun()
+    if selected:
+        _render_taxonomy_batch(selected)
     if st.session_state.get("confirm_delete_news") and selected:
         st.warning(f"Удалить везде: {len(selected)} шт.? Загруженные будут отозваны из GAR, записи удалены безвозвратно.")
         cc1, cc2 = action_row(2, "news_confirm")
