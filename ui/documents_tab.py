@@ -776,8 +776,12 @@ def _render_recrawl_batch() -> None:
 
 
 def render() -> None:
-    _render_recrawl_batch()
+    _render_main()
+    st.divider()
+    _render_recrawl_batch()  # редкая системная функция — внизу, после всех блоков
 
+
+def _render_main() -> None:
     rows = _scan_raw()
     # Добавляем gar_status из кэша GAR к локальным строкам (issue #297)
     cache = st.session_state.get("gar_docs_cache") or {}
