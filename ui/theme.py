@@ -321,6 +321,10 @@ details [data-testid="stNumberInputContainer"]:focus-within,
 [data-testid="stForm"] [data-testid$="RootElement"]:focus-within,
 [data-testid="stForm"] [data-testid="stNumberInputContainer"]:focus-within { border-color: var(--blue) !important; }
 [data-testid="stExpander"] [data-testid="stForm"], details [data-testid="stForm"] { border: none !important; padding: 0 !important; }
+/* Единый интервал между строками полей (как Направление/Категория на «Поиске») */
+.st-key-tabmain [data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stNumberInput"], [data-testid="stTextArea"], [data-testid="stMultiSelect"], [data-testid="stDateInput"], [data-testid="stTimeInput"], [data-testid="stRadio"], [data-testid="stCheckbox"])),
+.st-key-tabmain [data-testid="stForm"] [data-testid="stVerticalBlock"],
+.st-key-tabmain [data-testid="stExpanderDetails"] [data-testid="stVerticalBlock"] { gap: 14px !important; row-gap: 14px !important; }
 /* Числовые поля: рамка как у кнопок (1px var(--border), радиус 6px) */
 [data-testid="stNumberInputContainer"][data-testid="stNumberInputContainer"][data-testid="stNumberInputContainer"] { border: 1px solid var(--border) !important; border-radius: 6px !important; }
 [data-testid="stNumberInputContainer"][data-testid="stNumberInputContainer"][data-testid="stNumberInputContainer"]:focus-within { border-color: var(--blue) !important; }
