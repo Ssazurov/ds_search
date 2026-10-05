@@ -386,9 +386,14 @@ def _render_digest_queue() -> None:
 
 
 def render() -> None:
+    _render_main()
+    st.divider()
+    _render_bulk_digest_form()  # редкая массовая операция — внизу, после всех блоков
+
+
+def _render_main() -> None:
     db.init_db()
     _render_manual_form()
-    _render_bulk_digest_form()
 
     if st.toggle("Пакетный режим: очередь пересказов", key="digest_queue_mode"):
         _render_digest_queue()
