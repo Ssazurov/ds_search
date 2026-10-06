@@ -195,3 +195,45 @@ def merge_adjacent_inline_tags(html: str) -> str:
         prev = html
         html = _ADJ_TAG_RE.sub(r'\2', html)
     return html
+
+
+_NUM_BOLD_WRAP_RE = re.compile(r'^(?P<ind>[ \t]{0,3})\*\*(?P<n>\d{1,3})[.)]\s*(?P<b>[^*\n]+?)\*\*(?P<rest>.*)$')
+_NUM_BOLD_NUM_RE = re.compile(r'^(?P<ind>[ \t]{0,3})\*\*(?P<n>\d{1,3})(?:[.)]\*\*|\*\*[.)])[ \t]*(?P<rest>\S.*)$')
+_NUM_NODOT_RE = re.compile(r'^(?P<ind>[ \t]{0,3})(?P<n>\d{1,3})[ \t]+(?=\*\*[^\s*])')
+_LIST_ITEM_RE = re.compile(r'^[ \t]{0,3}\d{1,3}[.)][ \t]')
+_FENCE_RE = re.compile(r'^[ \t]*(```|~~~)')
+
+
+def normalize_numbered_lists(markdown: str) -> str:
+    """issue #566: нумерация списка после html2text приходит в разных видах:
+    '1. **A**', '2 **B**' (без точки), '**3. C**' (номер внутри жирного),
+    '**4.** D'. Приводим к '<N>. ...' (номер вне bold); перед пунктом N!=1,
+    идущим вплотную за абзацем, вставляем пустую строку (иначе CommonMark
+    не считает его списком)."""
+    if not re.search(r'(?m)^[ \t]{0,3}(\*\*)?\d{1,3}[.)\s*]', markdown):
+        return markdown
+    out: list[str] = []
+    in_fence = False
+    for line in markdown.split('\n'):
+        if _FENCE_RE.match(line):
+            in_fence = not in_fence
+            out.append(line)
+            continue
+        if not in_fence:
+            m = _NUM_BOLD_WRAP_RE.match(line)
+            if m:
+                line = f"{m['ind']}{m['n']}. **{m['b'].strip()}**{m['rest']}"
+            else:
+                m = _NUM_BOLD_NUM_RE.match(line)
+                if m:
+                    line = f"{m['ind']}{m['n']}. {m['rest']}"
+                else:
+                    m = _NUM_NODOT_RE.match(line)
+                    if m:
+                        line = f"{m['ind']}{m['n']}. " + line[m.end():]
+            if (_LIST_ITEM_RE.match(line) and not line.lstrip().startswith('1.')
+                    and out and out[-1].strip() and not _LIST_ITEM_RE.match(out[-1])
+                    and not out[-1].startswith((' ', '\t'))):
+                out.append('')
+        out.append(line)
+    return '\n'.join(out)
