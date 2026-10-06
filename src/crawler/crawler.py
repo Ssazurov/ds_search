@@ -42,6 +42,7 @@ from ..metadata import classify as classify_mod
 from ..metadata import gar_mapping
 from ..metadata import gar_schema
 from ..metadata.meta_extract import extract_page_meta, strip_site_suffix
+from ..metadata.author_resolver import resolve_author  # issue #569
 from ..metadata.downsideup_header import parse_header
 from ..metadata.profile import build_ingestion_metadata
 from .config import SourceConfig
@@ -383,6 +384,10 @@ class SourceCrawler:
         for key, value in header_meta.items():
             if value:
                 page_meta[key] = value
+        page_meta["author"] = resolve_author(  # issue #569
+            page_meta.get("author", ""), html=result.html or "", markdown=fit_markdown,
+            domain=self.cfg.domain, site_name=self.license_result.site_name,
+        )
         attribution = self.license_result.build_attribution(
             title=title, source_url=result.url, domain=self.cfg.domain,
         )

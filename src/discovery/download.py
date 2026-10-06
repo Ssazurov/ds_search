@@ -35,6 +35,7 @@ from ..license.checker import check_license
 from ..metadata.downsideup_header import parse_header
 from ..crawler.slug import norm_domain
 from ..metadata.meta_extract import extract_page_meta, strip_site_suffix
+from ..metadata.author_resolver import resolve_author  # issue #569
 from ..metadata.profile import build_ingestion_metadata
 
 logger = logging.getLogger(__name__)
@@ -200,6 +201,10 @@ async def download_single(
         for key, value in header_meta.items():
             if value:
                 page_meta[key] = value
+        page_meta["author"] = resolve_author(  # issue #569
+            page_meta.get("author", ""), html=result.html or "", markdown=fit_md,
+            domain=domain, site_name=license_result.site_name,
+        )
         meta = build_ingestion_metadata(
             # issue #446: source_url — реальный result.url, не canon (slash
             # обязателен для части сайтов, canonicalize_url его режет для

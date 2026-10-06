@@ -245,3 +245,6 @@
   - `downsideup.org/pomoshch-roditelyam-v-prinyatii-diagnoza-rebenka-put-k-normalizatsii.md`
 - **Проверка**: миграция применена локально, `data/` в `.gitignore` — коммитится только скрипт. Исправленные файлы используются сайтом сразу, контейнер перезагружать не нужно.
 - PR #452 (Closes #451).
+
+## 2026-10-06 — #569 resolve_author
+- `src/metadata/author_resolver.py`: author = meta/шапка/тело → HTML (JSON-LD, «Автор:») → LLM (только если пусто, имя должно быть в тексте) → `config/site_authors.yaml` → site_name реестра → og:site_name. Подключён в crawler._save и discovery/download. Регулярка «Автор:» в md терпит `_*`, роль после « - » отрезается.

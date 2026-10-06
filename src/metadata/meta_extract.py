@@ -9,12 +9,14 @@ from __future__ import annotations
 import re
 from html.parser import HTMLParser
 
-_AUTHOR_LINE_RE = re.compile(r"^\s*Авторы?:\s*(.+)$", re.MULTILINE)
+# issue #569: допускаем markdown-обрамление (_Автор:__Имя_, **Автор:** Имя)
+_AUTHOR_LINE_RE = re.compile(r"^[\s_*>]*Авторы?\s*:[\s_*]*(.+?)[\s_]*$", re.MULTILINE)
+_ROLE_SPLIT_RE = re.compile(r"\s+[-–—]\s+")
 
 _META_KEYS = {
     "article:published_time", "og:published_time", "article:modified_time",
     "og:description", "description", "twitter:description", "author",
-    "article:author", "twitter:creator",
+    "article:author", "twitter:creator", "og:site_name",
 }
 
 
@@ -51,7 +53,8 @@ def extract_author_from_markdown(markdown: str) -> str:
     if not m:
         return ""
     line = m.group(1).split("Журнал:")[0]
-    return line.strip(" ,;")
+    line = _ROLE_SPLIT_RE.split(line, maxsplit=1)[0]  # «Имя - редактор сайта …» -> «Имя»
+    return line.strip(" ,;_*")
 
 
 def extract_page_meta(metadata: dict | None, markdown: str = "") -> dict:

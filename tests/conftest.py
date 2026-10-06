@@ -28,3 +28,7 @@ def _no_gar_registry_by_default(monkeypatch):
     from src.license import checker
 
     monkeypatch.setattr(checker, "GarRegistryStore", lambda *a, **k: _NullRegistryStore())
+
+
+import os as _os  # issue #569: LLM-поиск автора в тестах выключен
+_os.environ.setdefault("DS_AUTHOR_LLM", "0")
