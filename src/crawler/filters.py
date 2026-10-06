@@ -19,7 +19,7 @@ from crawl4ai.deep_crawling.scorers import KeywordRelevanceScorer
 from crawl4ai.content_filter_strategy import PruningContentFilter
 from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
 
-from .md_tables import collapse_multiline_tables, merge_adjacent_emphasis, merge_adjacent_inline_tags
+from .md_tables import collapse_multiline_tables, merge_adjacent_emphasis, merge_adjacent_inline_tags, strip_orphaned_underscore_emphasis
 from .structure import normalize_headings_for_url
 from .video_embeds import embeds_to_links
 
@@ -91,6 +91,7 @@ def _clean_markdown_tables(markdown: str) -> str:
     # Находим строки таблиц (содержат | и заканчиваются пробелами перед \n)
     markdown = collapse_multiline_tables(markdown)  # issue #460
     markdown = merge_adjacent_emphasis(markdown)  # битые **a****b**
+    markdown = strip_orphaned_underscore_emphasis(markdown)  # issue #562
     return re.sub(r'(\|[^\n]*?) +\n', r'\1\n', markdown)
 
 
