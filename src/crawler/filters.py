@@ -19,7 +19,7 @@ from crawl4ai.deep_crawling.scorers import KeywordRelevanceScorer
 from crawl4ai.content_filter_strategy import PruningContentFilter
 from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
 
-from .md_tables import collapse_multiline_tables, merge_adjacent_emphasis
+from .md_tables import collapse_multiline_tables, merge_adjacent_emphasis, merge_adjacent_inline_tags
 from .structure import normalize_headings_for_url
 
 # Базовые паттерны, не зависящие от источника: бинарные файлы и пагинация
@@ -103,7 +103,7 @@ class AdaptiveMarkdownGenerator(DefaultMarkdownGenerator):
         html2text_options = {"single_line_break": False}
         html2text_options.update(kwargs.pop("html2text_options", None) or {})
         result = super().generate_markdown(
-            input_html=normalize_headings_for_url(input_html, base_url),
+            input_html=normalize_headings_for_url(merge_adjacent_inline_tags(input_html), base_url),
             base_url=base_url,
             html2text_options=html2text_options,
             **kwargs,
