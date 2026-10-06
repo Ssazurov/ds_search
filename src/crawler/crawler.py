@@ -45,6 +45,7 @@ from ..metadata.meta_extract import extract_page_meta, strip_site_suffix
 from ..metadata.downsideup_header import parse_header
 from ..metadata.profile import build_ingestion_metadata
 from .config import SourceConfig
+from .video_embeds import VIDEO_EMBED_JS
 from .filters import (
     EXCLUDED_SELECTOR, EXCLUDED_TAGS,
     build_filter_chain,
@@ -109,6 +110,7 @@ class SourceCrawler:
             return []
 
         run_cfg = CrawlerRunConfig(
+            js_code=[VIDEO_EMBED_JS],
             deep_crawl_strategy=self._strategy(),
             markdown_generator=AdaptiveMarkdownGenerator(
                 content_filter=build_content_filter(),
@@ -262,6 +264,7 @@ class SourceCrawler:
 
         # issue #338: без PruningContentFilter (слипает <p>) — чистка через excluded_*
         run_cfg = CrawlerRunConfig(
+            js_code=[VIDEO_EMBED_JS],
             markdown_generator=AdaptiveMarkdownGenerator(),
             excluded_tags=EXCLUDED_TAGS,
             excluded_selector=EXCLUDED_SELECTOR,
