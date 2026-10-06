@@ -47,3 +47,10 @@ def test_fallback_config_then_site_name_then_og():
     assert resolve_author("", domain="x.ru", site_name="Журнал Икс", llm=None, site_authors=SA) == "Журнал Икс"
     og = '<meta property="og:site_name" content="Сайт Игрек"/>'
     assert resolve_author("", html=og, domain="y.ru", llm=None, site_authors=SA) == "Сайт Игрек"
+
+
+def test_author_literal_unicode_escape_issue_571():
+    from src.metadata.meta_extract import extract_page_meta
+
+    meta = {"author": "\\u0420\\u0435\\u0434\\u0430\\u043a\\u0446\\u0438\\u044f"}
+    assert extract_page_meta(meta, "")["author"] == "Редакция"
