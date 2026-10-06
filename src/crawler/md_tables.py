@@ -132,6 +132,55 @@ def merge_adjacent_emphasis(markdown: str) -> str:
     return _ADJ_SPACE_RE.sub('', out)
 
 
+_SINGLE_US_RE = re.compile(r'(?<!_)_(?!_)')
+_US_PROTECT_RE = re.compile(r'\]\((?:\\.|[^)\\])*\)|https?://[^\s)]+|<[^>]+>')
+
+
+def strip_orphaned_underscore_emphasis(markdown: str) -> str:
+    """issue #562: <em>/<i> вокруг картинки/нескольких <p> даёт '_' в разных
+    абзацах; CommonMark emphasis абзацы не пересекает -> непарные '_' видны
+    как символ. В пределах абзаца парим одиночные '_' слева направо, непарные
+    удаляем."""
+    out = []
+    for para in re.split(r'(\n{2,})', markdown):
+        if para.strip('\n') == '' or '_' not in para:
+            out.append(para)
+            continue
+        drop = set()
+        open_pos = None
+        protected = set()  # '_' внутри URL/ссылок/картинок не трогаем
+        for pm in _US_PROTECT_RE.finditer(para):
+            protected.update(range(pm.start(), pm.end()))
+        for m in _SINGLE_US_RE.finditer(para):
+            p = m.start()
+            if p in protected:
+                continue
+            prev = para[p - 1] if p > 0 else ''
+            nxt = para[p + 1] if p + 1 < len(para) else ''
+            if prev.isalnum() and nxt.isalnum():
+                continue  # intraword '_' — не emphasis
+            left_flank = nxt != '' and not nxt.isspace()
+            right_flank = prev != '' and not prev.isspace()
+            if open_pos is None:
+                if left_flank:
+                    open_pos = p
+                else:
+                    drop.add(p)
+            elif right_flank:
+                open_pos = None
+            elif left_flank:
+                drop.add(open_pos)
+                open_pos = p
+            else:
+                drop.add(p)
+        if open_pos is not None:
+            drop.add(open_pos)
+        if drop:
+            para = ''.join(c for i, c in enumerate(para) if i not in drop)
+        out.append(para)
+    return ''.join(out)
+
+
 _ADJ_SPACE_RE = re.compile(r'(?<=\S)\*\*\*\*(?=\s)|(?<=\s)\*\*\*\*(?=\S)')
 _ADJ_TAG_RE = re.compile(
     r'</(b|strong|i|em)>((?:\s|&nbsp;|\xa0)*)<\1(?:\s[^>]*)?>', re.IGNORECASE
