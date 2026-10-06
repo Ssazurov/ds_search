@@ -47,6 +47,16 @@ def extract_meta_tags(html: str) -> dict:
     return parser.meta
 
 
+def _unescape_u(s: str) -> str:
+    """issue #571: литеральные ``\\uXXXX`` (foma.ru) -> нормальный текст."""
+    if "\\u" not in s:
+        return s
+    try:
+        return s.encode("ascii", "backslashreplace").decode("unicode_escape")
+    except (UnicodeDecodeError, UnicodeEncodeError):
+        return s
+
+
 def extract_author_from_markdown(markdown: str) -> str:
     """Извлечь автора вместе с markdown-ссылкой из строки ``Автор:``."""
     m = _AUTHOR_LINE_RE.search(markdown or "")
@@ -54,7 +64,7 @@ def extract_author_from_markdown(markdown: str) -> str:
         return ""
     line = m.group(1).split("Журнал:")[0]
     line = _ROLE_SPLIT_RE.split(line, maxsplit=1)[0]  # «Имя - редактор сайта …» -> «Имя»
-    return line.strip(" ,;_*")
+    return _unescape_u(line.strip(" ,;_*"))
 
 
 def extract_page_meta(metadata: dict | None, markdown: str = "") -> dict:
@@ -82,6 +92,9 @@ def extract_page_meta(metadata: dict | None, markdown: str = "") -> dict:
         author = body_author
     elif author.lower().startswith(("http://", "https://")):
         author = ""
+
+    # issue #571: у части сайтов (foma.ru) автор приходит литеральным \uXXXX
+    author = _unescape_u(author)
 
     publish_date = (
         metadata.get('article:published_time')
