@@ -19,6 +19,7 @@ from pathlib import Path
 from urllib.parse import urljoin, urlsplit
 
 import httpx
+from src.crawler.video_embeds import VIDEO_EMBED_JS
 from crawl4ai import AsyncWebCrawler, CrawlerRunConfig
 from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
 
@@ -154,6 +155,7 @@ async def download_single(
     # мусор через excluded_tags/excluded_selector (структура <p> сохраняется),
     # порог качества считаем по итоговому raw_markdown, не по content_filter.
     run_cfg = CrawlerRunConfig(
+        js_code=[VIDEO_EMBED_JS],
         markdown_generator=AdaptiveMarkdownGenerator(),
         excluded_tags=EXCLUDED_TAGS,
         excluded_selector=EXCLUDED_SELECTOR,
