@@ -19,3 +19,20 @@ def test_latin_midword():
 
 def test_hr_untouched():
     assert m('\n****\n') == '\n****\n'
+
+
+def test_cyr_split_capital():
+    assert m('**– М****огли бы**') == '**– Могли бы**'
+
+
+def test_cyr_split_tail():
+    assert m('**поняти****ю «с»**') == '**понятию «с»**'
+
+
+def test_space_adjacent():
+    assert m('**Натальи**** Сергеевны**') == '**Натальи Сергеевны**'
+
+
+def test_html_merge():
+    from src.crawler.md_tables import merge_adjacent_inline_tags as h
+    assert h('<b>М</b><b>огли</b><b>,</b><b>&nbsp;</b><b>а</b>') == '<b>Могли,&nbsp;а</b>'

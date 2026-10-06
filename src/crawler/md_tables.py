@@ -106,7 +106,15 @@ def _adj_repl(m):
     l, u1, u2, r = m.group('l'), m.group('u1'), m.group('u2'), m.group('r')
     if bool(u1) != bool(u2):
         return m.group(0)  # несбалансированный курсив — не трогаем
+    s = m.string
+    pre = s[m.start('l') - 1] if m.start('l') > 0 else ''
+    post = s[m.end('r')] if m.end('r') < len(s) else ''
     if r in ',.;:!?)»…':
+        sep = ''
+    elif _CYR_RE.match(l) and _CYR_RE.match(r) and (
+        (l.isupper() and not pre.isalpha())  # «М****огли»: заглавная буква отрезана от слова
+        or (r in 'юыьъйэ' and not post.isalpha())  # «поняти****ю»: хвост слова
+    ):
         sep = ''
     elif l.isalpha() and r.isalpha() and not (_CYR_RE.match(l) or _CYR_RE.match(r)):
         sep = ''  # латиница: слово разрезано тегами (And****roid)
@@ -119,4 +127,22 @@ def merge_adjacent_emphasis(markdown: str) -> str:
     """Склеивает соседние bold-спаны: '**Новая жизнь****, любовь**' -> '**Новая жизнь, любовь**'."""
     if '****' not in markdown:
         return markdown
-    return _ADJ_EMPH_RE.sub(_adj_repl, markdown)
+    out = _ADJ_EMPH_RE.sub(_adj_repl, markdown)
+    # остаток: "****" рядом с пробелом ("Натальи**** Сергеевны") — просто убираем
+    return _ADJ_SPACE_RE.sub('', out)
+
+
+_ADJ_SPACE_RE = re.compile(r'(?<=\S)\*\*\*\*(?=\s)|(?<=\s)\*\*\*\*(?=\S)')
+_ADJ_TAG_RE = re.compile(
+    r'</(b|strong|i|em)>((?:\s|&nbsp;|\xa0)*)<\1(?:\s[^>]*)?>', re.IGNORECASE
+)
+
+
+def merge_adjacent_inline_tags(html: str) -> str:
+    """Склеивает на уровне HTML соседние <b>a</b><b>b</b> (в т.ч. через &nbsp;/пробелы)
+    ДО html2text — иначе получаются "**М****огли" и теряются пробелы."""
+    prev = None
+    while prev != html:
+        prev = html
+        html = _ADJ_TAG_RE.sub(r'\2', html)
+    return html
