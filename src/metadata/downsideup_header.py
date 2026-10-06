@@ -25,6 +25,7 @@ import re
 _AUTHOR_LINK_RE = re.compile(r"\[\s*([^\]]+?)\s*\]\([^)]*\)")
 _HEADING_RE = re.compile(r"^\s*(?:\*\s*)?####\s*(.+?)\s*:?\s*$")
 _MAX_PREFIX_LINES = 5  # хлебные крошки / баннер регистрации перед датой
+_VIDEO_LINE_RE = re.compile(r"^\s*\[▶ Видео")
 
 
 def _to_iso(date_str: str) -> str:
@@ -51,6 +52,7 @@ def parse_header(markdown: str) -> tuple[dict, str]:
         i += 1
 
     fields: dict[str, str] = {}
+    video_lines: list[str] = []
     while i < len(lines):
         hm = _HEADING_RE.match(lines[i])
         if not hm:
@@ -59,7 +61,10 @@ def parse_header(markdown: str) -> tuple[dict, str]:
         i += 1
         content_lines: list[str] = []
         while i < len(lines) and lines[i].strip() != "" and not _HEADING_RE.match(lines[i]):
-            content_lines.append(lines[i])
+            if _VIDEO_LINE_RE.match(lines[i]):  # #561: «▶ Видео» не описание, но остаётся в теле
+                video_lines.append(lines[i])
+            else:
+                content_lines.append(lines[i])
             i += 1
         fields[field_name] = "\n".join(content_lines).strip()
 
@@ -75,4 +80,6 @@ def parse_header(markdown: str) -> tuple[dict, str]:
     while i < len(lines) and lines[i].strip() == "":
         i += 1
     body = "\n".join(lines[i:])
+    if video_lines:
+        body = "\n\n".join(video_lines) + "\n\n" + body
     return {"publish_date": publish_date, "description": description, "author": author}, body
