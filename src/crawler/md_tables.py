@@ -133,7 +133,7 @@ def merge_adjacent_emphasis(markdown: str) -> str:
 
 
 _SINGLE_US_RE = re.compile(r'(?<!_)_(?!_)')
-_US_PROTECT_RE = re.compile(r'\]\((?:\\.|[^)\\])*\)|https?://[^\s)]+|<[^>]+>')
+_US_PROTECT_RE = re.compile(r'!\[(?:\\.|[^\]\\])*\](?:\((?:\\.|[^)\\])*\))?|\]\((?:\\.|[^)\\])*\)|https?://[^\s)]+|<[^>]+>')
 
 
 def strip_orphaned_underscore_emphasis(markdown: str) -> str:
