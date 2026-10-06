@@ -7,7 +7,7 @@ from __future__ import annotations
 import json
 import os
 from collections import Counter
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
@@ -22,6 +22,7 @@ from src.metadata.tags import normalize_tags
 from src.news.db import has_published_digest, items_by_source_urls
 from ui import notify
 from ui.news_add import add_articles_as_news, summarize
+from src.tz import msk_naive
 from ui.table_utils import COLUMN_LABELS, column_settings, datetime_column, link_column, localize, action_row, table_slots
 
 ROOT = Path(__file__).resolve().parents[1] / "data"
@@ -72,7 +73,7 @@ def _scan_raw() -> list[dict]:
             "status": "loaded" if gar_id else ("error" if error else "pending"),
             # issue #438: ручной сброс авто-статуса digest_only
             "digest_only_dismissed": bool(meta.get("digest_only_dismissed")),
-            "added": datetime.fromtimestamp(meta_path.stat().st_mtime),
+            "added": datetime.fromtimestamp(meta_path.stat().st_mtime, tz=timezone.utc),
             "local": True,
         })
     return rows
@@ -860,7 +861,7 @@ def _render_main() -> None:
             "title": r["title"], "url": r["url"], "domain": r["domain"],
             "direction": r["direction"], "category": r["category"], "doc_type": r["doc_type"],
             "clean": r["clean"], "gar": _STATUS_CELL[r["status"]],
-            "error": r["ingest_error"] or "", "added": r["added"],
+            "error": r["ingest_error"] or "", "added": msk_naive(r["added"]),
             "md": _file_uri(r["content_path"], r["doc_json_path"]),
             "json": _file_uri(r["doc_json_path"], r["doc_json_path"]),
             "derived": _derived_cell(r["url"], derived),
