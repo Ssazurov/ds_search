@@ -10,7 +10,7 @@ ingestion в GAR doc_type=news (issue #49 — ds_site свой контент н
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pandas as pd
 import streamlit as st
@@ -18,8 +18,9 @@ import streamlit as st
 from src.news import db, digest_check, overlap, publish, taxonomy
 from src.news.manual import DEFAULT_SOURCE_NAME, create_manual_draft
 from src.metadata.schema import label_of, load_dictionaries
+from src.tz import fmt_msk, msk_naive, msk_to_utc_naive, now_msk
 from ui import notify
-from ui.table_utils import column_settings, link_column, action_row, table_slots
+from ui.table_utils import column_settings, datetime_column, link_column, action_row, table_slots
 
 CHANNEL_OPTIONS = ["telegram"]
 STATUS_LABELS = {"draft": "Черновик", "published": "Опубликовано", "rejected": "Отклонено"}
@@ -45,10 +46,7 @@ _TABLE_LABELS = {
 
 def _fmt_dt(raw: str | None) -> str:
     """ISO-строка → «04.09.2026 10:26» (без секунд и смещения)."""
-    try:
-        return datetime.fromisoformat(raw).strftime("%d.%m.%Y %H:%M")
-    except (TypeError, ValueError):
-        return str(raw or "—")
+    return fmt_msk(raw) if msk_naive(raw) else str(raw or "—")
 
 
 def _render_taxonomy(item: dict) -> tuple[str, str]:
@@ -128,7 +126,7 @@ def _render_item(item: dict) -> None:
     совпадений, справа редактируемый черновик; чеклист блокирует публикацию."""
     is_digest = item.get("format") == "digest"
     st.write("**Редактирование выбранной записи**")
-    st.caption(f"{item['source_url']} · создано {item['created_at']}"
+    st.caption(f"{item['source_url']} · создано {fmt_msk(item['created_at'])}"
                + (" · формат: пересказ" if is_digest else ""))
     if is_digest:
         left, form = st.columns(2)
@@ -162,18 +160,15 @@ def _render_item(item: dict) -> None:
         index=pub_options.index("Дата источника") if source_dt_raw else 0,
     )
     if pub_mode == "Сейчас":
-        new_published_at = datetime.now().isoformat(sep=" ", timespec="seconds")
+        new_published_at = datetime.now(timezone.utc).replace(tzinfo=None).isoformat(sep=" ", timespec="seconds")  # UTC
     elif pub_mode == "Дата источника":
         new_published_at = source_dt_raw
     else:
         raw_pub = item.get("published_at") or source_dt_raw
-        try:
-            default_dt = datetime.fromisoformat(raw_pub) if raw_pub else datetime.now()
-        except ValueError:
-            default_dt = datetime.now()
+        default_dt = msk_naive(raw_pub) or now_msk()  # поля даты/времени — в МСК
         d = st.date_input("Дата", default_dt.date(), key=f"pubdate_{item['id']}")
         t = st.time_input("Время", default_dt.time(), key=f"pubtime_{item['id']}")
-        new_published_at = datetime.combine(d, t).isoformat(sep=" ", timespec="seconds")
+        new_published_at = msk_to_utc_naive(datetime.combine(d, t)).isoformat(sep=" ", timespec="seconds")
     st.caption(f"Дата публикации: {_fmt_dt(new_published_at)}")
 
     payload = {
@@ -454,8 +449,8 @@ def _render_main() -> None:
         "title": i["title"] or "(без заголовка)",
         "source_name": i.get("source_name") or "",
         "url": i.get("source_url") or None,
-        "created_at": i["created_at"],
-        "published_at": i.get("published_at") or "",
+        "created_at": msk_naive(i["created_at"]),
+        "published_at": msk_naive(i.get("published_at")),
         "gar": ("🟥" if i.get("status") == "rejected"
                 else "✅" if i.get("gar_document_id") else ("⚠️" if i.get("publish_error") else "")),
     } for i in items])
@@ -463,7 +458,10 @@ def _render_main() -> None:
 
     tbl, cap_col, gear_col = table_slots("news")
     order, config, sort = column_settings(
-        "news", _TABLE_LABELS, {_TABLE_LABELS["url"]: link_column()}, host=gear_col)
+        "news", _TABLE_LABELS,
+        {_TABLE_LABELS["url"]: link_column(),
+         _TABLE_LABELS["created_at"]: datetime_column(_TABLE_LABELS["created_at"]),
+         _TABLE_LABELS["published_at"]: datetime_column(_TABLE_LABELS["published_at"])}, host=gear_col)
     df_display = df.rename(columns=_TABLE_LABELS)
     if sort:
         df_display = df_display.sort_values(sort[0], ascending=sort[1])

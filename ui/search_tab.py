@@ -14,6 +14,7 @@ from src.discovery.presets import delete_preset, load_presets, save_preset
 from src.discovery.run_search import normalize_domains, run_search
 from src.metadata.schema import label_of, load_dictionaries
 from src.search.base import QuotaExceeded
+from src.tz import msk_to_utc_naive, now_msk
 from src.search.brave import BraveProvider
 from src.search.chain import SearchProviderChain
 from src.search.firecrawl import FirecrawlProvider
@@ -51,8 +52,8 @@ def _build_chain() -> SearchProviderChain:
 
 
 def _set_period(days: int = 0, months: int = 0) -> None:
-    """Пресет периода: «От» — сегодня минус период в 00:00:00, «До» — сейчас."""
-    now = datetime.now()
+    """Пресет периода: «От» — сегодня минус период в 00:00:00, «До» — сейчас (МСК)."""
+    now = now_msk()
     start = now.date()
     if months:
         m = start.month - months
@@ -73,8 +74,8 @@ _PERIODS = [("1 дн", dict(days=1)), ("3 дн", dict(days=3)), ("Неделя",
 
 
 def _date_range() -> tuple[datetime | None, datetime | None]:
-    """Необязательный период дат. «До» по умолчанию — сейчас; любую границу можно очистить."""
-    now = datetime.now()
+    """Необязательный период дат (вводится в МСК). «До» по умолчанию — сейчас; любую границу можно очистить."""
+    now = now_msk()
     st.session_state.setdefault("sr_to_date", now.date())
     st.session_state.setdefault("sr_to_time", now.time().replace(second=0, microsecond=0))
     st.caption("Период дат (необязательно). Достаточно одной границы; очистите поле даты, чтобы убрать её.")
@@ -92,7 +93,8 @@ def _date_range() -> tuple[datetime | None, datetime | None]:
     dt_to = datetime.combine(d_to, t_to) if d_to else None
     if dt_from and dt_to and dt_from > dt_to:
         st.warning("Дата «От» позже даты «До» — результатов не будет.")
-    return dt_from, dt_to
+    # провайдеры сравнивают с naive UTC
+    return (msk_to_utc_naive(dt_from) if dt_from else None, msk_to_utc_naive(dt_to) if dt_to else None)
 
 
 def render() -> None:

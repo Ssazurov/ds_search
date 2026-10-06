@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 from collections import Counter
-from datetime import date
+from datetime import datetime
 
 import streamlit as st
 
 from src.discovery.config import load_settings
 from src.discovery.gar_client import GarDiscoveryClient
 from src.news.db import list_news_items
+from src.tz import fmt_msk, msk_naive, now_msk
 from ui import notify
 
 
@@ -55,8 +56,8 @@ def render() -> None:
         notify.report("agents_status", "error", "news.db недоступна", details=[str(exc)])
         return
 
-    today = date.today().isoformat()
-    today_count = sum(1 for n in news_items if (n.get("created_at") or "").startswith(today))
+    today = now_msk().date().isoformat()
+    today_count = sum(1 for n in news_items if (msk_naive(n.get("created_at")) or datetime.min).date().isoformat() == today)
     c1, c2 = st.columns(2)
     c1.metric("Всего новостей", len(news_items))
     c2.metric("За сегодня", today_count)
@@ -65,7 +66,7 @@ def render() -> None:
         last = news_items[0]
         st.caption(
             f"Последняя: «{last.get('title', '')}» "
-            f"({last.get('status', '')}, {last.get('created_at', '')})"
+            f"({last.get('status', '')}, {fmt_msk(last.get('created_at'), '')})"
         )
     else:
         st.info("Новостей пока нет")

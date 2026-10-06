@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import html
-from datetime import datetime
+from datetime import datetime, timezone
 
 import streamlit as st
 
@@ -10,6 +10,7 @@ from src.license.registry_store import GarRegistryStore
 from src.license.checker import PUBLISH_PERMISSION_LABELS, PublishPermission
 from src.site_publish import runner
 from src.site_publish.permissions import PUBLISHABLE, set_publish_permission
+from src.tz import fmt_msk
 from ui import notify
 
 SITE_URL = "https://ssazurov.github.io/ds_site/"
@@ -106,7 +107,7 @@ def render() -> None:
         else:
             notify.report("success", "Публикация на внешний сайт запущена",
                          stats={"тип": "пробный прогон" if dry else "публикация",
-                                "старт": datetime.fromtimestamp(runner.status().started_at or 0).strftime("%Y-%m-%d %H:%M:%S")})
+                                "старт": fmt_msk(datetime.fromtimestamp(runner.status().started_at or 0, tz=timezone.utc))})
             st.rerun()
     if st.button("Обновить статус"):
         st.rerun()
@@ -114,7 +115,7 @@ def render() -> None:
     if st_.started_at is None:
         st.info("Пересборка ещё не запускалась.")
         return
-    when = datetime.fromtimestamp(st_.started_at).strftime("%Y-%m-%d %H:%M:%S")
+    when = fmt_msk(datetime.fromtimestamp(st_.started_at, tz=timezone.utc))
     kind = "пробный прогон" if st_.dry_run else "публикация"
     if st_.running:
         st.warning(f"Идёт {kind} (старт {when}) — нажмите «Обновить статус».")

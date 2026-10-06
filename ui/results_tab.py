@@ -14,6 +14,7 @@ from src.discovery.config import Settings, load_settings
 from src.discovery.gar_client import GarDiscoveryClient
 from src.license.checker import check_license
 from ui.news_add import add_articles_as_news, summarize
+from src.tz import msk_series
 from ui.table_utils import COLUMN_LABELS, column_settings, datetime_column, link_column, localize, action_row, table_slots
 from ui import notify
 
@@ -168,6 +169,9 @@ def render() -> None:
         return
 
     df = pd.DataFrame(rows)
+    for _c in ("source_published_at", "found_at"):  # время в МСК (+3 ч)
+        if _c in df.columns:
+            df[_c] = msk_series(df[_c])
     df.insert(0, "select", False)
     # п.4: url скрыт, title — кликабельная ссылка на url
     display_cols = [c for c in [

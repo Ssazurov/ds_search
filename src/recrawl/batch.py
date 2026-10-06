@@ -21,6 +21,7 @@ from pathlib import Path
 
 import httpx
 
+from src.tz import now_msk
 from src.discovery.download import DEFAULT_DATA_ROOT, download_single
 
 RAW_ROOT = Path(DEFAULT_DATA_ROOT)
@@ -177,7 +178,7 @@ def process_one(row: dict) -> dict:
 
 
 def write_report(recs: list[dict]) -> None:
-    lines = [f"# Перекачка {datetime.now():%Y-%m-%d %H:%M}", ""]
+    lines = [f"# Перекачка {now_msk():%d.%m.%Y %H:%M}", ""]
     for r in recs:
         lines += [f"## {r['title']}", f"- {r['url']}", f"- gar_id: {r['gar_id']}",
                   f"- статус: **{r['status']}**" + (f" — {r['error']}" if r.get("error") else ""),
