@@ -23,7 +23,7 @@ from src.news.db import has_published_digest, items_by_source_urls
 from ui import notify
 from ui.news_add import add_articles_as_news, summarize
 from src.tz import msk_naive
-from ui.table_utils import COLUMN_LABELS, column_settings, datetime_column, link_column, localize, action_row, table_slots
+from ui.table_utils import COLUMN_LABELS, column_settings, datetime_column, link_column, localize, action_row, table_slots, site_column, site_url
 
 ROOT = Path(__file__).resolve().parents[1] / "data"
 RAW_ROOT = ROOT / "raw"
@@ -805,7 +805,7 @@ def _render_main() -> None:
 
     labels = {
         **COLUMN_LABELS, "clean": "Очищен", "gar": "В GAR", "error": "Ошибка", "added": "Добавлен",
-        "md": "MD", "json": "JSON", "derived": "Производные",
+        "md": "MD", "json": "JSON", "derived": "Производные", "site": "Сайт",
     }
 
     _HOST_DATA_ROOT = os.environ.get("HOST_DATA_ROOT", "/home/vector/projects/ds/ds_search/data")
@@ -865,6 +865,7 @@ def _render_main() -> None:
             "md": _file_uri(r["content_path"], r["doc_json_path"]),
             "json": _file_uri(r["doc_json_path"], r["doc_json_path"]),
             "derived": _derived_cell(r["url"], derived),
+            "site": site_url(r.get("gar_document_id"), r.get("doc_type")),
         }
         for r in filtered
     ])
@@ -875,10 +876,10 @@ def _render_main() -> None:
         col_gar_refresh, col_gar_info = st.columns(2)
     tbl, cap_col, gear_col = table_slots("documents")
     order, config, sort = column_settings(
-        "documents", {k: labels[k] for k in ("select", "title", "url", "domain", "direction", "category",
+        "documents", {k: labels[k] for k in ("select", "title", "url", "site", "domain", "direction", "category",
                                              "doc_type", "clean", "gar", "error", "derived", "added",
                                              "md", "json")},
-        {labels["url"]: link_column(), labels["added"]: datetime_column(labels["added"]),
+        {labels["url"]: link_column(), labels["site"]: site_column(), labels["added"]: datetime_column(labels["added"]),
          labels["md"]: st.column_config.LinkColumn(
              labels["md"], display_text=":material/description:", width="small"),
          labels["json"]: st.column_config.LinkColumn(

@@ -20,7 +20,7 @@ from src.news.manual import DEFAULT_SOURCE_NAME, create_manual_draft
 from src.metadata.schema import label_of, load_dictionaries
 from src.tz import fmt_msk, msk_naive, msk_to_utc_naive, now_msk
 from ui import notify
-from ui.table_utils import column_settings, datetime_column, link_column, action_row, table_slots
+from ui.table_utils import column_settings, datetime_column, link_column, action_row, table_slots, site_column, site_url
 
 CHANNEL_OPTIONS = ["telegram"]
 STATUS_LABELS = {"draft": "Черновик", "published": "Опубликовано", "rejected": "Отклонено"}
@@ -40,7 +40,7 @@ def _reset_news_filters() -> None:
 _TABLE_LABELS = {
     "select": "Выбор", "status": "Статус", "format": "Формат", "direction": "Направление", "category": "Категория",
     "title": "Заголовок", "source_name": "Источник",
-    "url": "Ссылка", "created_at": "Создано", "published_at": "Публикация", "gar": "В GAR",
+    "url": "Ссылка", "site": "Сайт", "created_at": "Создано", "published_at": "Публикация", "gar": "В GAR",
 }
 
 
@@ -449,6 +449,7 @@ def _render_main() -> None:
         "title": i["title"] or "(без заголовка)",
         "source_name": i.get("source_name") or "",
         "url": i.get("source_url") or None,
+        "site": site_url(i.get("gar_document_id"), i.get("format") or "news"),
         "created_at": msk_naive(i["created_at"]),
         "published_at": msk_naive(i.get("published_at")),
         "gar": ("🟥" if i.get("status") == "rejected"
@@ -459,7 +460,7 @@ def _render_main() -> None:
     tbl, cap_col, gear_col = table_slots("news")
     order, config, sort = column_settings(
         "news", _TABLE_LABELS,
-        {_TABLE_LABELS["url"]: link_column(),
+        {_TABLE_LABELS["url"]: link_column(), _TABLE_LABELS["site"]: site_column(),
          _TABLE_LABELS["created_at"]: datetime_column(_TABLE_LABELS["created_at"]),
          _TABLE_LABELS["published_at"]: datetime_column(_TABLE_LABELS["published_at"])}, host=gear_col)
     df_display = df.rename(columns=_TABLE_LABELS)

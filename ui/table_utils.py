@@ -50,6 +50,20 @@ def link_column():
     return st.column_config.LinkColumn("Ссылка", display_text=":material/open_in_new:", width="small")
 
 
+SITE_BASE_URL = os.environ.get("SITE_BASE_URL", "http://localhost:3001").rstrip("/")
+
+
+def site_url(doc_id: str | None, doc_type: str | None) -> str | None:
+    """Ссылка на материал на сайте ds_site: news → /news/<id>, остальное (article/digest) → /articles/<id>."""
+    if not doc_id:
+        return None
+    return f"{SITE_BASE_URL}/{'news' if doc_type == 'news' else 'articles'}/{doc_id}"
+
+
+def site_column():
+    return st.column_config.LinkColumn("Сайт", display_text=":material/language:", width="small")
+
+
 def datetime_column(label: str):
     return st.column_config.DatetimeColumn(label, format="DD.MM.YYYY HH:mm")
 
