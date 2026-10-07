@@ -17,6 +17,7 @@ import streamlit as st
 import yaml
 
 from ui import notify
+from ui.table_utils import column_settings, table_slots
 
 POS = ["n", "v", "adj", "adv", "pron", "prep", "interj"]
 ID_RE = re.compile(r"^[a-z][a-z0-9_]*$")
@@ -378,11 +379,18 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
         recs.append(row)
     df = pd.DataFrame(recs)
     key = f"words_ed_{st.session_state.get('words_ver', 0)}"
-    edited = st.data_editor(
-        df, key=key, hide_index=True, use_container_width=True,
-        disabled=["id", "Категория", "Возраст", "Приоритет", "Картинка", "Озвучка", "Заметка", "Флаги"],
-        column_config={"Часть речи": st.column_config.SelectboxColumn(options=list(POS_FROM)),
-                       "Решение": st.column_config.SelectboxColumn(options=list(REVIEW_FROM))})
+    tbl, cap_col, gear_col = table_slots("words")
+    order, config, sort = column_settings(
+        "words", {c: c for c in df.columns},
+        {"Часть речи": st.column_config.SelectboxColumn(options=list(POS_FROM)),
+         "Решение": st.column_config.SelectboxColumn(options=list(REVIEW_FROM))},
+        pinned=("Решение", "id"), host=gear_col)
+    if sort:
+        df = df.sort_values(sort[0], ascending=sort[1], kind="stable")
+    cap_col.caption(f"Строк: {len(df)}")
+    edited = tbl.data_editor(
+        df, key=key, hide_index=True, use_container_width=True, column_order=order, column_config=config,
+        disabled=["id", "Категория", "Возраст", "Приоритет", "Картинка", "Озвучка", "Заметка", "Флаги"])
     if not st.button("Сохранить в черновик", type="primary"):
         return
     by_id, n = {r["id"]: r for r in chunk}, 0
