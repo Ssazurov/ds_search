@@ -16,7 +16,7 @@ import streamlit as st
 from ui import (
     agents_status_tab, dashboard_tab, dictionaries_tab, documents_tab,
     news_tab, notify, results_tab, search_tab, site_publish_tab, sources_tab,
-    upload_tab,
+    upload_tab, words_tab,
 )
 from ui.theme import inject_theme, sidebar_brand, topbar
 
@@ -27,7 +27,7 @@ inject_theme()  # GAR-стиль: шрифты IBM Plex, отступы (issue #
 
 TABS = [
     "Справочники", "Поиск", "Результаты", "Загрузка", "Документы", "Новости",
-    "Источники", "Дашборд", "Статус агентов", "Внешний сайт",
+    "Источники", "Дашборд", "Статус агентов", "Внешний сайт", "Слова",
 ]
 
 _RENDER = {
@@ -41,6 +41,7 @@ _RENDER = {
     "Новости": news_tab.render,
     "Статус агентов": agents_status_tab.render,
     "Внешний сайт": site_publish_tab.render,
+    "Слова": words_tab.render,
 }
 
 # Запоминание открытой вкладки (issue #275). Виджет навигации — st.radio в
