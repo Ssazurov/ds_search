@@ -43,7 +43,7 @@ POS_RU = {"n": "сущ.", "v": "глагол", "adj": "прил.", "adv": "на�
 POS_FROM = {v: k for k, v in POS_RU.items()}
 LANG_RU = {"ru": "Русский", "en": "Английский", "de": "Немецкий", "fr": "Французский",
            "es": "Испанский", "kk": "Казахский", "uk": "Украинский", "be": "Белорусский"}
-REVIEW_RU = {"": "", "ok": "✓ ок", "del": "✗ удалить"}
+REVIEW_RU = {"": "—", "ok": "✓ ок", "del": "✗ удалить"}
 REVIEW_FROM = {v: k for k, v in REVIEW_RU.items()}
 
 
