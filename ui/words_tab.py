@@ -1,5 +1,8 @@
 """Слова — ревью и правка словаря (ds_words#6). Данные — YAML репозитория ds_words,
-путь в env DS_WORDS_DIR (по умолчанию ../ds_words рядом с репозиторием ds). Вкладка только читает/пишет файлы."""
+путь в env DS_WORDS_DIR (по умолчанию ../ds_words рядом с репозиторием ds). Вкладка только читает/пишет файлы.
+
+Ревью работает как черновик (review/ui_decisions.json): вердикты ✓/✗ и правки ru/en/pos/переводов копятся
+отдельно и попадают в YAML кнопкой «Применить». Формат решений совместим с `scripts/review.py apply`."""
 from __future__ import annotations
 
 import importlib
@@ -74,8 +77,9 @@ def load_rows(root: Path) -> tuple[list[dict], list[str]]:
     for w in words:
         img, aud = W.media(w["id"])
         rows.append({"id": w["id"], "cat": w["category"], "pos": w["pos"], "prio": w["prio"],
+                     "age": w["age"], "note": w.get("note") or "",
                      "tr": w["tr"], "flags": flags.get(w["id"], []), "img": bool(img),
-                     "audio": sorted(aud), "review": dec.get(w["id"], "")})
+                     "audio": sorted(aud), "review": dec.get(w["id"], {}).get("verdict", "")})
     return rows, langs_of(rows)
 
 
@@ -106,15 +110,86 @@ def filter_rows(rows: list[dict], mode: str, cat: str, q: str, langs: list[str])
     return out
 
 
-def load_decisions(root: Path) -> dict[str, str]:
+# ---------- черновик решений ----------
+# {id: {"verdict": "ok"|"del", "ru": .., "en": .., "pos": .., "tr": {lang: ..}}}
+
+def clean_entry(e) -> dict:
+    if isinstance(e, str):
+        e = {"verdict": e}
+    if not isinstance(e, dict):
+        return {}
+    out: dict = {}
+    if e.get("verdict") in ("ok", "del"):
+        out["verdict"] = e["verdict"]
+    if e.get("pos") in POS:
+        out["pos"] = e["pos"]
+    for k in ("ru", "en"):
+        if isinstance(e.get(k), str) and e[k].strip():
+            out[k] = e[k].strip()
+    tr = {k: v.strip() for k, v in (e.get("tr") or {}).items()
+          if LANG_RE.match(str(k)) and isinstance(v, str) and v.strip()}
+    if tr:
+        out["tr"] = tr
+    return out
+
+
+def load_decisions(root: Path) -> dict[str, dict]:
     f = root / "review" / "ui_decisions.json"
-    return json.loads(f.read_text("utf-8")) if f.exists() else {}
+    raw = json.loads(f.read_text("utf-8")) if f.exists() else {}
+    dec = {i: clean_entry(v) for i, v in raw.items()}
+    return {i: v for i, v in dec.items() if v}
 
 
-def save_decisions(root: Path, dec: dict[str, str]) -> None:
+def save_decisions(root: Path, dec: dict[str, dict]) -> None:
     f = root / "review" / "ui_decisions.json"
     f.parent.mkdir(exist_ok=True)
-    f.write_bytes(json.dumps(dec, ensure_ascii=False, indent=1, sort_keys=True).encode("utf-8"))
+    dec = {i: v for i, v in dec.items() if v}
+    f.write_bytes(decisions_json(dec).encode("utf-8"))
+
+
+def decisions_json(dec: dict[str, dict]) -> str:
+    return json.dumps(dec, ensure_ascii=False, indent=1, sort_keys=True)
+
+
+def stage(dec: dict, wid: str, field: str, value: str, orig: str = "") -> dict:
+    """Записать правку поля; значение пустое или равное исходному — правка снимается."""
+    e = dec.setdefault(wid, {})
+    box = e if field in ("verdict", "pos", "ru", "en") else e.setdefault("tr", {})
+    if value and value != orig:
+        box[field] = value
+    else:
+        box.pop(field, None)
+    if not e.get("tr"):
+        e.pop("tr", None)
+    if not e:
+        dec.pop(wid, None)
+    return dec
+
+
+def toggle_verdict(dec: dict, wid: str, v: str) -> dict:
+    cur = dec.get(wid, {}).get("verdict")
+    return stage(dec, wid, "verdict", "" if cur == v else v)
+
+
+def merge_decisions(dec: dict, incoming: dict) -> int:
+    n = 0
+    for wid, e in incoming.items():
+        e = clean_entry(e)
+        if not e or not ID_RE.match(str(wid)):
+            continue
+        cur = dec.setdefault(wid, {})
+        tr = {**cur.get("tr", {}), **e.get("tr", {})}
+        cur.update({k: v for k, v in e.items() if k != "tr"})
+        if tr:
+            cur["tr"] = tr
+        n += 1
+    return n
+
+
+def counts(dec: dict[str, dict]) -> dict[str, int]:
+    return {"ok": sum(e.get("verdict") == "ok" for e in dec.values()),
+            "del": sum(e.get("verdict") == "del" for e in dec.values()),
+            "edit": sum(any(k in e for k in ("ru", "en", "pos", "tr")) for e in dec.values())}
 
 
 # ---------- запись (построчно, формат YAML сохраняется) ----------
@@ -180,11 +255,21 @@ def add_word(root: Path, cat: str, wid: str, ru: str, pos: str, prio: int,
                                  default_flow_style=None).encode("utf-8"))
 
 
-def apply_deletions(root: Path) -> list[str]:
-    dec = load_decisions(root)
-    gone = [i for i, v in dec.items() if v == "del" and edit_word(root, i, delete=True)]
-    save_decisions(root, {i: v for i, v in dec.items() if v != "del"})
-    return gone
+def apply_decisions(root: Path) -> dict[str, int]:
+    """Применить черновик к YAML: ✗ — удалить слово, правки ru/en/pos/переводов — записать.
+    Вердикты ✓ остаются в черновике, применённые правки и ✗ убираются."""
+    dec, n, keep = load_decisions(root), {"del": 0, "edit": 0}, {}
+    for wid, e in dec.items():
+        if e.get("verdict") == "del":
+            n["del"] += int(edit_word(root, wid, delete=True))
+            continue
+        tr = {k: e[k] for k in ("ru", "en") if k in e} | e.get("tr", {})
+        if tr or e.get("pos"):
+            n["edit"] += int(edit_word(root, wid, tr=tr, pos=e.get("pos")))
+        if e.get("verdict"):
+            keep[wid] = {"verdict": e["verdict"]}
+    save_decisions(root, keep)
+    return n
 
 
 # ---------- команды ----------
@@ -216,6 +301,102 @@ def commit(root: Path, branch: str, msg: str) -> tuple[int, str]:
 
 
 # ---------- UI ----------
+
+def _bump(key: str) -> None:
+    st.session_state[key] = st.session_state.get(key, 0) + 1
+
+
+def _cb_stage(wid: str, field: str, key: str, orig: str) -> None:
+    root = words_dir()
+    dec = load_decisions(root)
+    v = st.session_state.get(key, "")
+    stage(dec, wid, field, v.strip() if isinstance(v, str) else v, orig)
+    save_decisions(root, dec)
+
+
+def _cb_toggle(wid: str, v: str) -> None:
+    root = words_dir()
+    dec = load_decisions(root)
+    toggle_verdict(dec, wid, v)
+    save_decisions(root, dec)
+
+
+def _review(root: Path, rows: list[dict], langs: list[str]) -> None:
+    dec = load_decisions(root)
+    c = counts(dec)
+    st.caption(f"✓ ок: {c['ok']} · ✗ удалить: {c['del']} · с правками: {c['edit']} · всего слов: {len(rows)}")
+
+    f1, f2, f3, f4, f5 = st.columns([2, 3, 1.5, 1.5, 1.2])
+    cats = ["все"] + sorted({r["cat"] for r in rows}, key=cat_label)
+    cat = f1.selectbox("Категория", cats, key="rv_cat", format_func=lambda x: "Все" if x == "все" else cat_label(x))
+    q = f2.text_input("Поиск (id или перевод)", key="rv_q")
+    only_fl = f3.checkbox("Только спорные", key="rv_fl")
+    only_new = f4.checkbox("Без решения", key="rv_new")
+    size = f5.selectbox("На странице", [25, 50, 100], index=1, key="rv_size")
+    sel = filter_rows(rows, "flagged" if only_fl else "all", cat, q, langs)
+    if only_new:
+        sel = [r for r in sel if not dec.get(r["id"], {}).get("verdict")]
+    pages = max(1, -(-len(sel) // size))
+    if st.session_state.get("rv_page", 1) > pages:
+        st.session_state["rv_page"] = 1
+    page = st.number_input(f"Страница (из {pages}) · найдено слов: {len(sel)}", 1, pages, 1, key="rv_page")
+    chunk = sel[(page - 1) * size: page * size]
+
+    with st.expander("Решения: применить · экспорт · импорт · сброс"):
+        a1, a2, a3 = st.columns(3)
+        if a1.button("Применить к YAML", type="primary", help="✗ — удалить слова, правки записать в YAML"):
+            n = apply_decisions(root)
+            _bump("words_rv")
+            notify.report("success", f"Применено: правок {n['edit']}, удалено слов {n['del']}")
+            st.rerun()
+        a2.download_button("Экспорт решений (decisions.json)", decisions_json(dec),
+                           file_name="decisions.json", mime="application/json")
+        sure = a3.checkbox("Подтверждаю сброс", key="rv_sure")
+        if a3.button("Сбросить всё") and sure:
+            save_decisions(root, {})
+            _bump("words_rv")
+            st.rerun()
+        up = st.file_uploader("Импорт решений (decisions.json)", type="json", key=f"rv_up_{st.session_state.get('words_rv', 0)}")
+        if up is not None and st.button("Загрузить решения"):
+            try:
+                n = merge_decisions(dec, json.loads(up.getvalue().decode("utf-8")))
+            except (ValueError, AttributeError) as exc:
+                notify.report("error", "Не удалось прочитать файл", details=[str(exc)])
+            else:
+                save_decisions(root, dec)
+                _bump("words_rv")
+                notify.report("success", f"Загружено решений: {n}")
+                st.rerun()
+
+    ver = st.session_state.get("words_rv", 0)
+    shown = ["ru", "en"] + [l for l in langs if l not in ("ru", "en")]
+    widths = [1.3] + [2] * len(shown) + [1.4, 2.3, 3]
+    head = st.columns(widths)
+    for col, t in zip(head, ["Решение"] + [lang_label(l) for l in shown] + ["Часть речи", "Слово", "Замечания"]):
+        col.markdown(f"**{t}**")
+    for r in chunk:
+        wid, e = r["id"], dec.get(r["id"], {})
+        cols = st.columns(widths)
+        b1, b2 = cols[0].columns(2)
+        v = e.get("verdict", "")
+        b1.button("✓", key=f"rv_ok_{ver}_{wid}", on_click=_cb_toggle, args=(wid, "ok"),
+                  type="primary" if v == "ok" else "secondary")
+        b2.button("✗", key=f"rv_del_{ver}_{wid}", on_click=_cb_toggle, args=(wid, "del"),
+                  type="primary" if v == "del" else "secondary")
+        for col, l in zip(cols[1:1 + len(shown)], shown):
+            orig = r["tr"].get(l, "")
+            staged = e.get(l) if l in ("ru", "en") else e.get("tr", {}).get(l)
+            key = f"rv_{ver}_{wid}_{l}"
+            col.text_input(lang_label(l), value=staged or orig, key=key, label_visibility="collapsed",
+                           on_change=_cb_stage, args=(wid, l, key, orig))
+        pkey = f"rv_{ver}_{wid}_pos"
+        cur = e.get("pos", r["pos"])
+        cols[-3].selectbox("Часть речи", POS, index=POS.index(cur), key=pkey, format_func=POS_RU.get,
+                           label_visibility="collapsed", on_change=_cb_stage, args=(wid, "pos", pkey, r["pos"]))
+        cols[-2].markdown(f"{cat_label(r['cat'])}  \n`{wid}` · {r['age'][0]}–{r['age'][1]} лет · пр. {r['prio']}")
+        mark = {"ok": ":green[✓ ок] ", "del": ":red[✗ удалить] "}.get(v, "")
+        cols[-1].markdown(mark + " ".join(f":orange[{f}]" for f in r["flags"]) + (f"  \n_{r['note']}_" if r["note"] else ""))
+
 
 def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
     import pandas as pd
@@ -254,14 +435,10 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
             edit_word(root, old["id"], tr=tr, pos=pos if pos_changed else None)
             n += 1
         if new["Ревью"] != old["Ревью"]:
-            v = REVIEW_FROM.get(new["Ревью"], "")
-            if v:
-                dec[old["id"]] = v
-            else:
-                dec.pop(old["id"], None)
+            stage(dec, old["id"], "verdict", REVIEW_FROM.get(new["Ревью"], ""))
             n += 1
     save_decisions(root, dec)
-    st.session_state["words_ver"] = st.session_state.get("words_ver", 0) + 1
+    _bump("words_ver")
     notify.report("success", f"Сохранено правок: {n}")
     st.rerun()
 
@@ -312,9 +489,10 @@ def _check(root: Path, rows: list[dict], langs: list[str]) -> None:
     if b[1].button("Экспорт"):
         rc, out = run_export(root)
         notify.report("success" if rc == 0 else "error", "Экспорт", details=[out[-2000:]])
-    if b[2].button("Применить ✗ (удалить)"):
-        gone = apply_deletions(root)
-        notify.report("success", f"Удалено слов: {len(gone)}", details=gone[:50])
+    if b[2].button("Применить решения"):
+        n = apply_decisions(root)
+        _bump("words_rv")
+        notify.report("success", f"Применено: правок {n['edit']}, удалено слов {n['del']}")
         st.rerun()
     st.divider()
     cur = _run(root, "git", "branch", "--show-current")[1]
@@ -337,7 +515,9 @@ def render() -> None:
         notify.report("error", "Не удалось загрузить словарь", details=[str(exc)])
         return
     langs = langs_of(rows, st.session_state.get("words_langs"))
-    t1, t2, t3 = st.tabs(["Таблица", "Добавить слово", "Проверка и коммит"])
+    t0, t1, t2, t3 = st.tabs(["Ревью", "Таблица", "Добавить слово", "Проверка и коммит"])
+    with t0:
+        _review(root, rows, langs)
     with t1:
         _table(root, rows, langs)
     with t2:

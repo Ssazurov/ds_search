@@ -51,10 +51,42 @@ def test_add_word_and_dup(root):
         wt.add_word(root, "toys", "Bad id", "x", "n", 2)
 
 
-def test_decisions_and_deletions(root):
-    wt.save_decisions(root, {"bread": "del", "to_bake": "ok"})
-    assert wt.apply_deletions(root) == ["bread"]
-    assert wt.load_decisions(root) == {"to_bake": "ok"}
+def test_stage_toggle_and_counts():
+    dec = {}
+    wt.toggle_verdict(dec, "bread", "ok")
+    assert dec == {"bread": {"verdict": "ok"}}
+    wt.toggle_verdict(dec, "bread", "ok")
+    assert dec == {}
+    wt.stage(dec, "bread", "en", "bread", "")
+    wt.stage(dec, "bread", "de", "Brot", "")
+    wt.stage(dec, "bread", "ru", "хлеб", "хлеб")  # равно исходному — правки нет
+    wt.toggle_verdict(dec, "bread", "del")
+    assert dec == {"bread": {"en": "bread", "tr": {"de": "Brot"}, "verdict": "del"}}
+    assert wt.counts(dec) == {"ok": 0, "del": 1, "edit": 1}
+    wt.stage(dec, "bread", "en", "")
+    wt.stage(dec, "bread", "de", "")
+    assert dec == {"bread": {"verdict": "del"}}
+
+
+def test_clean_merge_and_legacy_format(root):
+    assert wt.clean_entry("del") == {"verdict": "del"}
+    assert wt.clean_entry({"verdict": "x", "pos": "zz", "ru": " "}) == {}
+    dec = {"a": {"tr": {"de": "x"}}}
+    assert wt.merge_decisions(dec, {"a": {"verdict": "ok", "tr": {"fr": "y"}}, "Bad id": {"verdict": "ok"}}) == 1
+    assert dec == {"a": {"tr": {"de": "x", "fr": "y"}, "verdict": "ok"}}
+    (root / "review").mkdir()
+    (root / "review" / "ui_decisions.json").write_text('{"bread": "ok"}', "utf-8")
+    assert wt.load_decisions(root) == {"bread": {"verdict": "ok"}}
+
+
+def test_apply_decisions(root):
+    wt.save_decisions(root, {"bread": {"verdict": "del"},
+                             "to_bake": {"verdict": "ok", "ru": "жарить", "pos": "n", "tr": {"de": "backen"}}})
+    assert wt.apply_decisions(root) == {"del": 1, "edit": 1}
+    t = _text(root)
+    assert "id: bread" not in t
+    assert 'ru: "жарить", pos: n' in t and 'de: "backen"' in t
+    assert wt.load_decisions(root) == {"to_bake": {"verdict": "ok"}}
 
 
 ROWS = [
