@@ -24,6 +24,33 @@ MODES = {
 }
 MANUAL = "manual.yaml"
 
+CAT_RU = {
+    "actions": "Действия", "animals": "Животные", "body": "Тело", "clothes": "Одежда",
+    "colors": "Цвета", "core_verbs": "Основные глаголы", "descriptors": "Признаки",
+    "dishes": "Блюда", "family": "Семья", "feelings": "Чувства", "food": "Еда",
+    "furniture": "Мебель", "health": "Здоровье", "health_routines": "Гигиена и режим",
+    "household": "Быт", "numbers_shapes": "Числа и формы", "outside": "На улице",
+    "people": "Люди", "places": "Места", "prepositions_quantity": "Предлоги и количество",
+    "pronouns_questions": "Местоимения и вопросы", "school": "Школа", "social": "Общение",
+    "sounds": "Звуки", "sport": "Спорт", "time": "Время", "toys_games": "Игрушки и игры",
+    "transport": "Транспорт",
+}
+POS_RU = {"n": "сущ.", "v": "глагол", "adj": "прил.", "adv": "нареч.",
+          "pron": "мест.", "prep": "предлог", "interj": "междометие"}
+POS_FROM = {v: k for k, v in POS_RU.items()}
+LANG_RU = {"ru": "Русский", "en": "Английский", "de": "Немецкий", "fr": "Французский",
+           "es": "Испанский", "kk": "Казахский", "uk": "Украинский", "be": "Белорусский"}
+REVIEW_RU = {"": "", "ok": "✓ ок", "del": "✗ удалить"}
+REVIEW_FROM = {v: k for k, v in REVIEW_RU.items()}
+
+
+def cat_label(c: str) -> str:
+    return CAT_RU.get(c, c)
+
+
+def lang_label(l: str) -> str:
+    return LANG_RU.get(l, l)
+
 
 def words_dir() -> Path:
     env = os.environ.get("DS_WORDS_DIR")
@@ -193,37 +220,43 @@ def commit(root: Path, branch: str, msg: str) -> tuple[int, str]:
 def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
     import pandas as pd
 
-    cats = ["все"] + sorted({r["cat"] for r in rows})
+    cats = ["все"] + sorted({r["cat"] for r in rows}, key=cat_label)
     c1, c2, c3 = st.columns([2, 2, 3])
-    cat = c1.selectbox("Категория", cats)
+    cat = c1.selectbox("Категория", cats, format_func=lambda c: "Все" if c == "все" else cat_label(c))
     mode = c2.selectbox("Показать", list(MODES), format_func=MODES.get)
     q = c3.text_input("Поиск (id или перевод)")
     sel = filter_rows(rows, mode, cat, q, langs)
-    st.caption(f"{len(sel)} из {len(rows)}. Показано до 300.")
+    st.caption(f"Показано {min(len(sel), 300)} из {len(sel)} (всего слов: {len(rows)}).")
     sel = sel[:300]
-    df = pd.DataFrame([{"id": r["id"], "cat": r["cat"], "pos": r["pos"], "ревью": r["review"],
-                        **{l: r["tr"].get(l, "") for l in langs},
-                        "картинка": r["img"], "озвучка": ",".join(r["audio"]),
-                        "флаги": "; ".join(r["flags"])} for r in sel])
+    lcol = {lang_label(l): l for l in langs}
+    df = pd.DataFrame([{"id": r["id"], "Категория": cat_label(r["cat"]), "Часть речи": POS_RU[r["pos"]],
+                        "Ревью": REVIEW_RU[r["review"]],
+                        **{lang_label(l): r["tr"].get(l, "") for l in langs},
+                        "Картинка": r["img"], "Озвучка": ",".join(r["audio"]),
+                        "Флаги": "; ".join(r["flags"])} for r in sel])
     if df.empty:
+        st.info("Нет слов по выбранным условиям.")
         return
     key = f"words_ed_{st.session_state.get('words_ver', 0)}"
     edited = st.data_editor(
         df, key=key, hide_index=True, use_container_width=True,
-        disabled=["id", "cat", "картинка", "озвучка", "флаги"],
-        column_config={"pos": st.column_config.SelectboxColumn(options=POS),
-                       "ревью": st.column_config.SelectboxColumn(options=["", "ok", "del"])})
+        disabled=["id", "Категория", "Картинка", "Озвучка", "Флаги"],
+        column_config={"Часть речи": st.column_config.SelectboxColumn(options=list(POS_FROM)),
+                       "Ревью": st.column_config.SelectboxColumn(options=list(REVIEW_FROM))})
     if not st.button("Сохранить правки", type="primary"):
         return
     dec, n = load_decisions(root), 0
     for old, new in zip(df.to_dict("records"), edited.to_dict("records")):
-        tr = {l: new[l].strip() for l in langs if new[l].strip() and new[l] != old[l]}
-        if tr or new["pos"] != old["pos"]:
-            edit_word(root, old["id"], tr=tr, pos=new["pos"] if new["pos"] != old["pos"] else None)
+        tr = {c: new[l].strip() for l, c in lcol.items() if new[l].strip() and new[l] != old[l]}
+        pos = POS_FROM[new["Часть речи"]]
+        pos_changed = new["Часть речи"] != old["Часть речи"]
+        if tr or pos_changed:
+            edit_word(root, old["id"], tr=tr, pos=pos if pos_changed else None)
             n += 1
-        if new["ревью"] != old["ревью"]:
-            if new["ревью"]:
-                dec[old["id"]] = new["ревью"]
+        if new["Ревью"] != old["Ревью"]:
+            v = REVIEW_FROM.get(new["Ревью"], "")
+            if v:
+                dec[old["id"]] = v
             else:
                 dec.pop(old["id"], None)
             n += 1
@@ -235,20 +268,23 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
 
 def _add(root: Path, rows: list[dict], langs: list[str]) -> None:
     ids = {r["id"] for r in rows}
+    cats = sorted({r["cat"] for r in rows}, key=cat_label)
     with st.form("words_add"):
-        c = st.columns(4)
-        cat = c[0].text_input("Категория (id)")
-        wid = c[1].text_input("id (латиница)")
-        pos = c[2].selectbox("pos", POS)
-        prio = c[3].selectbox("prio", [1, 2, 3], index=1)
-        vals = {l: st.text_input(f"Перевод [{l}]") for l in langs}
+        c = st.columns(3)
+        cat = c[0].selectbox("Категория", cats, format_func=cat_label)
+        newcat = c[1].text_input("Новая категория (id, латиница; если не из списка)")
+        wid = c[2].text_input("id слова (латиница)")
+        c = st.columns(2)
+        pos = c[0].selectbox("Часть речи", list(POS_RU), format_func=POS_RU.get)
+        prio = c[1].selectbox("Приоритет (1 — высокий, 3 — низкий)", [1, 2, 3], index=1)
+        vals = {l: st.text_input(f"Перевод: {lang_label(l)}") for l in langs}
         ok = st.form_submit_button("Добавить слово", type="primary")
     if ok:
         try:
-            add_word(root, cat, wid, vals.get("ru", ""), pos, prio,
+            add_word(root, newcat.strip() or cat, wid, vals.get("ru", ""), pos, prio,
                      {l: v for l, v in vals.items() if l != "ru"}, ids)
         except ValueError as e:
-            notify.report("error", "Не добавлено", details=[str(e)])
+            notify.report("error", "Слово не добавлено", details=[str(e)])
         else:
             notify.report("success", f"Добавлено: {wid}")
             st.rerun()
@@ -265,14 +301,14 @@ def _add(root: Path, rows: list[dict], langs: list[str]) -> None:
 def _check(root: Path, rows: list[dict], langs: list[str]) -> None:
     cols = st.columns(len(langs))
     for col, l in zip(cols, langs):
-        col.metric(f"без {l}", sum(l not in r["tr"] for r in rows))
+        col.metric(f"Нет перевода: {lang_label(l)}", sum(l not in r["tr"] for r in rows))
     st.write(f"Без картинки: **{sum(not r['img'] for r in rows)}**; "
              f"дубли: **{len(filter_rows(rows, 'dups', 'все', '', langs))}**; "
              f"помечено ✗: **{sum(r['review'] == 'del' for r in rows)}**")
     b = st.columns(4)
     if b[0].button("Проверить"):
         rc, out = run_validate(root)
-        notify.report("success" if rc == 0 else "error", "Валидация", details=[out[-2000:]])
+        notify.report("success" if rc == 0 else "error", "Проверка словаря", details=[out[-2000:]])
     if b[1].button("Экспорт"):
         rc, out = run_export(root)
         notify.report("success" if rc == 0 else "error", "Экспорт", details=[out[-2000:]])
@@ -301,7 +337,7 @@ def render() -> None:
         notify.report("error", "Не удалось загрузить словарь", details=[str(exc)])
         return
     langs = langs_of(rows, st.session_state.get("words_langs"))
-    t1, t2, t3 = st.tabs(["Таблица", "Добавить", "Проверка и коммит"])
+    t1, t2, t3 = st.tabs(["Таблица", "Добавить слово", "Проверка и коммит"])
     with t1:
         _table(root, rows, langs)
     with t2:

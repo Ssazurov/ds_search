@@ -71,3 +71,9 @@ def test_filter_rows():
     assert ids("unreviewed") == ["b"] and ids("no_audio") == ["a", "b"]
     assert ids("all", "food") == ["a"] and ids("all", q="Б") == ["b"]
     assert wt.langs_of(ROWS, ["de"]) == ["ru", "de", "en"]
+
+
+def test_labels_ru():
+    assert wt.cat_label("food") == "Еда" and wt.cat_label("zzz") == "zzz"
+    assert wt.lang_label("ru") == "Русский" and wt.lang_label("xx") == "xx"
+    assert set(wt.POS_RU) == set(wt.POS)
