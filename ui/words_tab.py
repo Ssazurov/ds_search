@@ -79,7 +79,7 @@ def load_rows(root: Path) -> tuple[list[dict], list[str]]:
         img, aud = W.media(w["id"])
         rows.append({"id": w["id"], "cat": w["category"], "pos": w["pos"], "prio": w["prio"],
                      "age": w["age"], "note": w.get("note") or "",
-                     "tr": w["tr"], "flags": flags.get(w["id"], []), "img": bool(img),
+                     "tr": w["tr"], "flags": flags.get(w["id"], []), "img": img or "",
                      "audio": sorted(aud), "review": dec.get(w["id"], {}).get("verdict", "")})
     return rows, langs_of(rows)
 
@@ -324,6 +324,47 @@ _TB_KEYS = ("tb_q", "tb_cat", "tb_mode", "tb_pos", "tb_prio", "tb_img", "tb_aud"
             "tb_fl", "tb_size", "tb_page")
 
 
+_TB_TYPES = {"tb_prio": int, "tb_size": int, "tb_page": int, "tb_fl": bool}
+_TB_DEF = {"tb_cat": "все", "tb_mode": next(iter(MODES)), "tb_size": 50, "tb_page": 1}
+_HOST_WORDS_ROOT = os.environ.get("HOST_WORDS_ROOT", "/home/vector/projects/ds_words")
+_WSL_DISTRO = os.environ.get("HOST_WSL_DISTRO", "Ubuntu")
+
+
+def img_uri(rel: str) -> str | None:
+    """dsdoc://-ссылка (как в «Документах»): хост открывает файл программой по умолчанию."""
+    return f"dsdoc://{_WSL_DISTRO}{_HOST_WORDS_ROOT}/{rel}" if rel else None
+
+
+def _tb_restore(valid: dict) -> None:
+    """Один раз за сессию: фильтры из query params -> session_state (переживает F5)."""
+    if st.session_state.get("_tb_restored"):
+        return
+    st.session_state["_tb_restored"] = True
+    for k in _TB_KEYS:
+        v = st.query_params.get(k)
+        if v is None or k in st.session_state:
+            continue
+        t = _TB_TYPES.get(k, str)
+        try:
+            v = (v == "1") if t is bool else t(v)
+        except ValueError:
+            continue
+        if k in valid and v not in valid[k]:
+            continue
+        st.session_state[k] = v
+
+
+def _tb_save() -> None:
+    for k in _TB_KEYS:
+        v = st.session_state.get(k, _TB_DEF.get(k, ""))
+        if v is True:
+            v = "1"
+        if v in (None, "", 0, False) or v == _TB_DEF.get(k):
+            st.query_params.pop(k, None)
+        elif st.query_params.get(k) != str(v):
+            st.query_params[k] = str(v)
+
+
 def _reset_tb() -> None:
     for k in _TB_KEYS:
         st.session_state.pop(k, None)
@@ -339,6 +380,9 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
     cats = ["все"] + sorted({r["cat"] for r in rows}, key=cat_label)
     ALL = "все"
     ages = sorted({f"{r['age'][0]}–{r['age'][1]}" for r in rows})
+    _tb_restore({"tb_cat": cats, "tb_mode": list(MODES), "tb_ver": ["", "none", "ok", "del"],
+                 "tb_prio": [0, 1, 2, 3], "tb_pos": ["", *POS], "tb_img": ["", "есть", "нет"],
+                 "tb_aud": ["", "есть", "нет"], "tb_age": ["", *ages], "tb_size": [25, 50, 100, 300]})
     with st.container(key="cmpv_words"):
         c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
         q = c1.text_input("Поиск (id или перевод)", key="tb_q")
@@ -365,6 +409,7 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
         st.session_state["tb_page"] = 1
     page = st.number_input(f"Страница (из {pages}) · найдено слов: {len(sel)}", 1, pages, 1, key="tb_page")
     chunk = sel[(page - 1) * size: page * size]
+    _tb_save()
 
     with st.expander("Решения: применить · экспорт · импорт · сброс"):
         a1, a2, a3 = st.columns(3)
@@ -406,7 +451,7 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
         for l in shown:
             staged = e.get(l) if l in ("ru", "en") else e.get("tr", {}).get(l)
             row[lang_label(l)] = staged or r["tr"].get(l, "")
-        row.update({"Часть речи": POS_RU[e.get("pos", r["pos"])], "Картинка": r["img"],
+        row.update({"Часть речи": POS_RU[e.get("pos", r["pos"])], "Картинка": img_uri(r["img"]),
                     "Озвучка": ",".join(r["audio"]), "Заметка": r["note"], "Флаги": "; ".join(r["flags"])})
         recs.append(row)
     df = pd.DataFrame(recs)
@@ -415,7 +460,8 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
     order, config, sort = column_settings(
         "words", {c: c for c in df.columns},
         {"Часть речи": st.column_config.SelectboxColumn(options=list(POS_FROM)),
-         "Решение": st.column_config.SelectboxColumn(options=list(REVIEW_FROM))},
+         "Решение": st.column_config.SelectboxColumn(options=list(REVIEW_FROM)),
+         "Картинка": st.column_config.LinkColumn("Картинка", display_text=":material/image:", width="small")},
         pinned=("Решение", "id"), host=gear_col)
     if sort:
         df = df.sort_values(sort[0], ascending=sort[1], kind="stable")
