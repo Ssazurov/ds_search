@@ -89,13 +89,26 @@ def langs_of(rows: list[dict], extra: list[str] | None = None) -> list[str]:
     return ["ru"] + sorted(ls - {"ru"})
 
 
-def filter_rows(rows: list[dict], mode: str, cat: str, q: str, langs: list[str]) -> list[dict]:
+def filter_rows(rows: list[dict], mode: str, cat: str, q: str, langs: list[str], *, pos: str = "",
+                prio: int = 0, img: str = "", aud: str = "", verdict: str = "", age: str = "") -> list[dict]:
     q = q.strip().lower()
     out = []
     for r in rows:
         if cat and cat != "все" and r["cat"] != cat:
             continue
         if q and q not in r["id"].lower() and not any(q in v.lower() for v in r["tr"].values()):
+            continue
+        if pos and r["pos"] != pos:
+            continue
+        if prio and r["prio"] != prio:
+            continue
+        if img and bool(r["img"]) != (img == "есть"):
+            continue
+        if aud and bool(r["audio"]) != (aud == "есть"):
+            continue
+        if verdict and r["review"] != (verdict if verdict != "none" else ""):
+            continue
+        if age and f"{r['age'][0]}–{r['age'][1]}" != age:
             continue
         ok = {
             "all": True,
@@ -307,6 +320,15 @@ def _bump(key: str) -> None:
     st.session_state[key] = st.session_state.get(key, 0) + 1
 
 
+_TB_KEYS = ("tb_q", "tb_cat", "tb_mode", "tb_pos", "tb_prio", "tb_img", "tb_aud", "tb_ver", "tb_age",
+            "tb_fl", "tb_size", "tb_page")
+
+
+def _reset_tb() -> None:
+    for k in _TB_KEYS:
+        st.session_state.pop(k, None)
+
+
 def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
     import pandas as pd
 
@@ -315,19 +337,27 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
     st.caption(f"✓ ок: {c['ok']} · ✗ удалить: {c['del']} · с правками: {c['edit']} · всего слов: {len(rows)}. "
                "Правки и решения копятся в черновике и попадают в YAML кнопкой «Применить к YAML».")
     cats = ["все"] + sorted({r["cat"] for r in rows}, key=cat_label)
-    f1, f2, f3 = st.columns([2, 2, 3])
+    ALL = "все"
+    ages = sorted({f"{r['age'][0]}–{r['age'][1]}" for r in rows})
+    s1, s2 = st.columns([6, 1])
+    q = s1.text_input("Поиск", key="tb_q", label_visibility="collapsed", placeholder="Поиск: id или перевод")
+    s2.button("Сбросить", key="tb_reset", on_click=_reset_tb)
+    f1, f2, f3, f4, f5 = st.columns([3, 2, 2, 2, 1])
     cat = f1.selectbox("Категория", cats, key="tb_cat", format_func=lambda x: "Все" if x == "все" else cat_label(x))
     mode = f2.selectbox("Показать", list(MODES), key="tb_mode", format_func=MODES.get)
-    q = f3.text_input("Поиск (id или перевод)", key="tb_q")
-    g1, g2, g3 = st.columns([2, 2, 3])
-    only_fl = g1.checkbox("Только спорные", key="tb_fl")
-    only_new = g2.checkbox("Без решения", key="tb_new")
-    size = g3.selectbox("Слов на странице", [25, 50, 100, 300], index=1, key="tb_size")
-    sel = filter_rows(rows, mode, cat, q, langs)
+    pos = f3.selectbox("Часть речи", ["", *POS], key="tb_pos", format_func=lambda x: POS_RU.get(x, "Все"))
+    prio = f4.selectbox("Приоритет", [0, 1, 2, 3], key="tb_prio", format_func=lambda x: x or "Все")
+    with f5.popover("⚙️", help="Дополнительные фильтры"):
+        img = st.selectbox("Картинка", ["", "есть", "нет"], key="tb_img", format_func=lambda x: x or "Все")
+        aud = st.selectbox("Озвучка", ["", "есть", "нет"], key="tb_aud", format_func=lambda x: x or "Все")
+        verdict = st.selectbox("Решение", ["", "none", "ok", "del"], key="tb_ver",
+                               format_func=lambda x: {"": "Все", "none": "Без решения"}.get(x) or REVIEW_RU[x])
+        age = st.selectbox("Возраст", ["", *ages], key="tb_age", format_func=lambda x: x or "Все")
+        only_fl = st.checkbox("Только спорные", key="tb_fl")
+        size = st.selectbox("Слов на странице", [25, 50, 100, 300], index=1, key="tb_size")
+    sel = filter_rows(rows, mode, cat, q, langs, pos=pos, prio=prio, img=img, aud=aud, verdict=verdict, age=age)
     if only_fl:
         sel = [r for r in sel if r["flags"]]
-    if only_new:
-        sel = [r for r in sel if not r["review"]]
     pages = max(1, -(-len(sel) // size))
     if st.session_state.get("tb_page", 1) > pages:
         st.session_state["tb_page"] = 1
