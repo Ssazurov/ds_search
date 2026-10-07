@@ -109,3 +109,9 @@ def test_labels_ru():
     assert wt.cat_label("food") == "Еда" and wt.cat_label("zzz") == "zzz"
     assert wt.lang_label("ru") == "Русский" and wt.lang_label("xx") == "xx"
     assert set(wt.POS_RU) == set(wt.POS)
+
+
+def test_img_uri():
+    from ui.words_tab import img_uri
+    assert img_uri("") is None
+    assert img_uri("images/pear.png").startswith("dsdoc://") and img_uri("images/pear.png").endswith("/images/pear.png")
