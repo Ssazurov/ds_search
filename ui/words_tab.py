@@ -346,7 +346,7 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
     cat = f1.selectbox("Категория", cats, key="tb_cat", format_func=lambda x: "Все" if x == "все" else cat_label(x))
     mode = f2.selectbox("Показать", list(MODES), key="tb_mode", format_func=MODES.get)
     pos = f3.selectbox("Часть речи", ["", *POS], key="tb_pos", format_func=lambda x: POS_RU.get(x, "Все"))
-    prio = f4.selectbox("Приоритет", [0, 1, 2, 3], key="tb_prio", format_func=lambda x: x or "Все")
+    prio = f4.selectbox("Приоритет", [0, 1, 2, 3], key="tb_prio", format_func=lambda x: str(x) if x else "Все")
     with f5.popover("⚙️", help="Дополнительные фильтры"):
         img = st.selectbox("Картинка", ["", "есть", "нет"], key="tb_img", format_func=lambda x: x or "Все")
         aud = st.selectbox("Озвучка", ["", "есть", "нет"], key="tb_aud", format_func=lambda x: x or "Все")
