@@ -339,22 +339,24 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
     cats = ["все"] + sorted({r["cat"] for r in rows}, key=cat_label)
     ALL = "все"
     ages = sorted({f"{r['age'][0]}–{r['age'][1]}" for r in rows})
-    s1, s2 = st.columns([6, 1])
-    q = s1.text_input("Поиск", key="tb_q", label_visibility="collapsed", placeholder="Поиск: id или перевод")
-    s2.button("Сбросить", key="tb_reset", on_click=_reset_tb)
-    f1, f2, f3, f4, f5 = st.columns([3, 2, 2, 2, 1])
-    cat = f1.selectbox("Категория", cats, key="tb_cat", format_func=lambda x: "Все" if x == "все" else cat_label(x))
-    mode = f2.selectbox("Показать", list(MODES), key="tb_mode", format_func=MODES.get)
-    pos = f3.selectbox("Часть речи", ["", *POS], key="tb_pos", format_func=lambda x: POS_RU.get(x, "Все"))
-    prio = f4.selectbox("Приоритет", [0, 1, 2, 3], key="tb_prio", format_func=lambda x: str(x) if x else "Все")
-    with f5.popover("⚙️", help="Дополнительные фильтры"):
-        img = st.selectbox("Картинка", ["", "есть", "нет"], key="tb_img", format_func=lambda x: x or "Все")
-        aud = st.selectbox("Озвучка", ["", "есть", "нет"], key="tb_aud", format_func=lambda x: x or "Все")
-        verdict = st.selectbox("Решение", ["", "none", "ok", "del"], key="tb_ver",
+    with st.container(key="cmpv_words"):
+        c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
+        q = c1.text_input("Поиск (id или перевод)", key="tb_q")
+        cat = c2.selectbox("Категория", cats, key="tb_cat", width=220,
+                           format_func=lambda x: "Все" if x == "все" else cat_label(x))
+        mode = c3.selectbox("Показать", list(MODES), key="tb_mode", width=170, format_func=MODES.get)
+        verdict = c4.selectbox("Решение", ["", "none", "ok", "del"], key="tb_ver", width=170,
                                format_func=lambda x: {"": "Все", "none": "Без решения"}.get(x) or REVIEW_RU[x])
-        age = st.selectbox("Возраст", ["", *ages], key="tb_age", format_func=lambda x: x or "Все")
-        only_fl = st.checkbox("Только спорные", key="tb_fl")
-        size = st.selectbox("Слов на странице", [25, 50, 100, 300], index=1, key="tb_size")
+        prio = c5.selectbox("Приоритет", [0, 1, 2, 3], key="tb_prio", width=120,
+                            format_func=lambda x: str(x) if x else "Все")
+        with c6.popover("⚙️", help="Дополнительные фильтры"):
+            pos = st.selectbox("Часть речи", ["", *POS], key="tb_pos", format_func=lambda x: POS_RU.get(x, "Все"))
+            img = st.selectbox("Картинка", ["", "есть", "нет"], key="tb_img", format_func=lambda x: x or "Все")
+            aud = st.selectbox("Озвучка", ["", "есть", "нет"], key="tb_aud", format_func=lambda x: x or "Все")
+            age = st.selectbox("Возраст", ["", *ages], key="tb_age", format_func=lambda x: x or "Все")
+            only_fl = st.checkbox("Только спорные", key="tb_fl")
+            size = st.selectbox("Слов на странице", [25, 50, 100, 300], index=1, key="tb_size")
+        c7.button("Сбросить", key="tb_reset", on_click=_reset_tb)
     sel = filter_rows(rows, mode, cat, q, langs, pos=pos, prio=prio, img=img, aud=aud, verdict=verdict, age=age)
     if only_fl:
         sel = [r for r in sel if r["flags"]]
