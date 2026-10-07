@@ -17,7 +17,7 @@ import streamlit as st
 import yaml
 
 from ui import notify
-from ui.table_utils import column_settings, table_slots
+from ui.table_utils import action_row, column_settings, table_slots
 
 POS = ["n", "v", "adj", "adv", "pron", "prep", "interj"]
 ID_RE = re.compile(r"^[a-z][a-z0-9_]*$")
@@ -297,6 +297,11 @@ def run_validate(root: Path) -> tuple[int, str]:
     return _run(root, sys.executable, "scripts/words.py", "validate")
 
 
+def run_imggen(root: Path, ids: list[str]) -> tuple[int, str]:
+    """Генерация/перегенерация картинок (ds_words/scripts/imggen.py, ключ ~/.neuraldeep_key)."""
+    return _run(root, sys.executable, "scripts/imggen.py", "gen", "--ids", ",".join(ids), "--force")
+
+
 def run_export(root: Path) -> tuple[int, str]:
     return _run(root, sys.executable, "scripts/words.py", "export")
 
@@ -315,6 +320,17 @@ def commit(root: Path, branch: str, msg: str) -> tuple[int, str]:
 
 
 # ---------- UI ----------
+
+GEN_HELP = (
+    "Генерирует картинки для отмеченных строк (Qwen-Image-2.1), по очереди, ≈0,5–1 мин на слово; "
+    "страница ждёт окончания.\n\n"
+    "• Картинка уже есть — будет заменена новой, прежний файл не сохраняется (откат только через git), "
+    "статус вернётся в «generated», утверждение сбросится.\n"
+    "• Промпт: единый стиль v1 + описание слова; для слов без своего описания берётся сам перевод. "
+    "Для людей, частей тела, действий и абстракций особых промптов пока нет — результат может быть неточным.\n"
+    "• Файлы и реестр (images/, registry/images.json) меняются в рабочей папке ds_words без коммита.\n"
+    "• Ссылка в колонке «Картинка» обновится после перерисовки страницы.")
+
 
 def _bump(key: str) -> None:
     st.session_state[key] = st.session_state.get(key, 0) + 1
@@ -455,20 +471,30 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
                     "Озвучка": ",".join(r["audio"]), "Заметка": r["note"], "Флаги": "; ".join(r["flags"])})
         recs.append(row)
     df = pd.DataFrame(recs)
+    df.insert(0, "Выбор", False)
     key = f"words_ed_{st.session_state.get('words_ver', 0)}"
     tbl, cap_col, gear_col = table_slots("words")
     order, config, sort = column_settings(
         "words", {c: c for c in df.columns},
         {"Часть речи": st.column_config.SelectboxColumn(options=list(POS_FROM)),
          "Решение": st.column_config.SelectboxColumn(options=list(REVIEW_FROM)),
+         "Выбор": st.column_config.CheckboxColumn("Выбор", width="small"),
          "Картинка": st.column_config.LinkColumn("Картинка", display_text=":material/image:", width="small")},
-        pinned=("Решение", "id"), host=gear_col)
+        pinned=("Выбор", "Решение", "id"), host=gear_col)
     if sort:
         df = df.sort_values(sort[0], ascending=sort[1], kind="stable")
     cap_col.caption(f"Строк: {len(df)}")
     edited = tbl.data_editor(
         df, key=key, hide_index=True, use_container_width=True, column_order=order, column_config=config,
         disabled=["id", "Категория", "Возраст", "Приоритет", "Картинка", "Озвучка", "Заметка", "Флаги"])
+    picked = edited.loc[edited["Выбор"], "id"].tolist()
+    g1, g2, g3 = action_row(3, "words")
+    if g3.button(f"Сгенерировать картинку ({len(picked)})", disabled=not picked, key="words_gen_btn",
+                 help=GEN_HELP):
+        with st.spinner(f"Генерация: {len(picked)} шт., по очереди…"):
+            rc, out = run_imggen(root, picked)
+        notify.report("success" if rc == 0 else "error", "Генерация картинок", details=[out[-1500:]])
+        st.rerun()
     if not st.button("Сохранить в черновик", type="primary"):
         return
     by_id, n = {r["id"]: r for r in chunk}, 0
