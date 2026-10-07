@@ -306,57 +306,49 @@ def _bump(key: str) -> None:
     st.session_state[key] = st.session_state.get(key, 0) + 1
 
 
-def _cb_stage(wid: str, field: str, key: str, orig: str) -> None:
-    root = words_dir()
-    dec = load_decisions(root)
-    v = st.session_state.get(key, "")
-    stage(dec, wid, field, v.strip() if isinstance(v, str) else v, orig)
-    save_decisions(root, dec)
+def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
+    import pandas as pd
 
-
-def _cb_toggle(wid: str, v: str) -> None:
-    root = words_dir()
-    dec = load_decisions(root)
-    toggle_verdict(dec, wid, v)
-    save_decisions(root, dec)
-
-
-def _review(root: Path, rows: list[dict], langs: list[str]) -> None:
     dec = load_decisions(root)
     c = counts(dec)
-    st.caption(f"✓ ок: {c['ok']} · ✗ удалить: {c['del']} · с правками: {c['edit']} · всего слов: {len(rows)}")
-
-    f1, f2, f3, f4, f5 = st.columns([2, 3, 1.5, 1.5, 1.2])
+    st.caption(f"✓ ок: {c['ok']} · ✗ удалить: {c['del']} · с правками: {c['edit']} · всего слов: {len(rows)}. "
+               "Правки и решения копятся в черновике и попадают в YAML кнопкой «Применить к YAML».")
     cats = ["все"] + sorted({r["cat"] for r in rows}, key=cat_label)
-    cat = f1.selectbox("Категория", cats, key="rv_cat", format_func=lambda x: "Все" if x == "все" else cat_label(x))
-    q = f2.text_input("Поиск (id или перевод)", key="rv_q")
-    only_fl = f3.checkbox("Только спорные", key="rv_fl")
-    only_new = f4.checkbox("Без решения", key="rv_new")
-    size = f5.selectbox("На странице", [25, 50, 100], index=1, key="rv_size")
-    sel = filter_rows(rows, "flagged" if only_fl else "all", cat, q, langs)
+    f1, f2, f3 = st.columns([2, 2, 3])
+    cat = f1.selectbox("Категория", cats, key="tb_cat", format_func=lambda x: "Все" if x == "все" else cat_label(x))
+    mode = f2.selectbox("Показать", list(MODES), key="tb_mode", format_func=MODES.get)
+    q = f3.text_input("Поиск (id или перевод)", key="tb_q")
+    g1, g2, g3 = st.columns([2, 2, 3])
+    only_fl = g1.checkbox("Только спорные", key="tb_fl")
+    only_new = g2.checkbox("Без решения", key="tb_new")
+    size = g3.selectbox("Слов на странице", [25, 50, 100, 300], index=1, key="tb_size")
+    sel = filter_rows(rows, mode, cat, q, langs)
+    if only_fl:
+        sel = [r for r in sel if r["flags"]]
     if only_new:
-        sel = [r for r in sel if not dec.get(r["id"], {}).get("verdict")]
+        sel = [r for r in sel if not r["review"]]
     pages = max(1, -(-len(sel) // size))
-    if st.session_state.get("rv_page", 1) > pages:
-        st.session_state["rv_page"] = 1
-    page = st.number_input(f"Страница (из {pages}) · найдено слов: {len(sel)}", 1, pages, 1, key="rv_page")
+    if st.session_state.get("tb_page", 1) > pages:
+        st.session_state["tb_page"] = 1
+    page = st.number_input(f"Страница (из {pages}) · найдено слов: {len(sel)}", 1, pages, 1, key="tb_page")
     chunk = sel[(page - 1) * size: page * size]
 
     with st.expander("Решения: применить · экспорт · импорт · сброс"):
         a1, a2, a3 = st.columns(3)
         if a1.button("Применить к YAML", type="primary", help="✗ — удалить слова, правки записать в YAML"):
             n = apply_decisions(root)
-            _bump("words_rv")
+            _bump("words_ver")
             notify.report("success", f"Применено: правок {n['edit']}, удалено слов {n['del']}")
             st.rerun()
         a2.download_button("Экспорт решений (decisions.json)", decisions_json(dec),
                            file_name="decisions.json", mime="application/json")
-        sure = a3.checkbox("Подтверждаю сброс", key="rv_sure")
+        sure = a3.checkbox("Подтверждаю сброс", key="tb_sure")
         if a3.button("Сбросить всё") and sure:
             save_decisions(root, {})
-            _bump("words_rv")
+            _bump("words_ver")
             st.rerun()
-        up = st.file_uploader("Импорт решений (decisions.json)", type="json", key=f"rv_up_{st.session_state.get('words_rv', 0)}")
+        up = st.file_uploader("Импорт решений (decisions.json)", type="json",
+                              key=f"tb_up_{st.session_state.get('words_ver', 0)}")
         if up is not None and st.button("Загрузить решения"):
             try:
                 n = merge_decisions(dec, json.loads(up.getvalue().decode("utf-8")))
@@ -364,82 +356,51 @@ def _review(root: Path, rows: list[dict], langs: list[str]) -> None:
                 notify.report("error", "Не удалось прочитать файл", details=[str(exc)])
             else:
                 save_decisions(root, dec)
-                _bump("words_rv")
+                _bump("words_ver")
                 notify.report("success", f"Загружено решений: {n}")
                 st.rerun()
 
-    ver = st.session_state.get("words_rv", 0)
-    shown = ["ru", "en"] + [l for l in langs if l not in ("ru", "en")]
-    widths = [1.3] + [2] * len(shown) + [1.4, 2.3, 3]
-    head = st.columns(widths)
-    for col, t in zip(head, ["Решение"] + [lang_label(l) for l in shown] + ["Часть речи", "Слово", "Замечания"]):
-        col.markdown(f"**{t}**")
-    for r in chunk:
-        wid, e = r["id"], dec.get(r["id"], {})
-        cols = st.columns(widths)
-        b1, b2 = cols[0].columns(2)
-        v = e.get("verdict", "")
-        b1.button("✓", key=f"rv_ok_{ver}_{wid}", on_click=_cb_toggle, args=(wid, "ok"),
-                  type="primary" if v == "ok" else "secondary")
-        b2.button("✗", key=f"rv_del_{ver}_{wid}", on_click=_cb_toggle, args=(wid, "del"),
-                  type="primary" if v == "del" else "secondary")
-        for col, l in zip(cols[1:1 + len(shown)], shown):
-            orig = r["tr"].get(l, "")
-            staged = e.get(l) if l in ("ru", "en") else e.get("tr", {}).get(l)
-            key = f"rv_{ver}_{wid}_{l}"
-            col.text_input(lang_label(l), value=staged or orig, key=key, label_visibility="collapsed",
-                           on_change=_cb_stage, args=(wid, l, key, orig))
-        pkey = f"rv_{ver}_{wid}_pos"
-        cur = e.get("pos", r["pos"])
-        cols[-3].selectbox("Часть речи", POS, index=POS.index(cur), key=pkey, format_func=POS_RU.get,
-                           label_visibility="collapsed", on_change=_cb_stage, args=(wid, "pos", pkey, r["pos"]))
-        cols[-2].markdown(f"{cat_label(r['cat'])}  \n`{wid}` · {r['age'][0]}–{r['age'][1]} лет · пр. {r['prio']}")
-        mark = {"ok": ":green[✓ ок] ", "del": ":red[✗ удалить] "}.get(v, "")
-        cols[-1].markdown(mark + " ".join(f":orange[{f}]" for f in r["flags"]) + (f"  \n_{r['note']}_" if r["note"] else ""))
-
-
-def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
-    import pandas as pd
-
-    cats = ["все"] + sorted({r["cat"] for r in rows}, key=cat_label)
-    c1, c2, c3 = st.columns([2, 2, 3])
-    cat = c1.selectbox("Категория", cats, format_func=lambda c: "Все" if c == "все" else cat_label(c))
-    mode = c2.selectbox("Показать", list(MODES), format_func=MODES.get)
-    q = c3.text_input("Поиск (id или перевод)")
-    sel = filter_rows(rows, mode, cat, q, langs)
-    st.caption(f"Показано {min(len(sel), 300)} из {len(sel)} (всего слов: {len(rows)}).")
-    sel = sel[:300]
-    lcol = {lang_label(l): l for l in langs}
-    df = pd.DataFrame([{"id": r["id"], "Категория": cat_label(r["cat"]), "Часть речи": POS_RU[r["pos"]],
-                        "Ревью": REVIEW_RU[r["review"]],
-                        **{lang_label(l): r["tr"].get(l, "") for l in langs},
-                        "Картинка": r["img"], "Озвучка": ",".join(r["audio"]),
-                        "Флаги": "; ".join(r["flags"])} for r in sel])
-    if df.empty:
+    if not chunk:
         st.info("Нет слов по выбранным условиям.")
         return
+    shown = [l for l in ("ru", "en") if l in langs] + [l for l in langs if l not in ("ru", "en")]
+    lcol = {lang_label(l): l for l in shown}
+    recs = []
+    for r in chunk:
+        e = dec.get(r["id"], {})
+        row = {"Решение": REVIEW_RU[e.get("verdict", "")], "id": r["id"], "Категория": cat_label(r["cat"]),
+               "Возраст": f"{r['age'][0]}–{r['age'][1]}", "Приоритет": r["prio"]}
+        for l in shown:
+            staged = e.get(l) if l in ("ru", "en") else e.get("tr", {}).get(l)
+            row[lang_label(l)] = staged or r["tr"].get(l, "")
+        row.update({"Часть речи": POS_RU[e.get("pos", r["pos"])], "Картинка": r["img"],
+                    "Озвучка": ",".join(r["audio"]), "Заметка": r["note"], "Флаги": "; ".join(r["flags"])})
+        recs.append(row)
+    df = pd.DataFrame(recs)
     key = f"words_ed_{st.session_state.get('words_ver', 0)}"
     edited = st.data_editor(
         df, key=key, hide_index=True, use_container_width=True,
-        disabled=["id", "Категория", "Картинка", "Озвучка", "Флаги"],
+        disabled=["id", "Категория", "Возраст", "Приоритет", "Картинка", "Озвучка", "Заметка", "Флаги"],
         column_config={"Часть речи": st.column_config.SelectboxColumn(options=list(POS_FROM)),
-                       "Ревью": st.column_config.SelectboxColumn(options=list(REVIEW_FROM))})
-    if not st.button("Сохранить правки", type="primary"):
+                       "Решение": st.column_config.SelectboxColumn(options=list(REVIEW_FROM))})
+    if not st.button("Сохранить в черновик", type="primary"):
         return
-    dec, n = load_decisions(root), 0
+    by_id, n = {r["id"]: r for r in chunk}, 0
     for old, new in zip(df.to_dict("records"), edited.to_dict("records")):
-        tr = {c: new[l].strip() for l, c in lcol.items() if new[l].strip() and new[l] != old[l]}
-        pos = POS_FROM[new["Часть речи"]]
-        pos_changed = new["Часть речи"] != old["Часть речи"]
-        if tr or pos_changed:
-            edit_word(root, old["id"], tr=tr, pos=pos if pos_changed else None)
+        r, wid = by_id[old["id"]], old["id"]
+        if new["Решение"] != old["Решение"]:
+            stage(dec, wid, "verdict", REVIEW_FROM.get(new["Решение"], ""))
             n += 1
-        if new["Ревью"] != old["Ревью"]:
-            stage(dec, old["id"], "verdict", REVIEW_FROM.get(new["Ревью"], ""))
+        for lab, code in lcol.items():
+            if new[lab] != old[lab]:
+                stage(dec, wid, code, (new[lab] or "").strip(), r["tr"].get(code, ""))
+                n += 1
+        if new["Часть речи"] != old["Часть речи"]:
+            stage(dec, wid, "pos", POS_FROM[new["Часть речи"]], r["pos"])
             n += 1
     save_decisions(root, dec)
     _bump("words_ver")
-    notify.report("success", f"Сохранено правок: {n}")
+    notify.report("success", f"В черновик: изменений {n}")
     st.rerun()
 
 
@@ -491,7 +452,7 @@ def _check(root: Path, rows: list[dict], langs: list[str]) -> None:
         notify.report("success" if rc == 0 else "error", "Экспорт", details=[out[-2000:]])
     if b[2].button("Применить решения"):
         n = apply_decisions(root)
-        _bump("words_rv")
+        _bump("words_ver")
         notify.report("success", f"Применено: правок {n['edit']}, удалено слов {n['del']}")
         st.rerun()
     st.divider()
@@ -515,9 +476,7 @@ def render() -> None:
         notify.report("error", "Не удалось загрузить словарь", details=[str(exc)])
         return
     langs = langs_of(rows, st.session_state.get("words_langs"))
-    t0, t1, t2, t3 = st.tabs(["Ревью", "Таблица", "Добавить слово", "Проверка и коммит"])
-    with t0:
-        _review(root, rows, langs)
+    t1, t2, t3 = st.tabs(["Таблица", "Добавить слово", "Проверка и коммит"])
     with t1:
         _table(root, rows, langs)
     with t2:
