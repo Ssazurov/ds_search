@@ -423,23 +423,32 @@ def _tb_pager(page: int, pages: int, shown: int, total: int) -> None:
 
 
 _SHIFT_CODE = r"""(function(){
-  let shiftDown=false, last=null, busy=false;
+  let shiftDown=false, last=null, force=false; const skip=new Set();
+  const st=document.createElement('style');
+  st.textContent='[class*="st-key-cmp_pv"] ~ * img, [data-testid="stColumn"]:has([class*="st-key-pv_"]) img{cursor:pointer}';
+  document.head.appendChild(st);
   document.addEventListener('keydown',function(e){if(e.key==='Shift')shiftDown=true;},true);
   document.addEventListener('keyup',function(e){if(e.key==='Shift')shiftDown=false;},true);
   window.addEventListener('blur',function(){shiftDown=false;});
   document.addEventListener('click',function(e){
     const t=e.target;
-    if(busy||!(t instanceof HTMLInputElement)||t.type!=='checkbox')return;
     const sel='[class*="st-key-pv_"] input[type="checkbox"]';
-    if(!t.matches(sel))return;
+    if(t instanceof HTMLImageElement){
+      const col=t.closest('[data-testid="stColumn"]');
+      const cb=col&&col.querySelector(sel);
+      if(cb){force=e.shiftKey||shiftDown;cb.click();force=false;}
+      return;
+    }
+    if(!(t instanceof HTMLInputElement)||t.type!=='checkbox'||!t.matches(sel))return;
+    if(skip.has(t)){skip.delete(t);return;}
     const list=Array.from(document.querySelectorAll(sel));
     const i=list.indexOf(t);
     const j=(last&&document.contains(last))?list.indexOf(last):-1;
-    if((e.shiftKey||shiftDown)&&j>=0&&j!==i){
-      busy=true;
-      const a=Math.min(i,j), b=Math.max(i,j);
-      for(let k=a;k<=b;k++){if(list[k]!==t&&list[k].checked!==t.checked)list[k].click();}
-      busy=false;
+    if((e.shiftKey||shiftDown||force)&&j>=0&&j!==i){
+      const a=Math.min(i,j), b=Math.max(i,j), want=t.checked;
+      let n=0;
+      for(let k=a;k<=b;k++){const el=list[k];
+        if(el!==t&&el.checked!==want){skip.add(el);setTimeout(function(){el.click();},40*(++n));}}
     }
     last=t;
   },true);
@@ -459,6 +468,11 @@ def _selall_cb() -> None:
     else:
         sel -= ids
     st.session_state["tb_selver"] = st.session_state.get("tb_selver", 0) + 1
+
+
+def _mark_all(ids: list[str]) -> None:
+    for i in ids:
+        st.session_state[f"pv_{i}"] = True
 
 
 def _clear_marks(ids: list[str]) -> None:
@@ -483,8 +497,10 @@ def _preview(root: Path, picked_rows: list[dict]) -> None:
     ids = [r["id"] for r in picked_rows]
     marked = sum(bool(st.session_state.get(f"pv_{i}")) for i in ids)
     st.caption(f"Отмечено для перегенерации: {marked} из {len(ids)}")
-    if marked:
-        st.button("Снять отметки", key="pv_clear", on_click=_clear_marks, args=(ids,))
+    with st.container(key="cmp_pvbar"):
+        b1, b2 = st.columns(2, vertical_alignment="center")
+        b1.button("Выбрать все", key="pv_all", on_click=_mark_all, args=(ids,), disabled=marked == len(ids))
+        b2.button("Снять отметки", key="pv_clear", on_click=_clear_marks, args=(ids,), disabled=not marked)
     cols = _grid_cols(len(ids))
     for i in range(0, len(picked_rows), cols):
         for col, r in zip(st.columns(cols, gap="small"), picked_rows[i:i + cols]):
@@ -496,7 +512,7 @@ def _preview(root: Path, picked_rows: list[dict]) -> None:
             col.checkbox(r["tr"].get("ru") or r["id"], key=f"pv_{r['id']}")
     import streamlit.components.v1 as components
     components.html(
-        "<script>(function(){const p=window.parent;if(p.__pvShift)return;p.__pvShift=1;"
+        "<script>(function(){const p=window.parent;if(p.__pvShift2)return;p.__pvShift2=1;"
         "const s=p.document.createElement('script');s.textContent=" + json.dumps(_SHIFT_CODE) + ";"
         "p.document.head.appendChild(s);})();</script>", height=0)
 
