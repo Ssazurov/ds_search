@@ -357,6 +357,16 @@ details [data-testid="stNumberInputContainer"]:focus-within,
 .st-key-cmp_selall [data-testid="stHorizontalBlock"] { align-items: center !important; }
 .st-key-cmp_selall [data-testid="stCaptionContainer"], .st-key-cmp_selall [data-testid="stCheckbox"] { margin: 0 !important; padding: 0 !important; min-height: 0 !important; display: flex; align-items: center; }
 [class*="st-key-pv_"] label { user-select: none; }
+/* Пальцы 👍/👎 в Просмотре: без рамки, размер иконки; выбранный — цветной */
+[class*="st-key-th_up_"] button, [class*="st-key-th_down_"] button { 
+  min-height: 0 !important; height: 24px !important; width: 24px !important; 
+  padding: 0 !important; border: 0 !important; background: transparent !important; 
+  color: #9aa0a6 !important; box-shadow: none !important; }
+[class*="st-key-th_up_"] button:hover, [class*="st-key-th_down_"] button:hover { 
+  background: transparent !important; opacity: 0.7; }
+[class*="st-key-th_up_"], [class*="st-key-th_down_"] { width: auto !important; }
+[class*="st-key-th_up_on_"] button { color: #2e9e4f !important; background: #e6f4ea !important; }
+[class*="st-key-th_down_on_"] button { color: #d93025 !important; background: transparent !important; }
 /* Компактные ряды: cmp_ — подпись слева, cmpv_ — подпись сверху; колонки по ширине содержимого, влево */
 .st-key-tabmain [class*="st-key-cmp"] [data-testid="stHorizontalBlock"] {
   flex-wrap: wrap !important; justify-content: flex-start !important; gap: 0.5rem !important; align-items: flex-end; }
