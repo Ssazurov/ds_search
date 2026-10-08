@@ -637,13 +637,12 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
         _tb_pager(page, pages, len(sel), len(rows))
     sel_set.difference_update(vis_ids)
     sel_set.update(edited.loc[edited["Выбор"], "id"].tolist())
-    picked = [r["id"] for r in rows if r["id"] in sel_set]
+    picked = [r["id"] for r in sel if r["id"] in sel_set]
     with sel_slot:
         st.session_state["tb_selall"] = bool(vis_ids) and all(i in sel_set for i in vis_ids)
         with st.container(key="cmp_selall"):
-            sc1, sc2 = st.columns(2, vertical_alignment="center")
+            sc1, _sc2 = st.columns(2, vertical_alignment="center")
             sc1.checkbox(f"Выбрать все ({len(vis_ids)})", key="tb_selall", on_change=_selall_cb)
-            sc2.caption(f"Выбрано: {len(picked)}")
     marked = [i for i in picked if st.session_state.get(f"pv_{i}")] if st.session_state.get("tb_prev") else []
     targets = marked or picked
     g1, g2, g3 = action_row(3, "words")
@@ -659,7 +658,7 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
         st.rerun()
     save = g3.button("Сохранить в черновик", type="primary", key="words_save_btn")
     if st.session_state.get("tb_prev") and picked:
-        _preview(root, [r for r in rows if r["id"] in sel_set])
+        _preview(root, [r for r in sel if r["id"] in sel_set])
     st.divider()
     _decisions_block(root, dec)
     if not save:
