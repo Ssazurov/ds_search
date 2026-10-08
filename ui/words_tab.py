@@ -319,6 +319,19 @@ def hint_en(text: str) -> str:
     return call_llm(p, load_llm_config(), purpose="news", input_chars=len(text)).strip().strip('"')
 
 
+def record_feedback(root: Path, dec: dict, hints: dict[str, str]) -> None:
+    """Перед перегенерацией: ✓ ок → up, ✗ удалить → down для текущей сцены (registry/feedback.json).
+    Запись живёт отдельно от решений: сброс решения её не стирает."""
+    for wid, h in hints.items():
+        v = {"ok": "up", "del": "down"}.get(dec.get(wid, {}).get("verdict", ""))
+        h = (h or "").strip()
+        if v and h:
+            try:
+                _run(root, sys.executable, "scripts/imggen.py", "feedback", wid, v, hint_en(h))
+            except Exception:
+                pass
+
+
 def run_imggen(root: Path, ids: list[str], hints: dict[str, str] | None = None) -> tuple[int, str]:
     """Генерация/перегенерация картинок (ds_words/scripts/imggen.py, ключ ~/.neuraldeep_key).
     hints {id: подсказка (ru/en)} — переводится на английский и добавляется в промпт."""
@@ -680,7 +693,20 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
             sc1.checkbox(f"Выбрать все ({len(vis_ids)})", key="tb_selall", on_change=_selall_cb)
     marked = [i for i in picked if st.session_state.get(f"pv_{i}")] if st.session_state.get("tb_prev") else []
     targets = marked or picked
-    g1, g2, g3 = action_row(3, "words")
+    g1, g2, g3, g4 = action_row(4, "words")
+    if g4.button(f"Сгенерировать подсказку ({len(targets)})", disabled=not targets, key="words_vis_btn",
+                 help="LLM пишет сцену-подсказку (ru) для выбранных слов; затем правьте и генерируйте картинку"):
+        with st.spinner(f"Подсказки: {len(targets)} шт.…"):
+            record_feedback(root, dec, {i: dec.get(i, {}).get("hint", "") for i in targets})
+            rc, out = _run(root, sys.executable, "scripts/imggen.py", "visual", "--ids", ",".join(targets), "--force")
+            vf = root / "registry" / "visual.json"
+            vis = json.loads(vf.read_text("utf-8")) if vf.exists() else {}
+            for i in targets:
+                if vis.get(i, {}).get("ru"):
+                    stage(dec, i, "hint", vis[i]["ru"])
+            save_decisions(root, dec)
+        notify.report("success" if rc == 0 else "error", "Подсказки", details=[out[-1500:]])
+        st.rerun()
     g1.button("Просмотр", key="words_prev_btn", disabled=not picked, on_click=_toggle_prev,
               type="primary" if st.session_state.get("tb_prev") else "secondary")
     gen_label = (f"Перегенерировать отмеченные ({len(marked)})" if marked
@@ -689,6 +715,7 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
                  help=GEN_HELP):
         hints = dict(zip(edited["id"], (edited["Подсказка"].fillna("").str.strip())))
         with st.spinner(f"Генерация: {len(targets)} шт., по очереди…"):
+            record_feedback(root, dec, {i: h for i, h in hints.items() if i in targets})
             rc, out = run_imggen(root, targets, hints)
         notify.report("success" if rc == 0 else "error", "Генерация картинок", details=[out[-1500:]])
         st.rerun()
