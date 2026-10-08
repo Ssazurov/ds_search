@@ -519,8 +519,8 @@ def _toggle_prev() -> None:
 
 
 def _selall_cb() -> None:
-    """«Выбрать все»: все строки текущего фильтра (на всех страницах)."""
-    ids = set(st.session_state.get("_tb_all", []))
+    """«Выбрать все»: только видимые строки на текущей странице."""
+    ids = set(st.session_state.get("_tb_vis", []))
     sel = st.session_state.setdefault("tb_sel", set())
     if st.session_state.get("tb_selall"):
         sel |= ids
@@ -712,10 +712,10 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
     sel_set.update(edited.loc[edited["Выбор"], "id"].tolist())
     picked = [r["id"] for r in sel if r["id"] in sel_set]
     with sel_slot:
-        st.session_state["tb_selall"] = bool(sel) and all(r["id"] in sel_set for r in sel)
+        st.session_state["tb_selall"] = bool(vis_ids) and all(i in sel_set for i in vis_ids)
         with st.container(key="cmp_selall"):
             sc1, _sc2 = st.columns(2, vertical_alignment="center")
-            sc1.checkbox(f"Выбрать все ({len(sel)})", key="tb_selall", on_change=_selall_cb)
+            sc1.checkbox(f"Выбрать все ({len(vis_ids)})", key="tb_selall", on_change=_selall_cb)
     marked = [i for i in picked if st.session_state.get(f"pv_{i}")] if st.session_state.get("tb_prev") else []
     targets = marked or picked
     g1, g2, g3, g4 = action_row(4, "words")
