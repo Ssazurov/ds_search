@@ -422,55 +422,83 @@ def _tb_pager(page: int, pages: int, shown: int, total: int) -> None:
             st.caption(f"{shown} из {total} · стр. {page} из {pages}")
 
 
-_PREVIEW_HTML = """<!doctype html><html><head><meta charset="utf-8"><style>
-html,body{margin:0;height:100%;background:transparent;font-family:sans-serif}
-#g{display:grid;width:100%;height:100vh;gap:8px}
-.c{display:flex;flex-direction:column;align-items:center;min-width:0;min-height:0}
-.c img{flex:1 1 0;min-height:0;width:100%;object-fit:contain}
-.c .no{flex:1 1 0;display:flex;align-items:center;color:#888;font-size:13px}
-.c span{flex:0 0 22px;line-height:22px;font-size:13px;color:#888;white-space:nowrap;overflow:hidden;
-  text-overflow:ellipsis;max-width:100%}
-</style></head><body><div id="g">__CELLS__</div><script>
-const g=document.getElementById('g'), n=g.children.length;
-function fit(){
-  const W=innerWidth, H=innerHeight, cap=22, gap=8;
-  let best=1, bs=0;
-  for(let c=1;c<=n;c++){
-    const r=Math.ceil(n/c);
-    const s=Math.min((W-gap*(c-1))/c, (H-gap*(r-1))/r-cap);
-    if(s>bs){bs=s;best=c;}
-  }
-  g.style.gridTemplateColumns='repeat('+best+',1fr)';
-  g.style.gridTemplateRows='repeat('+Math.ceil(n/best)+',1fr)';
-}
-addEventListener('resize',fit); fit();
-</script></body></html>"""
+_SHIFT_CODE = r"""(function(){
+  let shiftDown=false, last=null, busy=false;
+  document.addEventListener('keydown',function(e){if(e.key==='Shift')shiftDown=true;},true);
+  document.addEventListener('keyup',function(e){if(e.key==='Shift')shiftDown=false;},true);
+  window.addEventListener('blur',function(){shiftDown=false;});
+  document.addEventListener('click',function(e){
+    const t=e.target;
+    if(busy||!(t instanceof HTMLInputElement)||t.type!=='checkbox')return;
+    const sel='[class*="st-key-pv_"] input[type="checkbox"]';
+    if(!t.matches(sel))return;
+    const list=Array.from(document.querySelectorAll(sel));
+    const i=list.indexOf(t);
+    const j=(last&&document.contains(last))?list.indexOf(last):-1;
+    if((e.shiftKey||shiftDown)&&j>=0&&j!==i){
+      busy=true;
+      const a=Math.min(i,j), b=Math.max(i,j);
+      for(let k=a;k<=b;k++){if(list[k]!==t&&list[k].checked!==t.checked)list[k].click();}
+      busy=false;
+    }
+    last=t;
+  },true);
+})();"""
 
 
 def _toggle_prev() -> None:
     st.session_state["tb_prev"] = not st.session_state.get("tb_prev", False)
 
 
-def _preview(root: Path, picked_rows: list[dict]) -> None:
-    """Поле предпросмотра: карточки в ячейках невидимой сетки, число колонок подбирается
-    так, чтобы картинки были максимально крупными."""
-    import base64
-    import html as _html
-    import mimetypes
-    import streamlit.components.v1 as components
+def _selall_cb() -> None:
+    """«Выбрать все»: все видимые в таблице строки; выбор копится между страницами."""
+    ids = set(st.session_state.get("_tb_vis", []))
+    sel = st.session_state.setdefault("tb_sel", set())
+    if st.session_state.get("tb_selall"):
+        sel |= ids
+    else:
+        sel -= ids
+    st.session_state["tb_selver"] = st.session_state.get("tb_selver", 0) + 1
 
-    cells = []
-    for r in picked_rows:
-        name = _html.escape(r["tr"].get("ru") or r["id"])
-        f = root / r["img"] if r["img"] else None
-        if f is not None and f.is_file():
-            mime = mimetypes.guess_type(f.name)[0] or "image/png"
-            src = f"data:{mime};base64," + base64.b64encode(f.read_bytes()).decode()
-            body = f'<img src="{src}">'
-        else:
-            body = '<div class="no">нет картинки</div>'
-        cells.append(f'<div class="c">{body}<span>{name}</span></div>')
-    components.html(_PREVIEW_HTML.replace("__CELLS__", "".join(cells)), height=640)
+
+def _clear_marks(ids: list[str]) -> None:
+    for i in ids:
+        st.session_state[f"pv_{i}"] = False
+
+
+def _grid_cols(n: int, w: int = 1100, h: int = 700, cap: int = 48, gap: int = 16) -> int:
+    """Число колонок сетки, при котором квадратные карточки максимально крупные."""
+    best, best_s = 1, 0.0
+    for c in range(1, n + 1):
+        r = -(-n // c)
+        size = min((w - gap * (c - 1)) / c, (h - gap * (r - 1)) / r - cap)
+        if size > best_s:
+            best, best_s = c, size
+    return best
+
+
+def _preview(root: Path, picked_rows: list[dict]) -> None:
+    """Поле просмотра: карточки выбранных слов в невидимой сетке, у каждой флажок «отметить
+    для перегенерации» (ключ pv_<id>)."""
+    ids = [r["id"] for r in picked_rows]
+    marked = sum(bool(st.session_state.get(f"pv_{i}")) for i in ids)
+    st.caption(f"Отмечено для перегенерации: {marked} из {len(ids)}")
+    if marked:
+        st.button("Снять отметки", key="pv_clear", on_click=_clear_marks, args=(ids,))
+    cols = _grid_cols(len(ids))
+    for i in range(0, len(picked_rows), cols):
+        for col, r in zip(st.columns(cols, gap="small"), picked_rows[i:i + cols]):
+            f = root / r["img"] if r["img"] else None
+            if f is not None and f.is_file():
+                col.image(f.read_bytes(), width="stretch")
+            else:
+                col.caption("нет картинки")
+            col.checkbox(r["tr"].get("ru") or r["id"], key=f"pv_{r['id']}")
+    import streamlit.components.v1 as components
+    components.html(
+        "<script>(function(){const p=window.parent;if(p.__pvShift)return;p.__pvShift=1;"
+        "const s=p.document.createElement('script');s.textContent=" + json.dumps(_SHIFT_CODE) + ";"
+        "p.document.head.appendChild(s);})();</script>", height=0)
 
 
 def _decisions_block(root: Path, dec: dict) -> None:
@@ -516,22 +544,23 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
                  "tb_prio": [0, 1, 2, 3], "tb_pos": ["", *POS], "tb_img": ["", "есть", "нет"],
                  "tb_aud": ["", "есть", "нет"], "tb_age": ["", *ages], "tb_size": [20, 50, 100, 0]})
     with st.container(key="cmpv_words"):
-        c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
+        c1, c2, c3, c4, c5, c6, c7, c8 = st.columns(8)
         q = c1.text_input("Поиск (id или перевод)", key="tb_q")
         cat = c2.selectbox("Категория", cats, key="tb_cat", width=220,
                            format_func=lambda x: "Все" if x == "все" else cat_label(x))
-        mode = c3.selectbox("Показать", list(MODES), key="tb_mode", width=170, format_func=MODES.get)
-        verdict = c4.selectbox("Решение", ["", "none", "ok", "del"], key="tb_ver", width=170,
+        img = c3.selectbox("Картинка", ["", "есть", "нет"], key="tb_img", width=120,
+                           format_func=lambda x: x or "Все")
+        mode = c4.selectbox("Показать", list(MODES), key="tb_mode", width=170, format_func=MODES.get)
+        verdict = c5.selectbox("Решение", ["", "none", "ok", "del"], key="tb_ver", width=170,
                                format_func=lambda x: {"": "Все", "none": "Без решения"}.get(x) or REVIEW_RU[x])
-        prio = c5.selectbox("Приоритет", [0, 1, 2, 3], key="tb_prio", width=120,
+        prio = c6.selectbox("Приоритет", [0, 1, 2, 3], key="tb_prio", width=120,
                             format_func=lambda x: str(x) if x else "Все")
-        with c6.popover("⚙️", help="Дополнительные фильтры"):
+        with c7.popover("⚙️", help="Дополнительные фильтры"):
             pos = st.selectbox("Часть речи", ["", *POS], key="tb_pos", format_func=lambda x: POS_RU.get(x, "Все"))
-            img = st.selectbox("Картинка", ["", "есть", "нет"], key="tb_img", format_func=lambda x: x or "Все")
             aud = st.selectbox("Озвучка", ["", "есть", "нет"], key="tb_aud", format_func=lambda x: x or "Все")
             age = st.selectbox("Возраст", ["", *ages], key="tb_age", format_func=lambda x: x or "Все")
             only_fl = st.checkbox("Только спорные", key="tb_fl")
-        c7.button("Сбросить", key="tb_reset", on_click=_reset_tb)
+        c8.button("Сбросить", key="tb_reset", on_click=_reset_tb)
     sel = filter_rows(rows, mode, cat, q, langs, pos=pos, prio=prio, img=img, aud=aud, verdict=verdict, age=age)
     if only_fl:
         sel = [r for r in sel if r["flags"]]
@@ -566,8 +595,15 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
                     "Озвучка": ",".join(r["audio"]), "Заметка": r["note"], "Флаги": "; ".join(r["flags"])})
         recs.append(row)
     df = pd.DataFrame(recs)
-    df.insert(0, "Выбор", False)
-    key = f"words_ed_{st.session_state.get('words_ver', 0)}"
+    import hashlib
+
+    sel_set = st.session_state.setdefault("tb_sel", set())
+    vis_ids = [r["id"] for r in chunk]
+    st.session_state["_tb_vis"] = vis_ids
+    df.insert(0, "Выбор", df["id"].isin(sel_set))
+    sig = hashlib.md5("|".join(vis_ids).encode()).hexdigest()[:8]
+    key = f"words_ed_{st.session_state.get('words_ver', 0)}_{st.session_state.get('tb_selver', 0)}_{sig}"
+    sel_slot = st.container()
     tbl, cap_col, gear_col = table_slots("words")
     order, config, sort = column_settings(
         "words", {c: c for c in df.columns},
@@ -583,19 +619,31 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
         disabled=["id", "Категория", "Возраст", "Приоритет", "Картинка", "Озвучка", "Заметка", "Флаги"])
     with cap_col:
         _tb_pager(page, pages, len(sel), len(rows))
-    picked = edited.loc[edited["Выбор"], "id"].tolist()
+    sel_set.difference_update(vis_ids)
+    sel_set.update(edited.loc[edited["Выбор"], "id"].tolist())
+    picked = [r["id"] for r in rows if r["id"] in sel_set]
+    with sel_slot:
+        st.session_state["tb_selall"] = bool(vis_ids) and all(i in sel_set for i in vis_ids)
+        with st.container(key="cmp_selall"):
+            sc1, sc2 = st.columns(2, vertical_alignment="center")
+            sc1.checkbox(f"Выбрать все ({len(vis_ids)})", key="tb_selall", on_change=_selall_cb)
+            sc2.caption(f"Выбрано: {len(picked)}")
+    marked = [i for i in picked if st.session_state.get(f"pv_{i}")] if st.session_state.get("tb_prev") else []
+    targets = marked or picked
     g1, g2, g3 = action_row(3, "words")
     g1.button("Просмотр", key="words_prev_btn", disabled=not picked, on_click=_toggle_prev,
               type="primary" if st.session_state.get("tb_prev") else "secondary")
-    if g2.button(f"Сгенерировать картинку ({len(picked)})", disabled=not picked, key="words_gen_btn",
+    gen_label = (f"Перегенерировать отмеченные ({len(marked)})" if marked
+                 else f"Сгенерировать картинку ({len(picked)})")
+    if g2.button(gen_label, disabled=not targets, key="words_gen_btn",
                  help=GEN_HELP):
-        with st.spinner(f"Генерация: {len(picked)} шт., по очереди…"):
-            rc, out = run_imggen(root, picked)
+        with st.spinner(f"Генерация: {len(targets)} шт., по очереди…"):
+            rc, out = run_imggen(root, targets)
         notify.report("success" if rc == 0 else "error", "Генерация картинок", details=[out[-1500:]])
         st.rerun()
     save = g3.button("Сохранить в черновик", type="primary", key="words_save_btn")
     if st.session_state.get("tb_prev") and picked:
-        _preview(root, [r for r in chunk if r["id"] in picked])
+        _preview(root, [r for r in rows if r["id"] in sel_set])
     st.divider()
     _decisions_block(root, dec)
     if not save:
