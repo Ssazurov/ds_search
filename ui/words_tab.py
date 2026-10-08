@@ -78,7 +78,7 @@ def load_rows(root: Path) -> tuple[list[dict], list[str]]:
     for w in words:
         img, aud = W.media(w["id"])
         rows.append({"id": w["id"], "cat": w["category"], "pos": w["pos"], "prio": w["prio"],
-                     "age": w["age"], "note": w.get("note") or "",
+                     "age": w["age"], "note": w.get("note") or "", "hint": w.get("hint") or "",
                      "tr": w["tr"], "flags": flags.get(w["id"], []), "img": img or "",
                      "audio": sorted(aud), "review": dec.get(w["id"], {}).get("verdict", "")})
     return rows, langs_of(rows)
@@ -137,7 +137,7 @@ def clean_entry(e) -> dict:
         out["verdict"] = e["verdict"]
     if e.get("pos") in POS:
         out["pos"] = e["pos"]
-    for k in ("ru", "en"):
+    for k in ("ru", "en", "note", "hint"):
         if isinstance(e.get(k), str) and e[k].strip():
             out[k] = e[k].strip()
     tr = {k: v.strip() for k, v in (e.get("tr") or {}).items()
@@ -168,7 +168,7 @@ def decisions_json(dec: dict[str, dict]) -> str:
 def stage(dec: dict, wid: str, field: str, value: str, orig: str = "") -> dict:
     """Записать правку поля; значение пустое или равное исходному — правка снимается."""
     e = dec.setdefault(wid, {})
-    box = e if field in ("verdict", "pos", "ru", "en") else e.setdefault("tr", {})
+    box = e if field in ("verdict", "pos", "ru", "en", "note", "hint") else e.setdefault("tr", {})
     if value and value != orig:
         box[field] = value
     else:
@@ -227,8 +227,16 @@ def _set_tr(line: str, lang: str, text: str) -> str:
     return line[:m.start()] + "tr: {" + body + "}" + line[m.end():]
 
 
+def _set_field(line: str, key: str, val: str) -> str:
+    """Задать скаляр key в строке-flow-mapping {id: .., ...}; старое значение убирается."""
+    line = re.sub(r',\s*%s:\s*("(?:[^"\\]|\\.)*"|[^,}]*)' % key, "", line, count=1)
+    i = line.rfind("}")
+    return line[:i] + ", %s: %s" % (key, json.dumps(val, ensure_ascii=False)) + line[i:]
+
+
 def edit_word(root: Path, wid: str, *, tr: dict[str, str] | None = None,
-              pos: str | None = None, delete: bool = False) -> bool:
+              pos: str | None = None, delete: bool = False, note: str | None = None,
+              hint: str | None = None) -> bool:
     pat = re.compile(r'\{id: "?%s"?,' % re.escape(wid))
     found = False
     for f in sorted((root / "words").glob("*.yaml")):
@@ -242,6 +250,10 @@ def edit_word(root: Path, wid: str, *, tr: dict[str, str] | None = None,
                     ln = _set_tr(ln, lang, t)
                 if pos:
                     ln = re.sub(r"pos: \w+", "pos: " + pos, ln, count=1)
+                if note:
+                    ln = _set_field(ln, "note", note)
+                if hint:
+                    ln = _set_field(ln, "hint", hint)
             out.append(ln)
         if changed:
             f.write_bytes("\n".join(out).encode("utf-8"))
@@ -278,8 +290,9 @@ def apply_decisions(root: Path) -> dict[str, int]:
             n["del"] += int(edit_word(root, wid, delete=True))
             continue
         tr = {k: e[k] for k in ("ru", "en") if k in e} | e.get("tr", {})
-        if tr or e.get("pos"):
-            n["edit"] += int(edit_word(root, wid, tr=tr, pos=e.get("pos")))
+        if tr or e.get("pos") or e.get("note") or e.get("hint"):
+            n["edit"] += int(edit_word(root, wid, tr=tr, pos=e.get("pos"),
+                                       note=e.get("note"), hint=e.get("hint")))
         if e.get("verdict"):
             keep[wid] = {"verdict": e["verdict"]}
     save_decisions(root, keep)
@@ -297,9 +310,29 @@ def run_validate(root: Path) -> tuple[int, str]:
     return _run(root, sys.executable, "scripts/words.py", "validate")
 
 
-def run_imggen(root: Path, ids: list[str]) -> tuple[int, str]:
-    """Генерация/перегенерация картинок (ds_words/scripts/imggen.py, ключ ~/.neuraldeep_key)."""
-    return _run(root, sys.executable, "scripts/imggen.py", "gen", "--ids", ",".join(ids), "--force")
+def hint_en(text: str) -> str:
+    """Подсказка для картинки: русский → английский (LLM), английский как есть."""
+    if not re.search("[а-яё]", text, re.I):
+        return text
+    from src.news.llm_draft import call_llm, load_llm_config
+    p = "Translate to English for an image-generation prompt. Output only the translation, no quotes:\n" + text
+    return call_llm(p, load_llm_config(), purpose="news", input_chars=len(text)).strip().strip('"')
+
+
+def run_imggen(root: Path, ids: list[str], hints: dict[str, str] | None = None) -> tuple[int, str]:
+    """Генерация/перегенерация картинок (ds_words/scripts/imggen.py, ключ ~/.neuraldeep_key).
+    hints {id: подсказка (ru/en)} — переводится на английский и добавляется в промпт."""
+    cmd = [sys.executable, "scripts/imggen.py", "gen", "--ids", ",".join(ids), "--force"]
+    hints = {i: h for i, h in (hints or {}).items() if i in ids and h}
+    if not hints:
+        return _run(root, *cmd)
+    import tempfile
+    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as f:
+        json.dump({i: hint_en(h) for i, h in hints.items()}, f, ensure_ascii=False)
+    try:
+        return _run(root, *cmd, "--hints", f.name)
+    finally:
+        os.unlink(f.name)
 
 
 def run_export(root: Path) -> tuple[int, str]:
@@ -608,7 +641,8 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
             staged = e.get(l) if l in ("ru", "en") else e.get("tr", {}).get(l)
             row[lang_label(l)] = staged or r["tr"].get(l, "")
         row.update({"Часть речи": POS_RU[e.get("pos", r["pos"])], "Картинка": img_uri(r["img"]),
-                    "Озвучка": ",".join(r["audio"]), "Заметка": r["note"], "Флаги": "; ".join(r["flags"])})
+                    "Озвучка": ",".join(r["audio"]), "Заметка": e.get("note", r["note"]),
+                    "Подсказка": e.get("hint", r["hint"]), "Флаги": "; ".join(r["flags"])})
         recs.append(row)
     df = pd.DataFrame(recs)
     import hashlib
@@ -626,13 +660,14 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
         {"Часть речи": st.column_config.SelectboxColumn(options=list(POS_FROM)),
          "Решение": st.column_config.SelectboxColumn(options=list(REVIEW_FROM)),
          "Выбор": st.column_config.CheckboxColumn("Выбор", width="small"),
+         "Подсказка": st.column_config.TextColumn("Подсказка", help="Доп. описание для картинки; русский переводится на английский"),
          "Картинка": st.column_config.LinkColumn("Картинка", display_text=":material/image:", width="small")},
         pinned=("Выбор", "Решение", "id"), host=gear_col)
     if sort:
         df = df.sort_values(sort[0], ascending=sort[1], kind="stable")
     edited = tbl.data_editor(
         df, key=key, hide_index=True, use_container_width=True, column_order=order, column_config=config,
-        disabled=["id", "Категория", "Возраст", "Приоритет", "Картинка", "Озвучка", "Заметка", "Флаги"])
+        disabled=["id", "Категория", "Возраст", "Приоритет", "Картинка", "Озвучка", "Флаги"])
     with cap_col:
         _tb_pager(page, pages, len(sel), len(rows))
     sel_set.difference_update(vis_ids)
@@ -652,8 +687,9 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
                  else f"Сгенерировать картинку ({len(picked)})")
     if g2.button(gen_label, disabled=not targets, key="words_gen_btn",
                  help=GEN_HELP):
+        hints = dict(zip(edited["id"], (edited["Подсказка"].fillna("").str.strip())))
         with st.spinner(f"Генерация: {len(targets)} шт., по очереди…"):
-            rc, out = run_imggen(root, targets)
+            rc, out = run_imggen(root, targets, hints)
         notify.report("success" if rc == 0 else "error", "Генерация картинок", details=[out[-1500:]])
         st.rerun()
     save = g3.button("Сохранить в черновик", type="primary", key="words_save_btn")
@@ -672,6 +708,11 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
         for lab, code in lcol.items():
             if new[lab] != old[lab]:
                 stage(dec, wid, code, (new[lab] or "").strip(), r["tr"].get(code, ""))
+                n += 1
+        for lab, fld in (("Заметка", "note"), ("Подсказка", "hint")):
+            nv, ov = (new[lab] or "").strip(), (old[lab] or "").strip()
+            if nv != ov:
+                stage(dec, wid, fld, nv, r[fld])
                 n += 1
         if new["Часть речи"] != old["Часть речи"]:
             stage(dec, wid, "pos", POS_FROM[new["Часть речи"]], r["pos"])
