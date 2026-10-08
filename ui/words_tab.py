@@ -319,17 +319,30 @@ def hint_en(text: str) -> str:
     return call_llm(p, load_llm_config(), purpose="news", input_chars=len(text)).strip().strip('"')
 
 
-def record_feedback(root: Path, dec: dict, hints: dict[str, str]) -> None:
-    """Перед перегенерацией: ✓ ок → up, ✗ удалить → down для текущей сцены (registry/feedback.json).
-    Запись живёт отдельно от решений: сброс решения её не стирает."""
+def record_feedback(root: Path, reg: dict, hints: dict[str, str]) -> None:
+    """Перед перегенерацией: если у картинки стоит голос (👍/👎 в Просмотре), фиксируем текущую
+    сцену в историю registry/feedback.json. Сам голос в registry/images.json не трогаем —
+    он сбросится сам, когда картинку перезапишет новая генерация."""
     for wid, h in hints.items():
-        v = {"ok": "up", "del": "down"}.get(dec.get(wid, {}).get("verdict", ""))
+        v = reg.get(wid, {}).get("vote")
         h = (h or "").strip()
         if v and h:
             try:
                 _run(root, sys.executable, "scripts/imggen.py", "feedback", wid, v, hint_en(h))
             except Exception:
                 pass
+
+
+def load_images_reg(root: Path) -> dict:
+    f = root / "registry" / "images.json"
+    return json.loads(f.read_text("utf-8")) if f.exists() else {}
+
+
+def set_vote(root: Path, wid: str, v: str, scene: str = "") -> None:
+    cmd = [sys.executable, "scripts/imggen.py", "vote", wid, v or "clear"]
+    if scene:
+        cmd += ["--scene", scene]
+    _run(root, *cmd)
 
 
 def run_imggen(root: Path, ids: list[str], hints: dict[str, str] | None = None) -> tuple[int, str]:
@@ -437,7 +450,7 @@ def _tb_set_page(p: int) -> None:
 
 
 def _tb_pager(page: int, pages: int, shown: int, total: int) -> None:
-    """Одна строка: ‹ 1 … 4 [5] 6 … 20 › + размер страницы (20/50/100/Все); счётчик ниже."""
+    """Одна строка: ‹ 1 … 4 [5] 6 … 20 › + размер страницы (5/10/20/50/100/Все); счётчик ниже."""
     items: list = []
     if pages > 1:
         nums = sorted({1, pages, page - 1, page, page + 1} & set(range(1, pages + 1)))
@@ -459,7 +472,7 @@ def _tb_pager(page: int, pages: int, shown: int, total: int) -> None:
                     col.button("›", key="tb_pg_next", disabled=page >= pages, on_click=_tb_set_page, args=(page + 1,))
                 elif it == "size":
                     with col.container(key="pgsize"):
-                        st.segmented_control("На странице", [20, 50, 100, 0], default=50, key="tb_size",
+                        st.segmented_control("На странице", [5, 10, 20, 50, 100, 0], default=50, key="tb_size",
                                              format_func=lambda x: str(x) if x else "Все", label_visibility="collapsed")
                 else:
                     col.button(str(it), key=f"tb_pg_{it}", on_click=_tb_set_page, args=(it,),
@@ -506,8 +519,8 @@ def _toggle_prev() -> None:
 
 
 def _selall_cb() -> None:
-    """«Выбрать все»: все видимые в таблице строки; выбор копится между страницами."""
-    ids = set(st.session_state.get("_tb_vis", []))
+    """«Выбрать все»: все строки текущего фильтра (на всех страницах)."""
+    ids = set(st.session_state.get("_tb_all", []))
     sel = st.session_state.setdefault("tb_sel", set())
     if st.session_state.get("tb_selall"):
         sel |= ids
@@ -526,20 +539,15 @@ def _clear_marks(ids: list[str]) -> None:
         st.session_state[f"pv_{i}"] = False
 
 
-def _grid_cols(n: int, w: int = 1100, h: int = 700, cap: int = 48, gap: int = 16) -> int:
-    """Число колонок сетки, при котором квадратные карточки максимально крупные."""
-    best, best_s = 1, 0.0
-    for c in range(1, n + 1):
-        r = -(-n // c)
-        size = min((w - gap * (c - 1)) / c, (h - gap * (r - 1)) / r - cap)
-        if size > best_s:
-            best, best_s = c, size
-    return best
+def _grid_cols(n: int, w: int = 1100, h: int = 700, cap: int = 48, gap: int = 16, max_cols: int = 5) -> int:
+    """Число колонок сетки (не больше max_cols), при котором квадратные карточки максимально крупные."""
+    return min(n, max_cols)
 
 
 def _preview(root: Path, picked_rows: list[dict]) -> None:
     """Поле просмотра: карточки выбранных слов в невидимой сетке, у каждой флажок «отметить
-    для перегенерации» (ключ pv_<id>)."""
+    для перегенерации» (ключ pv_<id>) и пальцы 👍/👎 (ключ th_<id>) — голос за текущую картинку,
+    хранится в registry/images.json и сам сбрасывается при следующей генерации."""
     ids = [r["id"] for r in picked_rows]
     marked = sum(bool(st.session_state.get(f"pv_{i}")) for i in ids)
     st.caption(f"Отмечено для перегенерации: {marked} из {len(ids)}")
@@ -547,15 +555,26 @@ def _preview(root: Path, picked_rows: list[dict]) -> None:
         b1, b2 = st.columns(2, vertical_alignment="center")
         b1.button("Выбрать все", key="pv_all", on_click=_mark_all, args=(ids,), disabled=marked == len(ids))
         b2.button("Снять отметки", key="pv_clear", on_click=_clear_marks, args=(ids,), disabled=not marked)
+    reg = load_images_reg(root)
     cols = _grid_cols(len(ids))
     for i in range(0, len(picked_rows), cols):
         for col, r in zip(st.columns(cols, gap="small"), picked_rows[i:i + cols]):
             f = root / r["img"] if r["img"] else None
             if f is not None and f.is_file():
-                col.image(f.read_bytes(), width="stretch")
+                col.image(f.read_bytes(), width=150)
             else:
                 col.caption("нет картинки")
-            col.checkbox(r["tr"].get("ru") or r["id"], key=f"pv_{r['id']}")
+            vote = reg.get(r["id"], {}).get("vote")
+            row_cols = col.columns([6, 1, 1], gap="small", vertical_alignment="center")
+            row_cols[0].checkbox(r["tr"].get("ru") or r["id"], key=f"pv_{r['id']}")
+            if row_cols[1].button("", icon=":material/thumb_up:", type="tertiary",
+                                  key=f"th_up_{'on_' if vote == 'up' else ''}{r['id']}", disabled=not r["img"]):
+                set_vote(root, r["id"], "" if vote == "up" else "up")
+                st.rerun()
+            if row_cols[2].button("", icon=":material/thumb_down:", type="tertiary",
+                                  key=f"th_down_{'on_' if vote == 'down' else ''}{r['id']}", disabled=not r["img"]):
+                set_vote(root, r["id"], "" if vote == "down" else "down")
+                st.rerun()
     import streamlit.components.v1 as components
     components.html(
         "<script>(function(){const p=window.parent;if(p.__pvShift2)return;p.__pvShift2=1;"
@@ -604,7 +623,7 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
     ages = sorted({f"{r['age'][0]}–{r['age'][1]}" for r in rows})
     _tb_restore({"tb_cat": cats, "tb_mode": list(MODES), "tb_ver": ["", "none", "ok", "del"],
                  "tb_prio": [0, 1, 2, 3], "tb_pos": ["", *POS], "tb_img": ["", "есть", "нет"],
-                 "tb_aud": ["", "есть", "нет"], "tb_age": ["", *ages], "tb_size": [20, 50, 100, 0]})
+                 "tb_aud": ["", "есть", "нет"], "tb_age": ["", *ages], "tb_size": [5, 10, 20, 50, 100, 0]})
     with st.container(key="cmpv_words"):
         c1, c2, c3, c4, c5, c6, c7, c8 = st.columns(8)
         q = c1.text_input("Поиск (id или перевод)", key="tb_q")
@@ -631,10 +650,15 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
     size = size or max(1, len(sel))
     pages = max(1, -(-len(sel) // size))
     sig = (mode, cat, q, pos, prio, img, aud, verdict, age, only_fl, size)
-    if st.session_state.get("tb_sig") != sig:
+    old_sig = st.session_state.get("tb_sig")
+    old_page = st.session_state.get("tb_page", 1)
+    if old_sig != sig:
         st.session_state["tb_sig"] = sig
         st.session_state["tb_page"] = 1
+        st.session_state["tb_sel"] = set()
     page = min(max(1, st.session_state.get("tb_page", 1)), pages)
+    if old_sig == sig and old_page != page:
+        st.session_state["tb_sel"] = set()
     chunk = sel[(page - 1) * size: page * size]
     _tb_save()
 
@@ -663,6 +687,7 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
     sel_set = st.session_state.setdefault("tb_sel", set())
     vis_ids = [r["id"] for r in chunk]
     st.session_state["_tb_vis"] = vis_ids
+    st.session_state["_tb_all"] = [r["id"] for r in sel]
     df.insert(0, "Выбор", df["id"].isin(sel_set))
     sig = hashlib.md5("|".join(vis_ids).encode()).hexdigest()[:8]
     key = f"words_ed_{st.session_state.get('words_ver', 0)}_{st.session_state.get('tb_selver', 0)}_{sig}"
@@ -687,17 +712,17 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
     sel_set.update(edited.loc[edited["Выбор"], "id"].tolist())
     picked = [r["id"] for r in sel if r["id"] in sel_set]
     with sel_slot:
-        st.session_state["tb_selall"] = bool(vis_ids) and all(i in sel_set for i in vis_ids)
+        st.session_state["tb_selall"] = bool(sel) and all(r["id"] in sel_set for r in sel)
         with st.container(key="cmp_selall"):
             sc1, _sc2 = st.columns(2, vertical_alignment="center")
-            sc1.checkbox(f"Выбрать все ({len(vis_ids)})", key="tb_selall", on_change=_selall_cb)
+            sc1.checkbox(f"Выбрать все ({len(sel)})", key="tb_selall", on_change=_selall_cb)
     marked = [i for i in picked if st.session_state.get(f"pv_{i}")] if st.session_state.get("tb_prev") else []
     targets = marked or picked
     g1, g2, g3, g4 = action_row(4, "words")
     if g4.button(f"Сгенерировать подсказку ({len(targets)})", disabled=not targets, key="words_vis_btn",
                  help="LLM пишет сцену-подсказку (ru) для выбранных слов; затем правьте и генерируйте картинку"):
         with st.spinner(f"Подсказки: {len(targets)} шт.…"):
-            record_feedback(root, dec, {i: dec.get(i, {}).get("hint", "") for i in targets})
+            record_feedback(root, load_images_reg(root), {i: dec.get(i, {}).get("hint", "") for i in targets})
             rc, out = _run(root, sys.executable, "scripts/imggen.py", "visual", "--ids", ",".join(targets), "--force")
             vf = root / "registry" / "visual.json"
             vis = json.loads(vf.read_text("utf-8")) if vf.exists() else {}
@@ -715,7 +740,7 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
                  help=GEN_HELP):
         hints = dict(zip(edited["id"], (edited["Подсказка"].fillna("").str.strip())))
         with st.spinner(f"Генерация: {len(targets)} шт., по очереди…"):
-            record_feedback(root, dec, {i: h for i, h in hints.items() if i in targets})
+            record_feedback(root, load_images_reg(root), {i: h for i, h in hints.items() if i in targets})
             rc, out = run_imggen(root, targets, hints)
         notify.report("success" if rc == 0 else "error", "Генерация картинок", details=[out[-1500:]])
         st.rerun()
