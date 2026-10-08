@@ -354,6 +354,9 @@ details [data-testid="stNumberInputContainer"]:focus-within,
 .st-key-tabmain [class*="st-key-colfoot_"] .st-key-pgnums [data-testid="stHorizontalBlock"] { gap: 4px !important; flex-wrap: nowrap !important; align-items: center; justify-content: flex-start; }
 .st-key-tabmain [class*="st-key-colfoot_"] .st-key-pgnums [data-testid="stColumn"]:is(:first-child, :last-child, :nth-child(n)) { flex: 0 0 auto !important; width: auto !important; min-width: 0 !important; display: block; justify-content: flex-start; }
 .st-key-tabmain [class*="st-key-colfoot_"] .st-key-pgnums button { min-height: 32px !important; padding: 0 8px !important; }
+.st-key-cmp_selall [data-testid="stHorizontalBlock"] { align-items: center !important; }
+.st-key-cmp_selall [data-testid="stCaptionContainer"], .st-key-cmp_selall [data-testid="stCheckbox"] { margin: 0 !important; padding: 0 !important; min-height: 0 !important; display: flex; align-items: center; }
+[class*="st-key-pv_"] label { user-select: none; }
 /* Компактные ряды: cmp_ — подпись слева, cmpv_ — подпись сверху; колонки по ширине содержимого, влево */
 .st-key-tabmain [class*="st-key-cmp"] [data-testid="stHorizontalBlock"] {
   flex-wrap: wrap !important; justify-content: flex-start !important; gap: 0.5rem !important; align-items: flex-end; }
