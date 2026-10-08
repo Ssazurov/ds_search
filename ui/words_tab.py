@@ -651,14 +651,11 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
     pages = max(1, -(-len(sel) // size))
     sig = (mode, cat, q, pos, prio, img, aud, verdict, age, only_fl, size)
     old_sig = st.session_state.get("tb_sig")
-    old_page = st.session_state.get("tb_page", 1)
     if old_sig != sig:
         st.session_state["tb_sig"] = sig
         st.session_state["tb_page"] = 1
         st.session_state["tb_sel"] = set()
     page = min(max(1, st.session_state.get("tb_page", 1)), pages)
-    if old_sig == sig and old_page != page:
-        st.session_state["tb_sel"] = set()
     chunk = sel[(page - 1) * size: page * size]
     _tb_save()
 
