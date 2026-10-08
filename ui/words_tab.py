@@ -386,47 +386,94 @@ def _reset_tb() -> None:
         st.session_state.pop(k, None)
 
 
-def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
-    import pandas as pd
+def _tb_set_page(p: int) -> None:
+    st.session_state["tb_page"] = p
 
-    dec = load_decisions(root)
-    c = counts(dec)
-    st.caption(f"✓ ок: {c['ok']} · ✗ удалить: {c['del']} · с правками: {c['edit']} · всего слов: {len(rows)}. "
-               "Правки и решения копятся в черновике и попадают в YAML кнопкой «Применить к YAML».")
-    cats = ["все"] + sorted({r["cat"] for r in rows}, key=cat_label)
-    ALL = "все"
-    ages = sorted({f"{r['age'][0]}–{r['age'][1]}" for r in rows})
-    _tb_restore({"tb_cat": cats, "tb_mode": list(MODES), "tb_ver": ["", "none", "ok", "del"],
-                 "tb_prio": [0, 1, 2, 3], "tb_pos": ["", *POS], "tb_img": ["", "есть", "нет"],
-                 "tb_aud": ["", "есть", "нет"], "tb_age": ["", *ages], "tb_size": [25, 50, 100, 300]})
-    with st.container(key="cmpv_words"):
-        c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
-        q = c1.text_input("Поиск (id или перевод)", key="tb_q")
-        cat = c2.selectbox("Категория", cats, key="tb_cat", width=220,
-                           format_func=lambda x: "Все" if x == "все" else cat_label(x))
-        mode = c3.selectbox("Показать", list(MODES), key="tb_mode", width=170, format_func=MODES.get)
-        verdict = c4.selectbox("Решение", ["", "none", "ok", "del"], key="tb_ver", width=170,
-                               format_func=lambda x: {"": "Все", "none": "Без решения"}.get(x) or REVIEW_RU[x])
-        prio = c5.selectbox("Приоритет", [0, 1, 2, 3], key="tb_prio", width=120,
-                            format_func=lambda x: str(x) if x else "Все")
-        with c6.popover("⚙️", help="Дополнительные фильтры"):
-            pos = st.selectbox("Часть речи", ["", *POS], key="tb_pos", format_func=lambda x: POS_RU.get(x, "Все"))
-            img = st.selectbox("Картинка", ["", "есть", "нет"], key="tb_img", format_func=lambda x: x or "Все")
-            aud = st.selectbox("Озвучка", ["", "есть", "нет"], key="tb_aud", format_func=lambda x: x or "Все")
-            age = st.selectbox("Возраст", ["", *ages], key="tb_age", format_func=lambda x: x or "Все")
-            only_fl = st.checkbox("Только спорные", key="tb_fl")
-            size = st.selectbox("Слов на странице", [25, 50, 100, 300], index=1, key="tb_size")
-        c7.button("Сбросить", key="tb_reset", on_click=_reset_tb)
-    sel = filter_rows(rows, mode, cat, q, langs, pos=pos, prio=prio, img=img, aud=aud, verdict=verdict, age=age)
-    if only_fl:
-        sel = [r for r in sel if r["flags"]]
-    pages = max(1, -(-len(sel) // size))
-    if st.session_state.get("tb_page", 1) > pages:
-        st.session_state["tb_page"] = 1
-    page = st.number_input(f"Страница (из {pages}) · найдено слов: {len(sel)}", 1, pages, 1, key="tb_page")
-    chunk = sel[(page - 1) * size: page * size]
-    _tb_save()
 
+def _tb_pager(page: int, pages: int, shown: int, total: int) -> None:
+    """Одна строка: ‹ 1 … 4 [5] 6 … 20 › + размер страницы (20/50/100/Все); счётчик ниже."""
+    items: list = []
+    if pages > 1:
+        nums = sorted({1, pages, page - 1, page, page + 1} & set(range(1, pages + 1)))
+        items = ["prev"]
+        for k, n in enumerate(nums):
+            if k and n - nums[k - 1] > 1:
+                items.append("gap")
+            items.append(n)
+        items.append("next")
+    items.append("size")
+    with st.container(key="pager"):
+        with st.container(key="pgnums"):
+            for col, it in zip(st.columns(len(items), gap="small", vertical_alignment="center"), items):
+                if it == "gap":
+                    col.markdown("<div class='pg-gap'>…</div>", unsafe_allow_html=True)
+                elif it == "prev":
+                    col.button("‹", key="tb_pg_prev", disabled=page <= 1, on_click=_tb_set_page, args=(page - 1,))
+                elif it == "next":
+                    col.button("›", key="tb_pg_next", disabled=page >= pages, on_click=_tb_set_page, args=(page + 1,))
+                elif it == "size":
+                    with col.container(key="pgsize"):
+                        st.segmented_control("На странице", [20, 50, 100, 0], default=50, key="tb_size",
+                                             format_func=lambda x: str(x) if x else "Все", label_visibility="collapsed")
+                else:
+                    col.button(str(it), key=f"tb_pg_{it}", on_click=_tb_set_page, args=(it,),
+                               type="primary" if it == page else "secondary")
+        with st.container(key="pgfoot"):
+            st.caption(f"{shown} из {total} · стр. {page} из {pages}")
+
+
+_PREVIEW_HTML = """<!doctype html><html><head><meta charset="utf-8"><style>
+html,body{margin:0;height:100%;background:transparent;font-family:sans-serif}
+#g{display:grid;width:100%;height:100vh;gap:8px}
+.c{display:flex;flex-direction:column;align-items:center;min-width:0;min-height:0}
+.c img{flex:1 1 0;min-height:0;width:100%;object-fit:contain}
+.c .no{flex:1 1 0;display:flex;align-items:center;color:#888;font-size:13px}
+.c span{flex:0 0 22px;line-height:22px;font-size:13px;color:#888;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;max-width:100%}
+</style></head><body><div id="g">__CELLS__</div><script>
+const g=document.getElementById('g'), n=g.children.length;
+function fit(){
+  const W=innerWidth, H=innerHeight, cap=22, gap=8;
+  let best=1, bs=0;
+  for(let c=1;c<=n;c++){
+    const r=Math.ceil(n/c);
+    const s=Math.min((W-gap*(c-1))/c, (H-gap*(r-1))/r-cap);
+    if(s>bs){bs=s;best=c;}
+  }
+  g.style.gridTemplateColumns='repeat('+best+',1fr)';
+  g.style.gridTemplateRows='repeat('+Math.ceil(n/best)+',1fr)';
+}
+addEventListener('resize',fit); fit();
+</script></body></html>"""
+
+
+def _toggle_prev() -> None:
+    st.session_state["tb_prev"] = not st.session_state.get("tb_prev", False)
+
+
+def _preview(root: Path, picked_rows: list[dict]) -> None:
+    """Поле предпросмотра: карточки в ячейках невидимой сетки, число колонок подбирается
+    так, чтобы картинки были максимально крупными."""
+    import base64
+    import html as _html
+    import mimetypes
+    import streamlit.components.v1 as components
+
+    cells = []
+    for r in picked_rows:
+        name = _html.escape(r["tr"].get("ru") or r["id"])
+        f = root / r["img"] if r["img"] else None
+        if f is not None and f.is_file():
+            mime = mimetypes.guess_type(f.name)[0] or "image/png"
+            src = f"data:{mime};base64," + base64.b64encode(f.read_bytes()).decode()
+            body = f'<img src="{src}">'
+        else:
+            body = '<div class="no">нет картинки</div>'
+        cells.append(f'<div class="c">{body}<span>{name}</span></div>')
+    components.html(_PREVIEW_HTML.replace("__CELLS__", "".join(cells)), height=640)
+
+
+def _decisions_block(root: Path, dec: dict) -> None:
     with st.expander("Решения: применить · экспорт · импорт · сброс"):
         a1, a2, a3 = st.columns(3)
         if a1.button("Применить к YAML", type="primary", help="✗ — удалить слова, правки записать в YAML"):
@@ -454,8 +501,56 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
                 notify.report("success", f"Загружено решений: {n}")
                 st.rerun()
 
+
+def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
+    import pandas as pd
+
+    dec = load_decisions(root)
+    c = counts(dec)
+    st.caption(f"✓ ок: {c['ok']} · ✗ удалить: {c['del']} · с правками: {c['edit']} · всего слов: {len(rows)}. "
+               "Правки и решения копятся в черновике и попадают в YAML кнопкой «Применить к YAML».")
+    cats = ["все"] + sorted({r["cat"] for r in rows}, key=cat_label)
+    ALL = "все"
+    ages = sorted({f"{r['age'][0]}–{r['age'][1]}" for r in rows})
+    _tb_restore({"tb_cat": cats, "tb_mode": list(MODES), "tb_ver": ["", "none", "ok", "del"],
+                 "tb_prio": [0, 1, 2, 3], "tb_pos": ["", *POS], "tb_img": ["", "есть", "нет"],
+                 "tb_aud": ["", "есть", "нет"], "tb_age": ["", *ages], "tb_size": [20, 50, 100, 0]})
+    with st.container(key="cmpv_words"):
+        c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
+        q = c1.text_input("Поиск (id или перевод)", key="tb_q")
+        cat = c2.selectbox("Категория", cats, key="tb_cat", width=220,
+                           format_func=lambda x: "Все" if x == "все" else cat_label(x))
+        mode = c3.selectbox("Показать", list(MODES), key="tb_mode", width=170, format_func=MODES.get)
+        verdict = c4.selectbox("Решение", ["", "none", "ok", "del"], key="tb_ver", width=170,
+                               format_func=lambda x: {"": "Все", "none": "Без решения"}.get(x) or REVIEW_RU[x])
+        prio = c5.selectbox("Приоритет", [0, 1, 2, 3], key="tb_prio", width=120,
+                            format_func=lambda x: str(x) if x else "Все")
+        with c6.popover("⚙️", help="Дополнительные фильтры"):
+            pos = st.selectbox("Часть речи", ["", *POS], key="tb_pos", format_func=lambda x: POS_RU.get(x, "Все"))
+            img = st.selectbox("Картинка", ["", "есть", "нет"], key="tb_img", format_func=lambda x: x or "Все")
+            aud = st.selectbox("Озвучка", ["", "есть", "нет"], key="tb_aud", format_func=lambda x: x or "Все")
+            age = st.selectbox("Возраст", ["", *ages], key="tb_age", format_func=lambda x: x or "Все")
+            only_fl = st.checkbox("Только спорные", key="tb_fl")
+        c7.button("Сбросить", key="tb_reset", on_click=_reset_tb)
+    sel = filter_rows(rows, mode, cat, q, langs, pos=pos, prio=prio, img=img, aud=aud, verdict=verdict, age=age)
+    if only_fl:
+        sel = [r for r in sel if r["flags"]]
+    size = st.session_state.get("tb_size")
+    size = 50 if size is None else size
+    size = size or max(1, len(sel))
+    pages = max(1, -(-len(sel) // size))
+    sig = (mode, cat, q, pos, prio, img, aud, verdict, age, only_fl, size)
+    if st.session_state.get("tb_sig") != sig:
+        st.session_state["tb_sig"] = sig
+        st.session_state["tb_page"] = 1
+    page = min(max(1, st.session_state.get("tb_page", 1)), pages)
+    chunk = sel[(page - 1) * size: page * size]
+    _tb_save()
+
     if not chunk:
         st.info("Нет слов по выбранным условиям.")
+        st.divider()
+        _decisions_block(root, dec)
         return
     shown = [l for l in ("ru", "en") if l in langs] + [l for l in langs if l not in ("ru", "en")]
     lcol = {lang_label(l): l for l in shown}
@@ -483,19 +578,27 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
         pinned=("Выбор", "Решение", "id"), host=gear_col)
     if sort:
         df = df.sort_values(sort[0], ascending=sort[1], kind="stable")
-    cap_col.caption(f"Строк: {len(df)}")
     edited = tbl.data_editor(
         df, key=key, hide_index=True, use_container_width=True, column_order=order, column_config=config,
         disabled=["id", "Категория", "Возраст", "Приоритет", "Картинка", "Озвучка", "Заметка", "Флаги"])
+    with cap_col:
+        _tb_pager(page, pages, len(sel), len(rows))
     picked = edited.loc[edited["Выбор"], "id"].tolist()
     g1, g2, g3 = action_row(3, "words")
-    if g3.button(f"Сгенерировать картинку ({len(picked)})", disabled=not picked, key="words_gen_btn",
+    g1.button("Просмотр", key="words_prev_btn", disabled=not picked, on_click=_toggle_prev,
+              type="primary" if st.session_state.get("tb_prev") else "secondary")
+    if g2.button(f"Сгенерировать картинку ({len(picked)})", disabled=not picked, key="words_gen_btn",
                  help=GEN_HELP):
         with st.spinner(f"Генерация: {len(picked)} шт., по очереди…"):
             rc, out = run_imggen(root, picked)
         notify.report("success" if rc == 0 else "error", "Генерация картинок", details=[out[-1500:]])
         st.rerun()
-    if not st.button("Сохранить в черновик", type="primary"):
+    save = g3.button("Сохранить в черновик", type="primary", key="words_save_btn")
+    if st.session_state.get("tb_prev") and picked:
+        _preview(root, [r for r in chunk if r["id"] in picked])
+    st.divider()
+    _decisions_block(root, dec)
+    if not save:
         return
     by_id, n = {r["id"]: r for r in chunk}, 0
     for old, new in zip(df.to_dict("records"), edited.to_dict("records")):
