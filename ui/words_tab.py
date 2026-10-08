@@ -561,7 +561,7 @@ def _preview(root: Path, picked_rows: list[dict]) -> None:
         for col, r in zip(st.columns(cols, gap="small"), picked_rows[i:i + cols]):
             f = root / r["img"] if r["img"] else None
             if f is not None and f.is_file():
-                col.image(f.read_bytes(), width=200)
+                col.image(f.read_bytes(), use_container_width=True)
             else:
                 col.caption("нет картинки")
             vote = reg.get(r["id"], {}).get("vote")
