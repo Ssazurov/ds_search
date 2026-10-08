@@ -209,6 +209,8 @@ div.block-container { padding-top: 72px !important; }
   font-size: 13px !important; border-radius: 6px !important; }
 .st-key-pgnums [data-testid="stBaseButton-primary"] { font-weight: 600 !important; }
 .st-key-pgnums .pg-gap { color: var(--dim); padding: 0 2px; line-height: 32px; }
+.st-key-pgsize { margin-left: 16px; }
+.st-key-pgsize [data-testid="stButtonGroup"] { gap: 4px; }
 .st-key-pgfoot { margin-top: 4px; }
 .st-key-pgfoot [data-testid="stCaptionContainer"] { margin: 0; }
 .st-key-pgfoot [data-testid="stButtonGroup"] { justify-content: flex-end; gap: 4px; }
@@ -348,6 +350,10 @@ details [data-testid="stNumberInputContainer"]:focus-within,
 .st-key-tabmain [class*="st-key-colfoot_"] [data-testid="stColumn"]:last-child { flex: 0 0 auto !important; width: auto !important; min-width: 0 !important; display: flex; justify-content: flex-end; }
 .st-key-tabmain [class*="st-key-colfoot_"] [data-testid="stCaptionContainer"] { margin: 0; }
 .st-key-tabmain [class*="st-key-colfoot_"] button { min-height: 32px; padding: 2px 10px; }
+.st-key-tabmain .st-key-colfoot_words [data-testid="stHorizontalBlock"] { align-items: flex-start; }
+.st-key-tabmain [class*="st-key-colfoot_"] .st-key-pgnums [data-testid="stHorizontalBlock"] { gap: 4px !important; flex-wrap: nowrap !important; align-items: center; justify-content: flex-start; }
+.st-key-tabmain [class*="st-key-colfoot_"] .st-key-pgnums [data-testid="stColumn"]:is(:first-child, :last-child, :nth-child(n)) { flex: 0 0 auto !important; width: auto !important; min-width: 0 !important; display: block; justify-content: flex-start; }
+.st-key-tabmain [class*="st-key-colfoot_"] .st-key-pgnums button { min-height: 32px !important; padding: 0 8px !important; }
 /* Компактные ряды: cmp_ — подпись слева, cmpv_ — подпись сверху; колонки по ширине содержимого, влево */
 .st-key-tabmain [class*="st-key-cmp"] [data-testid="stHorizontalBlock"] {
   flex-wrap: wrap !important; justify-content: flex-start !important; gap: 0.5rem !important; align-items: flex-end; }
