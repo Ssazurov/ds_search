@@ -561,17 +561,17 @@ def _preview(root: Path, picked_rows: list[dict]) -> None:
         for col, r in zip(st.columns(cols, gap="small"), picked_rows[i:i + cols]):
             f = root / r["img"] if r["img"] else None
             if f is not None and f.is_file():
-                col.image(f.read_bytes(), width=150)
+                col.image(f.read_bytes(), width=200)
             else:
                 col.caption("нет картинки")
             vote = reg.get(r["id"], {}).get("vote")
-            row_cols = col.columns([6, 1, 1], gap="small", vertical_alignment="center")
-            row_cols[0].checkbox(r["tr"].get("ru") or r["id"], key=f"pv_{r['id']}")
-            if row_cols[1].button("", icon=":material/thumb_up:", type="tertiary",
+            col.checkbox(r["tr"].get("ru") or r["id"], key=f"pv_{r['id']}")
+            row_cols = col.columns([1, 1], gap="small", vertical_alignment="center")
+            if row_cols[0].button("", icon=":material/thumb_up:", type="tertiary",
                                   key=f"th_up_{'on_' if vote == 'up' else ''}{r['id']}", disabled=not r["img"]):
                 set_vote(root, r["id"], "" if vote == "up" else "up")
                 st.rerun()
-            if row_cols[2].button("", icon=":material/thumb_down:", type="tertiary",
+            if row_cols[1].button("", icon=":material/thumb_down:", type="tertiary",
                                   key=f"th_down_{'on_' if vote == 'down' else ''}{r['id']}", disabled=not r["img"]):
                 set_vote(root, r["id"], "" if vote == "down" else "down")
                 st.rerun()
