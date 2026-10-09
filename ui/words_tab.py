@@ -844,17 +844,12 @@ def render() -> None:
     if not (root / "words").is_dir():
         st.error(f"Нет каталога словаря: {root}. Задайте DS_WORDS_DIR.")
         return
-    # Иконка-подсказка со знаком вопроса в заголовке
+    # Иконка-подсказка со знаком вопроса в заголовке страницы
     st.markdown(
-        f"""
+        """
         <style>
-        .words-header {{
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 1rem;
-        }}
-        .words-help-icon {{
+        [data-testid="stApp"]:has(.st-key-tabmain) .gar-topbar b::after {
+            content: "?";
             display: inline-flex;
             align-items: center;
             justify-content: center;
@@ -866,12 +861,17 @@ def render() -> None:
             font-size: 13px;
             font-weight: 600;
             cursor: help;
+            margin-left: 8px;
             position: relative;
-        }}
-        .words-help-icon:hover::after {{
+            vertical-align: middle;
+        }
+        [data-testid="stApp"]:has(.st-key-tabmain) .gar-topbar b:hover::after {
+            background-color: #7a8193;
+        }
+        [data-testid="stApp"]:has(.st-key-tabmain) .gar-topbar b:hover::before {
             content: "Данные: /ds_words (YAML репозитория ds_words). Вкладка только читает и пишет файлы.";
             position: absolute;
-            left: 28px;
+            left: calc(100% + 38px);
             top: 50%;
             transform: translateY(-50%);
             background: var(--panel);
@@ -884,11 +884,8 @@ def render() -> None:
             z-index: 1000;
             box-shadow: 0 2px 8px rgba(0,0,0,0.15);
             color: var(--text);
-        }}
+        }
         </style>
-        <div class="words-header">
-            <span class="words-help-icon">?</span>
-        </div>
         """,
         unsafe_allow_html=True,
     )
