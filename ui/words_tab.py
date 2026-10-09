@@ -527,8 +527,11 @@ _SHIFT_CODE = r"""(function(){
 })();"""
 
 
+PREV_MAX = 50  # максимум картинок в Просмотре
+
+
 def _toggle_prev() -> None:
-    st.session_state["tb_prev"] = not st.session_state.get("tb_prev", False)
+    st.session_state["tb_prev"] = not st.session_state.get("tb_prev", True)
 
 
 def _selall_cb() -> None:
@@ -730,13 +733,17 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
         _tb_pager(page, pages, len(sel), len(rows))
     sel_set.difference_update(vis_ids)
     sel_set.update(edited.loc[edited["Выбор"], "id"].tolist())
+    sel_set.intersection_update(r["id"] for r in sel)  # выбор невидимых (отфильтрованных) строк не живёт
+    st.session_state.setdefault("tb_prev", True)  # Просмотр включён по умолчанию
+    _by = {r["id"]: r for r in chunk}
+    prev_rows = [_by[i] for i in df["id"] if _by[i]["img"]][:PREV_MAX]  # порядок как в таблице
     picked = [r["id"] for r in sel if r["id"] in sel_set]
     with sel_slot:
         st.session_state["tb_selall"] = bool(vis_ids) and all(i in sel_set for i in vis_ids)
         with st.container(key="cmp_selall"):
             sc1, _sc2 = st.columns(2, vertical_alignment="center")
             sc1.checkbox(f"Выбрать все ({len(vis_ids)})", key="tb_selall", on_change=_selall_cb)
-    marked = [i for i in picked if st.session_state.get(f"pv_{i}")] if st.session_state.get("tb_prev") else []
+    marked = [r["id"] for r in prev_rows if st.session_state.get(f"pv_{r['id']}")] if st.session_state.get("tb_prev") else []
     targets = marked or picked
     with st.container(key="actions_words"):
         act_cols = st.columns([2, 1, 1, 1, 1])
@@ -754,7 +761,7 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
                 save_decisions(root, dec)
             notify.report("success" if rc == 0 else "error", "Подсказки", details=[out[-1500:]])
             st.rerun()
-        act_cols[1].button("Просмотр", key="words_prev_btn", disabled=not picked, on_click=_toggle_prev,
+        act_cols[1].button("Просмотр", key="words_prev_btn", disabled=not prev_rows, on_click=_toggle_prev,
                           type="primary" if st.session_state.get("tb_prev") else "secondary")
         gen_label = (f"Перегенерировать отмеченные ({len(marked)})" if marked
                      else f"Сгенерировать картинку ({len(picked)})")
@@ -766,8 +773,8 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
             notify.report("success" if rc == 0 else "error", "Генерация картинок", details=[out[-1500:]])
             st.rerun()
         save = act_cols[3].button("Сохранить в черновик", type="primary", key="words_save_btn")
-    if st.session_state.get("tb_prev") and picked:
-        _preview(root, [r for r in sel if r["id"] in sel_set])
+    if st.session_state.get("tb_prev") and prev_rows:
+        _preview(root, prev_rows)
     st.divider()
     _decisions_block(root, dec)
     if not save:
