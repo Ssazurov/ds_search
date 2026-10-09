@@ -46,6 +46,8 @@ LANG_RU = {"ru": "Русский", "en": "Английский", "de": "Неме
            "es": "Испанский", "kk": "Казахский", "uk": "Украинский", "be": "Белорусский"}
 REVIEW_RU = {"": "—", "ok": "✓ ок", "del": "✗ удалить"}
 REVIEW_FROM = {v: k for k, v in REVIEW_RU.items()}
+VOTE_RU = {"": "Все", "up": "👍", "down": "👎", "none": "Без оценки"}
+VOTE_ICON = {"up": "👍", "down": "👎"}
 
 
 def cat_label(c: str) -> str:
@@ -407,7 +409,7 @@ def _bump(key: str) -> None:
 
 
 _TB_KEYS = ("tb_q", "tb_cat", "tb_mode", "tb_pos", "tb_prio", "tb_img", "tb_aud", "tb_ver", "tb_age",
-            "tb_fl", "tb_size", "tb_page")
+            "tb_fl", "tb_vote", "tb_size", "tb_page")
 
 
 _TB_TYPES = {"tb_prio": int, "tb_size": int, "tb_page": int, "tb_fl": bool}
@@ -634,7 +636,7 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
     ages = sorted({f"{r['age'][0]}–{r['age'][1]}" for r in rows})
     _tb_restore({"tb_cat": cats, "tb_mode": list(MODES), "tb_ver": ["", "none", "ok", "del"],
                  "tb_prio": [0, 1, 2, 3], "tb_pos": ["", *POS], "tb_img": ["", "есть", "нет"],
-                 "tb_aud": ["", "есть", "нет"], "tb_age": ["", *ages], "tb_size": [5, 10, 20, 50, 100, 0]})
+                 "tb_aud": ["", "есть", "нет"], "tb_vote": ["", "up", "down", "none"], "tb_age": ["", *ages], "tb_size": [5, 10, 20, 50, 100, 0]})
     with st.container(key="cmpv_words"):
         c1, c2, c3, c4, c5, c6, c7, c8 = st.columns(8)
         q = c1.text_input("Поиск (id или перевод)", key="tb_q")
@@ -652,15 +654,19 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
             aud = st.selectbox("Озвучка", ["", "есть", "нет"], key="tb_aud", format_func=lambda x: x or "Все")
             age = st.selectbox("Возраст", ["", *ages], key="tb_age", format_func=lambda x: x or "Все")
             only_fl = st.checkbox("Только спорные", key="tb_fl")
+            vote = st.selectbox("Оценка картинки", list(VOTE_RU), key="tb_vote", format_func=VOTE_RU.get)
         c8.button("Сбросить", key="tb_reset", on_click=_reset_tb)
     sel = filter_rows(rows, mode, cat, q, langs, pos=pos, prio=prio, img=img, aud=aud, verdict=verdict, age=age)
     if only_fl:
         sel = [r for r in sel if r["flags"]]
+    votes = {k: (v or {}).get("vote", "") for k, v in load_images_reg(root).items()}
+    if vote:
+        sel = [r for r in sel if votes.get(r["id"], "") == (vote if vote != "none" else "")]
     size = st.session_state.get("tb_size")
     size = 50 if size is None else size
     size = size or max(1, len(sel))
     pages = max(1, -(-len(sel) // size))
-    sig = (mode, cat, q, pos, prio, img, aud, verdict, age, only_fl, size)
+    sig = (mode, cat, q, pos, prio, img, aud, verdict, age, only_fl, vote, size)
     old_sig = st.session_state.get("tb_sig")
     old_page = st.session_state.get("tb_page", 1)
     page = min(max(1, st.session_state.get("tb_page", 1)), pages)
@@ -691,7 +697,7 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
         for l in shown:
             staged = e.get(l) if l in ("ru", "en") else e.get("tr", {}).get(l)
             row[lang_label(l)] = staged or r["tr"].get(l, "")
-        row.update({"Часть речи": POS_RU[e.get("pos", r["pos"])], "Картинка": img_uri(r["img"]),
+        row.update({"Часть речи": POS_RU[e.get("pos", r["pos"])], "Картинка": img_uri(r["img"]), "Оценка": VOTE_ICON.get(votes.get(r["id"], ""), ""),
                     "Озвучка": ",".join(r["audio"]), "Заметка": e.get("note", r["note"]),
                     "Подсказка": e.get("hint", r["hint"]), "Флаги": "; ".join(r["flags"])})
         recs.append(row)
@@ -719,7 +725,7 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
         df = df.sort_values(sort[0], ascending=sort[1], kind="stable")
     edited = tbl.data_editor(
         df, key=key, hide_index=True, use_container_width=True, column_order=order, column_config=config,
-        disabled=["id", "Категория", "Возраст", "Приоритет", "Картинка", "Озвучка", "Флаги"])
+        disabled=["id", "Категория", "Возраст", "Приоритет", "Картинка", "Оценка", "Озвучка", "Флаги"])
     with cap_col:
         _tb_pager(page, pages, len(sel), len(rows))
     sel_set.difference_update(vis_ids)
