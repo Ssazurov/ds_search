@@ -645,28 +645,28 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
             return int(max(len(str(x)) for x in [label, *opts]) * 8.5) + 56
         _all = ["Все"]
         _vr = [REVIEW_RU[k] for k in ("ok", "del")] + ["Без решения"]
-        fl = st.container(horizontal=True, vertical_alignment="bottom", gap="small")
-        q = fl.text_input("Поиск (id или перевод)", key="tb_q", width=220)
-        cat = fl.selectbox("Категория", cats, key="tb_cat", width=_w("Категория", [cat_label(c) for c in cats] + _all),
+        fl = st.columns(10)
+        q = fl[0].text_input("Поиск (id или перевод)", key="tb_q")
+        cat = fl[1].selectbox("Категория", cats, key="tb_cat", width=_w("Категория", [cat_label(c) for c in cats] + _all),
                            format_func=lambda x: "Все" if x == "все" else cat_label(x))
-        img = fl.selectbox("Картинка", ["", "есть", "нет"], key="tb_img", width=_w("Картинка", ["есть", "нет", "Все"]),
+        img = fl[2].selectbox("Картинка", ["", "есть", "нет"], key="tb_img", width=_w("Картинка", ["есть", "нет", "Все"]),
                            format_func=lambda x: x or "Все")
-        mode = fl.selectbox("Показать", list(MODES), key="tb_mode", width=_w("Показать", list(MODES.values())),
+        mode = fl[3].selectbox("Показать", list(MODES), key="tb_mode", width=_w("Показать", list(MODES.values())),
                             format_func=MODES.get)
-        verdict = fl.selectbox("Решение", ["", "none", "ok", "del"], key="tb_ver", width=_w("Решение", _vr + _all),
+        verdict = fl[4].selectbox("Решение", ["", "none", "ok", "del"], key="tb_ver", width=_w("Решение", _vr + _all),
                                format_func=lambda x: {"": "Все", "none": "Без решения"}.get(x) or REVIEW_RU[x])
-        prio = fl.selectbox("Приоритет", [0, 1, 2, 3], key="tb_prio", width=_w("Приоритет", ["Все", "3"]),
+        prio = fl[5].selectbox("Приоритет", [0, 1, 2, 3], key="tb_prio", width=_w("Приоритет", ["Все", "3"]),
                             format_func=lambda x: str(x) if x else "Все")
-        vote = fl.selectbox("Оценка", list(VOTE_RU), key="tb_vote", width=_w("Оценка", list(VOTE_RU.values())),
+        vote = fl[6].selectbox("Оценка", list(VOTE_RU), key="tb_vote", width=_w("Оценка", list(VOTE_RU.values())),
                             format_func=VOTE_RU.get)
-        hint_f = fl.selectbox("Подсказка", ["", "есть", "нет"], key="tb_hint", width=_w("Подсказка", ["есть", "нет", "Все"]),
+        hint_f = fl[7].selectbox("Подсказка", ["", "есть", "нет"], key="tb_hint", width=_w("Подсказка", ["есть", "нет", "Все"]),
                               format_func=lambda x: x or "Все")
-        with fl.popover("⚙️", help="Дополнительные фильтры"):
+        with fl[8].popover("⚙️", help="Дополнительные фильтры"):
             pos = st.selectbox("Часть речи", ["", *POS], key="tb_pos", format_func=lambda x: POS_RU.get(x, "Все"))
             aud = st.selectbox("Озвучка", ["", "есть", "нет"], key="tb_aud", format_func=lambda x: x or "Все")
             age = st.selectbox("Возраст", ["", *ages], key="tb_age", format_func=lambda x: x or "Все")
             only_fl = st.checkbox("Только спорные", key="tb_fl")
-        fl.button("Сбросить", key="tb_reset", on_click=_reset_tb)
+        fl[9].button("Сбросить", key="tb_reset", on_click=_reset_tb)
     sel = filter_rows(rows, mode, cat, q, langs, pos=pos, prio=prio, img=img, aud=aud, verdict=verdict, age=age)
     if hint_f:
         sel = [r for r in sel if bool(dec.get(r["id"], {}).get("hint", r["hint"])) == (hint_f == "есть")]
