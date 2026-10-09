@@ -642,11 +642,11 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
                  "tb_aud": ["", "есть", "нет"], "tb_vote": ["", "up", "down", "none"], "tb_age": ["", *ages], "tb_size": [5, 10, 20, 50, 100, 0]})
     with st.container(key="cmpv_words"):
         def _w(label, opts):
-            return int((max(len(str(x)) for x in [label, *opts]) * 7.3 + 46) // 2)
+            return int(max(len(str(x)) for x in [label, *opts]) * 7.3) + 46
         _all = ["Все"]
         _vr = [REVIEW_RU[k] for k in ("ok", "del")] + ["Без решения"]
         fl = st.columns(10)
-        q = fl[0].text_input("Поиск (id или перевод)", key="tb_q")
+        q = fl[0].text_input("Поиск", key="tb_q", help="id или перевод")
         cat = fl[1].selectbox("Категория", cats, key="tb_cat", width=_w("Категория", [cat_label(c) for c in cats] + _all),
                            format_func=lambda x: "Все" if x == "все" else cat_label(x))
         img = fl[2].selectbox("Картинка", ["", "есть", "нет"], key="tb_img", width=_w("Картинка", ["есть", "нет", "Все"]),

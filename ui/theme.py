@@ -375,6 +375,7 @@ details [data-testid="stNumberInputContainer"]:focus-within,
 .st-key-tabmain [class*="st-key-cmp_"] [data-testid="stHorizontalBlock"] { align-items: center; }
 .st-key-tabmain [class*="st-key-cmp"] [data-testid="stColumn"] { flex: 0 0 auto !important; width: auto !important; min-width: 0 !important; }
 .st-key-tabmain [class*="st-key-cmpv_"] [data-testid="stColumn"]:first-child { flex: 1 1 0 !important; min-width: 180px !important; }
+.st-key-tabmain .st-key-cmpv_words [data-testid="stColumn"]:first-child { flex: 0 0 90px !important; width: 90px !important; min-width: 90px !important; }
 .st-key-tabmain [class*="st-key-cmp_"] [data-testid="stHorizontalBlock"] [data-testid="stColumn"] [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stDateInput"], [data-testid="stTimeInput"], [data-testid="stRadio"]) {
   display: flex !important; flex-direction: row; align-items: center; gap: 8px; }
 .st-key-tabmain [class*="st-key-cmpv_"] [data-testid="stHorizontalBlock"] [data-testid="stColumn"] [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stDateInput"], [data-testid="stTimeInput"], [data-testid="stRadio"]) {
