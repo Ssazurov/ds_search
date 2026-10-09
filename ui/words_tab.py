@@ -642,7 +642,7 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
                  "tb_aud": ["", "есть", "нет"], "tb_vote": ["", "up", "down", "none"], "tb_age": ["", *ages], "tb_size": [5, 10, 20, 50, 100, 0]})
     with st.container(key="cmpv_words"):
         def _w(label, opts):
-            return int(max(len(str(x)) for x in [label, *opts]) * 7.3) + 46
+            return int((max(len(str(x)) for x in [label, *opts]) * 7.3 + 46) // 2
         _all = ["Все"]
         _vr = [REVIEW_RU[k] for k in ("ok", "del")] + ["Без решения"]
         fl = st.columns(10)
