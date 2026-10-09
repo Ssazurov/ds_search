@@ -850,7 +850,6 @@ def render() -> None:
         <style>
         [data-testid="stApp"]:has(.st-key-tabmain) .gar-topbar b {
             position: relative;
-            display: inline-block;
         }
         [data-testid="stApp"]:has(.st-key-tabmain) .gar-topbar b::after {
             content: "?";
@@ -871,12 +870,13 @@ def render() -> None:
         [data-testid="stApp"]:has(.st-key-tabmain) .gar-topbar b:hover::after {
             background-color: #7a8193;
         }
-        [data-testid="stApp"]:has(.st-key-tabmain) .gar-topbar::after {
-            content: attr(data-tooltip);
+        [data-testid="stApp"]:has(.st-key-tabmain) .gar-topbar b::before {
+            content: "Данные: /ds_words (YAML репозитория ds_words). Вкладка только читает и пишет файлы.";
             position: absolute;
-            left: 140px;
+            left: 100%;
             top: 50%;
             transform: translateY(-50%);
+            margin-left: 32px;
             background: var(--panel);
             border: 1px solid var(--border);
             border-radius: 6px;
@@ -889,10 +889,9 @@ def render() -> None:
             color: var(--text);
             opacity: 0;
             pointer-events: none;
-            transition: opacity 0.2s;
+            transition: opacity 0.15s;
         }
-        [data-testid="stApp"]:has(.st-key-tabmain) .gar-topbar:hover::after {
-            content: "Данные: /ds_words (YAML репозитория ds_words). Вкладка только читает и пишет файлы.";
+        [data-testid="stApp"]:has(.st-key-tabmain) .gar-topbar b:hover::before {
             opacity: 1;
         }
         </style>
