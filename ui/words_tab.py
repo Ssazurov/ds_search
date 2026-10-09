@@ -848,9 +848,6 @@ def render() -> None:
     st.markdown(
         """
         <style>
-        [data-testid="stApp"]:has(.st-key-tabmain) .gar-topbar b {
-            position: relative;
-        }
         [data-testid="stApp"]:has(.st-key-tabmain) .gar-topbar b::after {
             content: "?";
             display: inline-flex;
@@ -870,31 +867,21 @@ def render() -> None:
         [data-testid="stApp"]:has(.st-key-tabmain) .gar-topbar b:hover::after {
             background-color: #7a8193;
         }
-        [data-testid="stApp"]:has(.st-key-tabmain) .gar-topbar b::before {
-            content: "Данные: /ds_words (YAML репозитория ds_words). Вкладка только читает и пишет файлы.";
-            position: absolute;
-            left: 100%;
-            top: 50%;
-            transform: translateY(-50%);
-            margin-left: 32px;
-            background: var(--panel);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 8px 12px;
-            font-size: 12px;
-            font-weight: 400;
-            white-space: nowrap;
-            z-index: 10000;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-            color: var(--text);
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.15s;
-        }
-        [data-testid="stApp"]:has(.st-key-tabmain) .gar-topbar b:hover::before {
-            opacity: 1;
-        }
         </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    # Добавляем tooltip через native browser title
+    st.markdown(
+        """
+        <script>
+        setTimeout(function() {
+            var topbarB = document.querySelector('.gar-topbar b');
+            if (topbarB) {
+                topbarB.title = 'Данные: /ds_words (YAML репозитория ds_words). Вкладка только читает и пишет файлы.';
+            }
+        }, 100);
+        </script>
         """,
         unsafe_allow_html=True,
     )
