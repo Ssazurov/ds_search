@@ -721,6 +721,7 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
         {"Часть речи": st.column_config.SelectboxColumn(options=list(POS_FROM)),
          "Решение": st.column_config.SelectboxColumn(options=list(REVIEW_FROM)),
          "Выбор": st.column_config.CheckboxColumn("Выбор", width="small"),
+         "Оценка": st.column_config.TextColumn("Оценка", width="small", alignment="center"),
          "Подсказка": st.column_config.TextColumn("Подсказка", help="Доп. описание для картинки; русский переводится на английский"),
          "Картинка": st.column_config.LinkColumn("Картинка", display_text=":material/image:", width="small")},
         pinned=("Выбор", "Решение", "id"), host=gear_col)
