@@ -848,30 +848,33 @@ def render() -> None:
     st.markdown(
         """
         <style>
+        [data-testid="stApp"]:has(.st-key-tabmain) .gar-topbar {
+            position: relative;
+        }
         [data-testid="stApp"]:has(.st-key-tabmain) .gar-topbar b::after {
             content: "?";
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            width: 20px;
-            height: 20px;
+            width: 16px;
+            height: 16px;
             border-radius: 50%;
             background-color: #8991a3;
             color: white;
-            font-size: 13px;
+            font-size: 11px;
             font-weight: 600;
             cursor: help;
-            margin-left: 8px;
+            margin-left: 6px;
             position: relative;
             vertical-align: middle;
         }
         [data-testid="stApp"]:has(.st-key-tabmain) .gar-topbar b:hover::after {
             background-color: #7a8193;
         }
-        [data-testid="stApp"]:has(.st-key-tabmain) .gar-topbar b:hover::before {
-            content: "Данные: /ds_words (YAML репозитория ds_words). Вкладка только читает и пишет файлы.";
+        .words-help-tooltip {
+            display: none;
             position: absolute;
-            left: calc(100% + 38px);
+            left: 140px;
             top: 50%;
             transform: translateY(-50%);
             background: var(--panel);
@@ -881,11 +884,16 @@ def render() -> None:
             font-size: 12px;
             font-weight: 400;
             white-space: nowrap;
-            z-index: 1000;
+            z-index: 10000;
             box-shadow: 0 2px 8px rgba(0,0,0,0.15);
             color: var(--text);
+            pointer-events: none;
+        }
+        [data-testid="stApp"]:has(.st-key-tabmain) .gar-topbar:hover .words-help-tooltip {
+            display: block;
         }
         </style>
+        <div class="words-help-tooltip">Данные: /ds_words (YAML репозитория ds_words). Вкладка только читает и пишет файлы.</div>
         """,
         unsafe_allow_html=True,
     )
