@@ -409,7 +409,7 @@ def _bump(key: str) -> None:
 
 
 _TB_KEYS = ("tb_q", "tb_cat", "tb_mode", "tb_pos", "tb_prio", "tb_img", "tb_aud", "tb_ver", "tb_age",
-            "tb_fl", "tb_vote", "tb_size", "tb_page")
+            "tb_fl", "tb_vote", "tb_hint", "tb_size", "tb_page")
 
 
 _TB_TYPES = {"tb_prio": int, "tb_size": int, "tb_page": int, "tb_fl": bool}
@@ -641,7 +641,7 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
                  "tb_prio": [0, 1, 2, 3], "tb_pos": ["", *POS], "tb_img": ["", "есть", "нет"],
                  "tb_aud": ["", "есть", "нет"], "tb_vote": ["", "up", "down", "none"], "tb_age": ["", *ages], "tb_size": [5, 10, 20, 50, 100, 0]})
     with st.container(key="cmpv_words"):
-        c1, c2, c3, c4, c5, c6, c7, c8 = st.columns(8)
+        c1, c2, c3, c4, c5, c6, c7, c8, c9, c10 = st.columns(10)
         q = c1.text_input("Поиск (id или перевод)", key="tb_q")
         cat = c2.selectbox("Категория", cats, key="tb_cat", width=220,
                            format_func=lambda x: "Все" if x == "все" else cat_label(x))
@@ -652,14 +652,17 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
                                format_func=lambda x: {"": "Все", "none": "Без решения"}.get(x) or REVIEW_RU[x])
         prio = c6.selectbox("Приоритет", [0, 1, 2, 3], key="tb_prio", width=120,
                             format_func=lambda x: str(x) if x else "Все")
-        with c7.popover("⚙️", help="Дополнительные фильтры"):
+        vote = c7.selectbox("Оценка", list(VOTE_RU), key="tb_vote", width=120, format_func=VOTE_RU.get)
+        hint_f = c8.selectbox("Подсказка", ["", "есть", "нет"], key="tb_hint", width=120, format_func=lambda x: x or "Все")
+        with c9.popover("⚙️", help="Дополнительные фильтры"):
             pos = st.selectbox("Часть речи", ["", *POS], key="tb_pos", format_func=lambda x: POS_RU.get(x, "Все"))
             aud = st.selectbox("Озвучка", ["", "есть", "нет"], key="tb_aud", format_func=lambda x: x or "Все")
             age = st.selectbox("Возраст", ["", *ages], key="tb_age", format_func=lambda x: x or "Все")
             only_fl = st.checkbox("Только спорные", key="tb_fl")
-            vote = st.selectbox("Оценка картинки", list(VOTE_RU), key="tb_vote", format_func=VOTE_RU.get)
-        c8.button("Сбросить", key="tb_reset", on_click=_reset_tb)
+        c10.button("Сбросить", key="tb_reset", on_click=_reset_tb)
     sel = filter_rows(rows, mode, cat, q, langs, pos=pos, prio=prio, img=img, aud=aud, verdict=verdict, age=age)
+    if hint_f:
+        sel = [r for r in sel if bool(dec.get(r["id"], {}).get("hint", r["hint"])) == (hint_f == "есть")]
     if only_fl:
         sel = [r for r in sel if r["flags"]]
     votes = {k: (v or {}).get("vote", "") for k, v in load_images_reg(root).items()}
@@ -669,7 +672,7 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
     size = 50 if size is None else size
     size = size or max(1, len(sel))
     pages = max(1, -(-len(sel) // size))
-    sig = (mode, cat, q, pos, prio, img, aud, verdict, age, only_fl, vote, size)
+    sig = (mode, cat, q, pos, prio, img, aud, verdict, age, only_fl, vote, hint_f, size)
     old_sig = st.session_state.get("tb_sig")
     old_page = st.session_state.get("tb_page", 1)
     page = min(max(1, st.session_state.get("tb_page", 1)), pages)
@@ -760,6 +763,7 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
                     if vis.get(i, {}).get("ru"):
                         stage(dec, i, "hint", vis[i]["ru"])
                 save_decisions(root, dec)
+            st.session_state["tb_selver"] = st.session_state.get("tb_selver", 0) + 1  # новый key -> data_editor перечитает df
             notify.report("success" if rc == 0 else "error", "Подсказки", details=[out[-1500:]])
             st.rerun()
         act_cols[1].button("Просмотр", key="words_prev_btn", disabled=not prev_rows, on_click=_toggle_prev,
