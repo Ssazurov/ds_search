@@ -719,7 +719,7 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
         with st.container(key="cmp_selall"):
             sc1, sc2 = st.columns([2, 1], vertical_alignment="center")
             sc1.checkbox(f"Выбрать все ({len(vis_ids)})", key="tb_selall", on_change=_selall_cb)
-            sc2.caption(f"✓ ок: {c['ok']} · ✗ удалить: {c['del']} · с правками: {c['edit']} · всего слов: {len(rows)}")
+            sc2.markdown(f"✓ ок: {c['ok']} · ✗ удалить: {c['del']} · с правками: {c['edit']} · всего слов: {len(rows)}")
     marked = [i for i in picked if st.session_state.get(f"pv_{i}")] if st.session_state.get("tb_prev") else []
     targets = marked or picked
     g1, g2, g3, g4 = action_row(4, "words")
