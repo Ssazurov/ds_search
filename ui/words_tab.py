@@ -850,6 +850,7 @@ def render() -> None:
         <style>
         [data-testid="stApp"]:has(.st-key-tabmain) .gar-topbar b {
             position: relative;
+            display: inline-block;
         }
         [data-testid="stApp"]:has(.st-key-tabmain) .gar-topbar b::after {
             content: "?";
@@ -870,16 +871,10 @@ def render() -> None:
         [data-testid="stApp"]:has(.st-key-tabmain) .gar-topbar b:hover::after {
             background-color: #7a8193;
         }
-        [data-testid="stApp"]:has(.st-key-tabmain) .gar-topbar b::before {
-            content: "";
+        [data-testid="stApp"]:has(.st-key-tabmain) .gar-topbar::after {
+            content: attr(data-tooltip);
             position: absolute;
-            display: none;
-        }
-        [data-testid="stApp"]:has(.st-key-tabmain) .gar-topbar b:hover::before {
-            content: "Данные: /ds_words (YAML репозитория ds_words). Вкладка только читает и пишет файлы.";
-            display: block;
-            position: absolute;
-            left: calc(100% + 6px);
+            left: 140px;
             top: 50%;
             transform: translateY(-50%);
             background: var(--panel);
@@ -892,6 +887,13 @@ def render() -> None:
             z-index: 10000;
             box-shadow: 0 2px 8px rgba(0,0,0,0.15);
             color: var(--text);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+        }
+        [data-testid="stApp"]:has(.st-key-tabmain) .gar-topbar:hover::after {
+            content: "Данные: /ds_words (YAML репозитория ds_words). Вкладка только читает и пишет файлы.";
+            opacity: 1;
         }
         </style>
         """,
