@@ -844,7 +844,54 @@ def render() -> None:
     if not (root / "words").is_dir():
         st.error(f"Нет каталога словаря: {root}. Задайте DS_WORDS_DIR.")
         return
-    st.caption(f"Данные: `{root}` (YAML репозитория ds_words). Вкладка только читает и пишет файлы.")
+    # Иконка-подсказка со знаком вопроса в заголовке
+    st.markdown(
+        f"""
+        <style>
+        .words-header {{
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 1rem;
+        }}
+        .words-help-icon {{
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background-color: #8991a3;
+            color: white;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: help;
+            position: relative;
+        }}
+        .words-help-icon:hover::after {{
+            content: "Данные: /ds_words (YAML репозитория ds_words). Вкладка только читает и пишет файлы.";
+            position: absolute;
+            left: 28px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 12px;
+            font-weight: 400;
+            white-space: nowrap;
+            z-index: 1000;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            color: var(--text);
+        }}
+        </style>
+        <div class="words-header">
+            <span class="words-help-icon">?</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
     try:
         rows, langs = load_rows(root)
     except Exception as exc:  # noqa: BLE001
