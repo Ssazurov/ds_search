@@ -316,7 +316,18 @@ def hint_en(text: str) -> str:
         return text
     from src.news.llm_draft import call_llm, load_llm_config
     p = "Translate to English for an image-generation prompt. Output only the translation, no quotes:\n" + text
-    return call_llm(p, load_llm_config(), purpose="news", input_chars=len(text)).strip().strip('"')
+    out = call_llm(p, load_llm_config(), purpose="news", input_chars=len(text)).strip()
+    if out.startswith(("{", "[", "```")):  # GAR/LLM может вернуть JSON-обёртку
+        try:
+            obj = json.loads(out.strip("`").removeprefix("json").strip())
+            vals = obj.values() if isinstance(obj, dict) else obj
+            out = next((v for v in vals if isinstance(v, str) and v.strip()), "")
+        except Exception:
+            out = re.sub(r"[{}\[\]\"]|^\w+\s*:", " ", out)
+    out = out.strip().strip('"\'“”')
+    if not out or re.search("[а-яё]", out, re.I):
+        raise ValueError(f"перевод подсказки не удался: {text!r}")
+    return out
 
 
 def record_feedback(root: Path, reg: dict, hints: dict[str, str]) -> None:
