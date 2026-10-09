@@ -848,7 +848,7 @@ def render() -> None:
     st.markdown(
         """
         <style>
-        [data-testid="stApp"]:has(.st-key-tabmain) .gar-topbar {
+        [data-testid="stApp"]:has(.st-key-tabmain) .gar-topbar b {
             position: relative;
         }
         [data-testid="stApp"]:has(.st-key-tabmain) .gar-topbar b::after {
@@ -865,16 +865,21 @@ def render() -> None:
             font-weight: 600;
             cursor: help;
             margin-left: 6px;
-            position: relative;
             vertical-align: middle;
         }
         [data-testid="stApp"]:has(.st-key-tabmain) .gar-topbar b:hover::after {
             background-color: #7a8193;
         }
-        .words-help-tooltip {
-            display: none;
+        [data-testid="stApp"]:has(.st-key-tabmain) .gar-topbar b::before {
+            content: "";
             position: absolute;
-            left: 140px;
+            display: none;
+        }
+        [data-testid="stApp"]:has(.st-key-tabmain) .gar-topbar b:hover::before {
+            content: "Данные: /ds_words (YAML репозитория ds_words). Вкладка только читает и пишет файлы.";
+            display: block;
+            position: absolute;
+            left: calc(100% + 6px);
             top: 50%;
             transform: translateY(-50%);
             background: var(--panel);
@@ -887,13 +892,8 @@ def render() -> None:
             z-index: 10000;
             box-shadow: 0 2px 8px rgba(0,0,0,0.15);
             color: var(--text);
-            pointer-events: none;
-        }
-        [data-testid="stApp"]:has(.st-key-tabmain) .gar-topbar:hover .words-help-tooltip {
-            display: block;
         }
         </style>
-        <div class="words-help-tooltip">Данные: /ds_words (YAML репозитория ds_words). Вкладка только читает и пишет файлы.</div>
         """,
         unsafe_allow_html=True,
     )
