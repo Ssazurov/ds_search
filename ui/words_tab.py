@@ -844,59 +844,6 @@ def render() -> None:
     if not (root / "words").is_dir():
         st.error(f"Нет каталога словаря: {root}. Задайте DS_WORDS_DIR.")
         return
-    # Иконка-подсказка со знаком вопроса в заголовке страницы (как st.radio help=...)
-    st.markdown(
-        """
-        <style>
-        [data-testid="stApp"]:has(.st-key-tabmain) .gar-topbar b::after {
-            content: "?";
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            background-color: #8991a3;
-            color: white;
-            font-size: 11px;
-            font-weight: 600;
-            cursor: help;
-            margin-left: 6px;
-            vertical-align: middle;
-        }
-        [data-testid="stApp"]:has(.st-key-tabmain) .gar-topbar b:hover::after {
-            background-color: #7a8193;
-        }
-        [data-testid="stApp"]:has(.st-key-tabmain) .gar-topbar {
-            position: relative;
-        }
-        [data-testid="stApp"]:has(.st-key-tabmain) .gar-topbar::after {
-            content: "Данные: /ds_words (YAML репозитория ds_words). Вкладка только читает и пишет файлы.";
-            position: absolute;
-            left: 140px;
-            top: 50%;
-            transform: translateY(-50%);
-            background: #ffffff;
-            border: 1px solid #dde1e8;
-            border-radius: 6px;
-            padding: 8px 12px;
-            font-size: 12px;
-            font-weight: 400;
-            white-space: nowrap;
-            z-index: 10000;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-            color: #1a2030;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.2s;
-        }
-        [data-testid="stApp"]:has(.st-key-tabmain) .gar-topbar:hover::after {
-            opacity: 1;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
     try:
         rows, langs = load_rows(root)
     except Exception as exc:  # noqa: BLE001
