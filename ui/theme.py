@@ -407,6 +407,7 @@ def topbar(page: str) -> None:
                 font-weight: 600;
                 cursor: help;
                 vertical-align: middle;
+                pointer-events: auto;
             }
             .words-help-icon:hover {
                 background-color: #7a8193;
