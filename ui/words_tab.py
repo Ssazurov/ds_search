@@ -844,7 +844,7 @@ def render() -> None:
     if not (root / "words").is_dir():
         st.error(f"Нет каталога словаря: {root}. Задайте DS_WORDS_DIR.")
         return
-    # Иконка-подсказка со знаком вопроса в заголовке страницы
+    # Иконка-подсказка со знаком вопроса в заголовке страницы (как st.radio help=...)
     st.markdown(
         """
         <style>
@@ -867,21 +867,33 @@ def render() -> None:
         [data-testid="stApp"]:has(.st-key-tabmain) .gar-topbar b:hover::after {
             background-color: #7a8193;
         }
+        [data-testid="stApp"]:has(.st-key-tabmain) .gar-topbar {
+            position: relative;
+        }
+        [data-testid="stApp"]:has(.st-key-tabmain) .gar-topbar::after {
+            content: "Данные: /ds_words (YAML репозитория ds_words). Вкладка только читает и пишет файлы.";
+            position: absolute;
+            left: 140px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #ffffff;
+            border: 1px solid #dde1e8;
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 12px;
+            font-weight: 400;
+            white-space: nowrap;
+            z-index: 10000;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            color: #1a2030;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+        }
+        [data-testid="stApp"]:has(.st-key-tabmain) .gar-topbar:hover::after {
+            opacity: 1;
+        }
         </style>
-        """,
-        unsafe_allow_html=True,
-    )
-    # Добавляем tooltip через native browser title
-    st.markdown(
-        """
-        <script>
-        setTimeout(function() {
-            var topbarB = document.querySelector('.gar-topbar b');
-            if (topbarB) {
-                topbarB.title = 'Данные: /ds_words (YAML репозитория ds_words). Вкладка только читает и пишет файлы.';
-            }
-        }, 100);
-        </script>
         """,
         unsafe_allow_html=True,
     )
