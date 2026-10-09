@@ -8,16 +8,16 @@ PINNED = ("select", "title")
 
 def test_defaults_when_no_saved():
     s = merge_settings(None, COLS, PINNED)
-    assert s == {"order": COLS, "hidden": [], "widths": {}, "sort": None}
+    assert s == {"order": COLS, "hidden": [], "widths": {}, "sort": []}
 
 
 def test_sort_kept_if_column_exists_dropped_otherwise():
     s = merge_settings({"sort": {"col": "status", "asc": False}}, COLS, PINNED)
-    assert s["sort"] == {"col": "status", "asc": False}
+    assert s["sort"] == [{"col": "status", "asc": False}]
     s = merge_settings({"sort": {"col": "gone", "asc": True}}, COLS, PINNED)
-    assert s["sort"] is None
+    assert s["sort"] == []
     s = merge_settings({"sort": "junk"}, COLS, PINNED)
-    assert s["sort"] is None
+    assert s["sort"] == []
 
 
 def test_new_columns_appended_removed_skipped():
@@ -36,7 +36,7 @@ def test_pinned_never_hidden_and_bad_widths_dropped():
 
 def test_garbage_saved_values():
     assert merge_settings({"order": None, "hidden": 5, "widths": [1]}, COLS, PINNED) == {
-        "order": COLS, "hidden": [], "widths": {}, "sort": None}
+        "order": COLS, "hidden": [], "widths": {}, "sort": []}
     s = merge_settings("junk", COLS, PINNED)
     assert s["order"] == COLS
 
@@ -61,3 +61,8 @@ def test_localize_handles_source_published_at_column():
     assert "source_published_at" in result.columns
     assert pd.isna(result.loc[1, "source_published_at"])
     assert result.loc[0, "source_published_at"] == pd.Timestamp("2026-09-29 10:00:00+00:00")
+
+
+def test_sort_stack_dedup_and_drop_unknown():
+    s = merge_settings({"sort": [{"col": "status", "asc": True}, {"col": "gone"}, {"col": "status", "asc": False}]}, COLS, PINNED)
+    assert s["sort"] == [{"col": "status", "asc": True}]

@@ -106,7 +106,15 @@ def merge_settings(saved: dict | None, columns: list[str], pinned: tuple[str, ..
     widths = saved.get("widths")
     widths = {c: w for c, w in widths.items() if c in columns and _valid_width(w)} if isinstance(widths, dict) else {}
     sort = saved.get("sort")
-    sort = sort if isinstance(sort, dict) and sort.get("col") in columns else None
+    if isinstance(sort, dict):
+        sort = [sort]
+    sort = [x for x in sort if isinstance(x, dict) and x.get("col") in columns] if isinstance(sort, list) else []
+    seen, out = set(), []
+    for x in sort:
+        if x["col"] not in seen:
+            seen.add(x["col"])
+            out.append({"col": x["col"], "asc": bool(x.get("asc", True))})
+    sort = out
     return {"order": order, "hidden": hidden, "widths": widths, "sort": sort}
 
 
@@ -144,16 +152,22 @@ def column_settings(table_key: str, columns: dict[str, str], base_config: dict |
                     widths[k] = w
         st.caption("Сортировка:")
         sort_options = ["(без сортировки)"] + list(names.values())
-        cur_sort_name = names[cur["sort"]["col"]] if cur["sort"] else sort_options[0]
+        cur_sort_name = names[cur["sort"][0]["col"]] if cur["sort"] else sort_options[0]
+        if cur["sort"]:
+            st.caption("Текущая: " + " → ".join(f"{names[x['col']]} {'↑' if x['asc'] else '↓'}" for x in cur["sort"]))
         sort_col_name = st.selectbox(
             "Колонка", sort_options, index=sort_options.index(cur_sort_name), key=f"{kp}_sort_col")
         sort_asc = st.checkbox(
-            "По возрастанию", value=cur["sort"]["asc"] if cur["sort"] else True, key=f"{kp}_sort_asc")
+            "По возрастанию", value=cur["sort"][0]["asc"] if cur["sort"] else True, key=f"{kp}_sort_asc")
         b1, b2 = st.columns(2)
         if b1.button("Сохранить", key=f"{table_key}_cols_save"):
             new_order = [by_name[n] for n in ordered if n in by_name]
             new_hidden = [k for k in new_order if k not in pinned and names[k] not in shown]
-            new_sort = {"col": by_name[sort_col_name], "asc": sort_asc} if sort_col_name != sort_options[0] else None
+            if sort_col_name == sort_options[0]:
+                new_sort = []
+            else:  # новая сортировка — главная, прежние остаются как вторичные
+                k0 = by_name[sort_col_name]
+                new_sort = [{"col": k0, "asc": sort_asc}] + [x for x in cur["sort"] if x["col"] != k0]
             save_prefs({**load_prefs(), table_key: {
                 "order": new_order, "hidden": new_hidden, "widths": widths, "sort": new_sort}})
             st.session_state[f"{table_key}__ver"] = ver + 1
@@ -168,7 +182,7 @@ def column_settings(table_key: str, columns: dict[str, str], base_config: dict |
     for k, w in cur["widths"].items():
         name = columns[k]
         config[name] = {**(config.get(name) or {}), "width": w}
-    sort = (columns[cur["sort"]["col"]], cur["sort"]["asc"]) if cur["sort"] else None
+    sort = ([columns[x["col"]] for x in cur["sort"]], [x["asc"] for x in cur["sort"]]) if cur["sort"] else None
     return order, config, sort
 
 
