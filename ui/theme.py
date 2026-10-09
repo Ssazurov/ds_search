@@ -388,33 +388,9 @@ def topbar(page: str) -> None:
     """Название вкладки в верхней панели (слева от Deploy)."""
     if page == "Слова":
         st.markdown(
-            f'<div class="gar-topbar"><b>{page} <span class="words-help-icon" title="Данные: /ds_words (YAML репозитория ds_words). Вкладка только читает и пишет файлы.">?</span></b></div>',
+            f'<div class="gar-topbar"><b>{page}</b></div>',
             unsafe_allow_html=True,
-        )
-        st.markdown(
-            """
-            <style>
-            .words-help-icon {
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                width: 16px;
-                height: 16px;
-                border-radius: 50%;
-                background-color: #8991a3;
-                color: white;
-                font-size: 11px;
-                font-weight: 600;
-                cursor: help;
-                vertical-align: middle;
-                pointer-events: auto;
-            }
-            .words-help-icon:hover {
-                background-color: #7a8193;
-            }
-            </style>
-            """,
-            unsafe_allow_html=True,
+            help="Данные: /ds_words (YAML репозитория ds_words). Вкладка только читает и пишет файлы.",
         )
     else:
         st.markdown(f'<div class="gar-topbar"><b>{page}</b></div>', unsafe_allow_html=True)
