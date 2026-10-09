@@ -717,38 +717,38 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
     with sel_slot:
         st.session_state["tb_selall"] = bool(vis_ids) and all(i in sel_set for i in vis_ids)
         with st.container(key="cmp_selall"):
-            sc1, sc2 = st.columns([2, 1], vertical_alignment="center")
+            sc1, _sc2 = st.columns(2, vertical_alignment="center")
             sc1.checkbox(f"Выбрать все ({len(vis_ids)})", key="tb_selall", on_change=_selall_cb)
-            sc2.markdown(f"<span style='font-family: IBM Plex Sans, system-ui, sans-serif; font-size: 14px; color: #1a2030; line-height: 1.5;'>✓ ок: {c['ok']} · ✗ удалить: {c['del']} · с правками: {c['edit']} · всего слов: {len(rows)}</span>", unsafe_allow_html=True)
     marked = [i for i in picked if st.session_state.get(f"pv_{i}")] if st.session_state.get("tb_prev") else []
     targets = marked or picked
-    g1, g2, g3, g4 = action_row(4, "words")
-    if g4.button(f"Сгенерировать подсказку ({len(targets)})", disabled=not targets, key="words_vis_btn",
-                 help="LLM пишет сцену-подсказку (ru) для выбранных слов; затем правьте и генерируйте картинку"):
-        with st.spinner(f"Подсказки: {len(targets)} шт.…"):
-            record_feedback(root, load_images_reg(root), {i: dec.get(i, {}).get("hint", "") for i in targets})
-            rc, out = _run(root, sys.executable, "scripts/imggen.py", "visual", "--ids", ",".join(targets), "--force")
-            vf = root / "registry" / "visual.json"
-            vis = json.loads(vf.read_text("utf-8")) if vf.exists() else {}
-            for i in targets:
-                if vis.get(i, {}).get("ru"):
-                    stage(dec, i, "hint", vis[i]["ru"])
-            save_decisions(root, dec)
-        notify.report("success" if rc == 0 else "error", "Подсказки", details=[out[-1500:]])
-        st.rerun()
-    g1.button("Просмотр", key="words_prev_btn", disabled=not picked, on_click=_toggle_prev,
-              type="primary" if st.session_state.get("tb_prev") else "secondary")
-    gen_label = (f"Перегенерировать отмеченные ({len(marked)})" if marked
-                 else f"Сгенерировать картинку ({len(picked)})")
-    if g2.button(gen_label, disabled=not targets, key="words_gen_btn",
-                 help=GEN_HELP):
-        hints = dict(zip(edited["id"], (edited["Подсказка"].fillna("").str.strip())))
-        with st.spinner(f"Генерация: {len(targets)} шт., по очереди…"):
-            record_feedback(root, load_images_reg(root), {i: h for i, h in hints.items() if i in targets})
-            rc, out = run_imggen(root, targets, hints)
-        notify.report("success" if rc == 0 else "error", "Генерация картинок", details=[out[-1500:]])
-        st.rerun()
-    save = g3.button("Сохранить в черновик", type="primary", key="words_save_btn")
+    with st.container(key="actions_words"):
+        act_cols = st.columns([2, 1, 1, 1, 1])
+        act_cols[0].markdown(f"<div style='display:flex;align-items:center;height:100%;'><span style='font-family:IBM Plex Sans,system-ui,sans-serif;font-size:13px;font-weight:500;color:#c73b45;line-height:32px;'>✓ ок: {c['ok']} · ✗ удалить: {c['del']} · с правками: {c['edit']} · всего слов: {len(rows)}</span></div>", unsafe_allow_html=True)
+        if act_cols[4].button(f"Сгенерировать подсказку ({len(targets)})", disabled=not targets, key="words_vis_btn",
+                             help="LLM пишет сцену-подсказку (ru) для выбранных слов; затем правьте и генерируйте картинку"):
+            with st.spinner(f"Подсказки: {len(targets)} шт.…"):
+                record_feedback(root, load_images_reg(root), {i: dec.get(i, {}).get("hint", "") for i in targets})
+                rc, out = _run(root, sys.executable, "scripts/imggen.py", "visual", "--ids", ",".join(targets), "--force")
+                vf = root / "registry" / "visual.json"
+                vis = json.loads(vf.read_text("utf-8")) if vf.exists() else {}
+                for i in targets:
+                    if vis.get(i, {}).get("ru"):
+                        stage(dec, i, "hint", vis[i]["ru"])
+                save_decisions(root, dec)
+            notify.report("success" if rc == 0 else "error", "Подсказки", details=[out[-1500:]])
+            st.rerun()
+        act_cols[1].button("Просмотр", key="words_prev_btn", disabled=not picked, on_click=_toggle_prev,
+                          type="primary" if st.session_state.get("tb_prev") else "secondary")
+        gen_label = (f"Перегенерировать отмеченные ({len(marked)})" if marked
+                     else f"Сгенерировать картинку ({len(picked)})")
+        if act_cols[2].button(gen_label, disabled=not targets, key="words_gen_btn", help=GEN_HELP):
+            hints = dict(zip(edited["id"], (edited["Подсказка"].fillna("").str.strip())))
+            with st.spinner(f"Генерация: {len(targets)} шт., по очереди…"):
+                record_feedback(root, load_images_reg(root), {i: h for i, h in hints.items() if i in targets})
+                rc, out = run_imggen(root, targets, hints)
+            notify.report("success" if rc == 0 else "error", "Генерация картинок", details=[out[-1500:]])
+            st.rerun()
+        save = act_cols[3].button("Сохранить в черновик", type="primary", key="words_save_btn")
     if st.session_state.get("tb_prev") and picked:
         _preview(root, [r for r in sel if r["id"] in sel_set])
     st.divider()
