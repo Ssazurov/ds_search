@@ -616,8 +616,8 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
 
     dec = load_decisions(root)
     c = counts(dec)
-    st.caption(f"✓ ок: {c['ok']} · ✗ удалить: {c['del']} · с правками: {c['edit']} · всего слов: {len(rows)}. "
-               "Правки и решения копятся в черновике и попадают в YAML кнопкой «Применить к YAML».")
+    # st.caption(f"✓ ок: {c['ok']} · ✗ удалить: {c['del']} · с правками: {c['edit']} · всего слов: {len(rows)}. "
+    #            "Правки и решения копятся в черновике и попадают в YAML кнопкой «Применить к YAML».")
     cats = ["все"] + sorted({r["cat"] for r in rows}, key=cat_label)
     ALL = "все"
     ages = sorted({f"{r['age'][0]}–{r['age'][1]}" for r in rows})
@@ -717,8 +717,9 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
     with sel_slot:
         st.session_state["tb_selall"] = bool(vis_ids) and all(i in sel_set for i in vis_ids)
         with st.container(key="cmp_selall"):
-            sc1, _sc2 = st.columns(2, vertical_alignment="center")
+            sc1, sc2 = st.columns([1, 2], vertical_alignment="center")
             sc1.checkbox(f"Выбрать все ({len(vis_ids)})", key="tb_selall", on_change=_selall_cb)
+            sc2.caption(f"✓ ок: {c['ok']} · ✗ удалить: {c['del']} · с правками: {c['edit']} · всего слов: {len(rows)}")
     marked = [i for i in picked if st.session_state.get(f"pv_{i}")] if st.session_state.get("tb_prev") else []
     targets = marked or picked
     g1, g2, g3, g4 = action_row(4, "words")
