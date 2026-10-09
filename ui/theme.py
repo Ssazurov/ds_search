@@ -355,8 +355,9 @@ details [data-testid="stNumberInputContainer"]:focus-within,
 .st-key-tabmain [class*="st-key-colfoot_"] .st-key-pgnums [data-testid="stColumn"]:is(:first-child, :last-child, :nth-child(n)) { flex: 0 0 auto !important; width: auto !important; min-width: 0 !important; display: block; justify-content: flex-start; }
 .st-key-tabmain [class*="st-key-colfoot_"] .st-key-pgnums button { min-height: 32px !important; padding: 0 8px !important; }
 .st-key-cmp_selall [data-testid="stHorizontalBlock"] { align-items: center !important; justify-content: space-between !important; }
-.st-key-cmp_selall [data-testid="stColumn"]:last-child { text-align: right; }
-.st-key-cmp_selall [data-testid="stCaptionContainer"], .st-key-cmp_selall [data-testid="stCheckbox"] { margin: 0 !important; padding: 0 !important; min-height: 0 !important; display: flex; align-items: center; }
+.st-key-cmp_selall [data-testid="stColumn"]:last-child { text-align: right; display: flex; align-items: center; justify-content: flex-end; }
+.st-key-cmp_selall [data-testid="stCaptionContainer"] { margin: 0 !important; padding: 0 !important; font-size: 14px !important; color: var(--text) !important; opacity: 1 !important; line-height: 1.5 !important; }
+.st-key-cmp_selall [data-testid="stCheckbox"] { margin: 0 !important; padding: 0 !important; min-height: 0 !important; display: flex; align-items: center; }
 [class*="st-key-pv_"] label { user-select: none; }
 /* Пальцы 👍/👎 в Просмотре: без рамки, размер иконки; выбранный — цветной */
 [class*="st-key-th_up_"] button, [class*="st-key-th_down_"] button { 
