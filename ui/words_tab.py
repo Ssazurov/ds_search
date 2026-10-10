@@ -611,14 +611,12 @@ def _preview(root: Path, picked_rows: list[dict]) -> None:
             vote = reg.get(r["id"], {}).get("vote")
             row_cols = col.columns([6, 1, 1], gap="small", vertical_alignment="center")
             row_cols[0].checkbox(r["tr"].get("ru") or r["id"], key=f"pv_{r['id']}")
-            if row_cols[1].button("", icon=":material/thumb_up:", type="tertiary",
-                                  key=f"th_up_{'on_' if vote == 'up' else ''}{r['id']}", disabled=not r["img"]):
-                set_vote(root, r["id"], "" if vote == "up" else "up")
-                st.rerun()
-            if row_cols[2].button("", icon=":material/thumb_down:", type="tertiary",
-                                  key=f"th_down_{'on_' if vote == 'down' else ''}{r['id']}", disabled=not r["img"]):
-                set_vote(root, r["id"], "" if vote == "down" else "down")
-                st.rerun()
+            row_cols[1].button("", icon=":material/thumb_up:", type="tertiary",
+                               key=f"th_up_{'on_' if vote == 'up' else ''}{r['id']}", disabled=not r["img"],
+                               on_click=set_vote, args=(root, r["id"], "" if vote == "up" else "up"))
+            row_cols[2].button("", icon=":material/thumb_down:", type="tertiary",
+                               key=f"th_down_{'on_' if vote == 'down' else ''}{r['id']}", disabled=not r["img"],
+                               on_click=set_vote, args=(root, r["id"], "" if vote == "down" else "down"))
     import streamlit.components.v1 as components
     components.html(
         "<script>(function(){const p=window.parent;if(p.__pvShift2)return;p.__pvShift2=1;"
@@ -655,7 +653,11 @@ def _decisions_block(root: Path, dec: dict) -> None:
                 st.rerun()
 
 
+@st.fragment
 def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
+    """Фрагмент: фильтры, пагинация, выбор строк, оценки и Просмотр перерисовываются без полной
+    перезагрузки страницы. Состояние (решения, оценки) читается с диска при каждом запуске фрагмента;
+    долгие/меняющие данные действия (генерация, озвучка, подсказки, применение) делают полный st.rerun()."""
     import pandas as pd
 
     dec = load_decisions(root)
