@@ -353,6 +353,28 @@ def load_images_reg(root: Path) -> dict:
     return json.loads(f.read_text("utf-8")) if f.exists() else {}
 
 
+def load_avotes(root: Path) -> dict:
+    f = root / "registry" / "audio_votes.json"
+    return json.loads(f.read_text("utf-8")) if f.exists() else {}
+
+
+def set_avote(root: Path, wid: str, v: str) -> None:
+    d = load_avotes(root)
+    if v:
+        d[wid] = v
+    else:
+        d.pop(wid, None)
+    (root / "registry" / "audio_votes.json").write_text(json.dumps(d, ensure_ascii=False, indent=1), "utf-8")
+
+
+def _ask(kind: str, pressed: bool, tgt: list, reg: dict) -> bool:
+    """Перегенерация: если у кого-то из целей стоит 👍 — не запускаем, просим подтверждение (_cf)."""
+    if pressed and any(reg.get(i) == "up" for i in tgt):
+        st.session_state["_cf"] = kind
+        return False
+    return pressed
+
+
 def set_vote(root: Path, wid: str, v: str, scene: str = "") -> None:
     cmd = [sys.executable, "scripts/imggen.py", "vote", wid, v or "clear"]
     if scene:
@@ -411,7 +433,7 @@ def _bump(key: str) -> None:
 
 
 _TB_KEYS = ("tb_q", "tb_cat", "tb_mode", "tb_pos", "tb_prio", "tb_img", "tb_aud", "tb_ver", "tb_age",
-            "tb_fl", "tb_vote", "tb_hint", "tb_size", "tb_page")
+            "tb_fl", "tb_vote", "tb_avote", "tb_hint", "tb_size", "tb_page")
 
 
 _TB_TYPES = {"tb_prio": int, "tb_size": int, "tb_page": int, "tb_fl": bool}
@@ -435,12 +457,48 @@ def audio_uri(r: dict) -> str | None:
 
 
 TTS_URL = os.environ.get("TTS_URL", "http://host.docker.internal:8790")
+# имя -> (min, max, step, default, подпись/подсказка)
+TTS_RU = {"exaggeration": "Выразительность", "cfg_weight": "Следование образцу и темп", "temperature": "Случайность",
+          "top_p": "Ядро выборки (top-p)", "min_p": "Мин. вероятность (min-p)", "repetition_penalty": "Штраф за повторы",
+          "tempo": "Скорость речи", "pad": "Тишина после слова, с", "margin": "Запас перед обрезкой хвоста, с"}
+TTS_PARAMS = {
+    "exaggeration": (0.25, 2.0, 0.05, 0.2, "Выразительность: ниже = ровнее"),
+    "cfg_weight": (0.0, 1.0, 0.05, 0.5, "CFG/темп: ниже = медленнее, ровнее"),
+    "temperature": (0.05, 2.0, 0.05, 0.2, "Случайность: ниже = стабильнее"),
+    "top_p": (0.1, 1.0, 0.05, 1.0, "Top-p: ниже = консервативнее"),
+    "min_p": (0.0, 0.5, 0.01, 0.05, "Min-p: отсечка маловероятных"),
+    "repetition_penalty": (1.0, 3.0, 0.1, 2.0, "Штраф повторов"),
+    "tempo": (0.5, 1.5, 0.01, 0.87, "Скорость речи (<1 медленнее)"),
+    "pad": (0.0, 3.0, 0.1, 1.0, "Тишина после слова, с"),
+    "margin": (0.0, 0.5, 0.05, 0.15, "Запас перед обрезкой хвоста, с"),
+}
+
+
+def tts_params() -> dict:
+    return {k: float(st.session_state.get(f"tts_{k}", v[3])) for k, v in TTS_PARAMS.items()}
+
+
+def _tts_reset() -> None:
+    for k, v in TTS_PARAMS.items():
+        st.session_state[f"tts_{k}"] = v[3]
+
+
+def _tts_settings() -> None:
+    """Последний блок вкладки: параметры голоса; применяются к следующей «Сгенерировать звук»."""
+    st.divider()
+    with st.expander("Настройки голоса (TTS)", expanded=False):
+        cols = st.columns(3)
+        for n, (k, (lo, hi, step, d, hlp)) in enumerate(TTS_PARAMS.items()):
+            cols[n % 3].slider(TTS_RU.get(k, k), lo, hi, d, step, key=f"tts_{k}", help=hlp)
+        st.button("Сбросить", on_click=_tts_reset, key="tts_reset_btn")
+        st.caption("Применяется сразу к следующей кнопке «Сгенерировать звук» (выберите слова в таблице).")
 
 
 def run_tts(items: list[dict], lang: str = "ru") -> tuple[int, str]:
     """Озвучка через локальный сервис ds_words/scripts/tts_server.py (Chatterbox, клон голоса)."""
     import urllib.request
-    req = urllib.request.Request(f"{TTS_URL}/gen", json.dumps({"lang": lang, "items": items}).encode(),
+    req = urllib.request.Request(f"{TTS_URL}/gen",
+                                 json.dumps({"lang": lang, "items": items, "params": tts_params()}).encode(),
                                  {"Content-Type": "application/json"})
     try:
         with urllib.request.urlopen(req, timeout=60 * len(items) + 60) as f:
@@ -600,6 +658,7 @@ def _preview(root: Path, picked_rows: list[dict]) -> None:
         b1.button("Выбрать все", key="pv_all", on_click=_mark_all, args=(ids,), disabled=marked == len(ids))
         b2.button("Снять отметки", key="pv_clear", on_click=_clear_marks, args=(ids,), disabled=not marked)
     reg = load_images_reg(root)
+    areg = load_avotes(root)
     cols = _grid_cols(len(ids))
     for i in range(0, len(picked_rows), cols):
         for col, r in zip(st.columns(cols, gap="small"), picked_rows[i:i + cols]):
@@ -609,7 +668,7 @@ def _preview(root: Path, picked_rows: list[dict]) -> None:
             else:
                 col.caption("нет картинки")
             vote = reg.get(r["id"], {}).get("vote")
-            row_cols = col.columns([6, 1, 1], gap="small", vertical_alignment="center")
+            row_cols = col.columns([4, 1, 1, 1, 1], gap="small", vertical_alignment="center")
             row_cols[0].checkbox(r["tr"].get("ru") or r["id"], key=f"pv_{r['id']}")
             row_cols[1].button("", icon=":material/thumb_up:", type="tertiary",
                                key=f"th_up_{'on_' if vote == 'up' else ''}{r['id']}", disabled=not r["img"],
@@ -617,6 +676,13 @@ def _preview(root: Path, picked_rows: list[dict]) -> None:
             row_cols[2].button("", icon=":material/thumb_down:", type="tertiary",
                                key=f"th_down_{'on_' if vote == 'down' else ''}{r['id']}", disabled=not r["img"],
                                on_click=set_vote, args=(root, r["id"], "" if vote == "down" else "down"))
+            av = areg.get(r["id"])
+            row_cols[3].button("", icon=":material/thumb_up:", type="tertiary", help="Звук 👍",
+                               key=f"ath_up_{'on_' if av == 'up' else ''}{r['id']}", disabled=not r["audio"],
+                               on_click=set_avote, args=(root, r["id"], "" if av == "up" else "up"))
+            row_cols[4].button("", icon=":material/thumb_down:", type="tertiary", help="Звук 👎",
+                               key=f"ath_down_{'on_' if av == 'down' else ''}{r['id']}", disabled=not r["audio"],
+                               on_click=set_avote, args=(root, r["id"], "" if av == "down" else "down"))
     import streamlit.components.v1 as components
     components.html(
         "<script>(function(){const p=window.parent;if(p.__pvShift2)return;p.__pvShift2=1;"
@@ -669,20 +735,21 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
     ages = sorted({f"{r['age'][0]}–{r['age'][1]}" for r in rows})
     _tb_restore({"tb_cat": cats, "tb_mode": list(MODES), "tb_ver": ["", "none", "ok", "del"],
                  "tb_prio": [0, 1, 2, 3], "tb_pos": ["", *POS], "tb_img": ["", "есть", "нет"],
-                 "tb_aud": ["", "есть", "нет"], "tb_vote": ["", "up", "down", "none"], "tb_age": ["", *ages], "tb_size": [5, 10, 20, 50, 100, 0]})
+                 "tb_aud": ["", "есть", "нет"], "tb_vote": ["", "up", "down", "none"], "tb_avote": ["", "up", "down", "none"], "tb_age": ["", *ages], "tb_size": [5, 10, 20, 50, 100, 0]})
     with st.container(key="cmpv_words"):
-        c1, c2, c3, c4, c5, c6, c7, c8, c9, c10 = st.columns(10)
+        c1, c2, c3, c4, c5, c6, c7, c7a, c8, c9, c10 = st.columns(11)
         q = c1.text_input("Поиск (id или перевод)", key="tb_q")
-        cat = c2.selectbox("Категория", cats, key="tb_cat", width=220,
+        cat = c2.selectbox("Категория", cats, key="tb_cat", width=110,
                            format_func=lambda x: "Все" if x == "все" else cat_label(x))
         img = c3.selectbox("Картинка", ["", "есть", "нет"], key="tb_img", width=120,
                            format_func=lambda x: x or "Все")
-        mode = c4.selectbox("Показать", list(MODES), key="tb_mode", width=170, format_func=MODES.get)
-        verdict = c5.selectbox("Решение", ["", "none", "ok", "del"], key="tb_ver", width=170,
+        mode = c4.selectbox("Показать", list(MODES), key="tb_mode", width=85, format_func=MODES.get)
+        verdict = c5.selectbox("Решение", ["", "none", "ok", "del"], key="tb_ver", width=85,
                                format_func=lambda x: {"": "Все", "none": "Без решения"}.get(x) or REVIEW_RU[x])
-        prio = c6.selectbox("Приоритет", [0, 1, 2, 3], key="tb_prio", width=120,
+        prio = c6.selectbox("Приоритет", [0, 1, 2, 3], key="tb_prio", width=60,
                             format_func=lambda x: str(x) if x else "Все")
-        vote = c7.selectbox("Оценка", list(VOTE_RU), key="tb_vote", width=120, format_func=VOTE_RU.get)
+        vote = c7.selectbox("Оценка", list(VOTE_RU), key="tb_vote", width=80, format_func=VOTE_RU.get)
+        avote = c7a.selectbox("Оценка (звук)", list(VOTE_RU), key="tb_avote", width=80, format_func=VOTE_RU.get)
         hint_f = c8.selectbox("Подсказка", ["", "есть", "нет"], key="tb_hint", width=120, format_func=lambda x: x or "Все")
         with c9.popover("⚙️", help="Дополнительные фильтры"):
             pos = st.selectbox("Часть речи", ["", *POS], key="tb_pos", format_func=lambda x: POS_RU.get(x, "Все"))
@@ -702,7 +769,13 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
     size = 50 if size is None else size
     size = size or max(1, len(sel))
     pages = max(1, -(-len(sel) // size))
-    sig = (mode, cat, q, pos, prio, img, aud, verdict, age, only_fl, vote, hint_f, size)
+    avotes = load_avotes(root)
+    if avote:
+        sel = [r for r in sel if avotes.get(r["id"], "") == (avote if avote != "none" else "")]
+    size = 50 if size is None else size
+    size = size or max(1, len(sel))
+    pages = max(1, -(-len(sel) // size))
+    sig = (mode, cat, q, pos, prio, img, aud, verdict, age, only_fl, vote, avote, hint_f, size)
     old_sig = st.session_state.get("tb_sig")
     old_page = st.session_state.get("tb_page", 1)
     page = min(max(1, st.session_state.get("tb_page", 1)), pages)
@@ -734,6 +807,7 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
             staged = e.get(l) if l in ("ru", "en") else e.get("tr", {}).get(l)
             row[lang_label(l)] = staged or r["tr"].get(l, "")
         row.update({"Часть речи": POS_RU[e.get("pos", r["pos"])], "Картинка": img_uri(r["img"]), "Оценка": VOTE_ICON.get(votes.get(r["id"], ""), ""),
+                    "Оценка (звук)": VOTE_ICON.get(avotes.get(r["id"], "")),
                     "Озвучка": audio_uri(r), "Ударение": r.get("stress"), "Заметка": e.get("note", r["note"]),
                     "Подсказка": e.get("hint", r["hint"]), "Флаги": "; ".join(r["flags"])})
         recs.append(row)
@@ -755,6 +829,7 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
          "Решение": st.column_config.SelectboxColumn(options=list(REVIEW_FROM)),
          "Выбор": st.column_config.CheckboxColumn("Выбор", width="small"),
          "Оценка": st.column_config.TextColumn("Оценка", width="small", alignment="center"),
+         "Оценка (звук)": st.column_config.SelectboxColumn("Оценка (звук)", options=["👍", "👎"], width="small", required=False),
          "Подсказка": st.column_config.TextColumn("Подсказка", help="Доп. описание для картинки; русский переводится на английский"),
          "Картинка": st.column_config.LinkColumn("Картинка", display_text=":material/image:", width="small"),
          "Озвучка": st.column_config.LinkColumn("Озвучка", display_text=":material/play_circle:", width="small"),
@@ -766,6 +841,11 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
     edited = tbl.data_editor(
         df, key=key, hide_index=True, use_container_width=True, column_order=order, column_config=config,
         disabled=["id", "Категория", "Возраст", "Приоритет", "Картинка", "Оценка", "Озвучка", "Флаги"])
+    _ai = {"👍": "up", "👎": "down"}
+    for wid, o, n in zip(df["id"], df["Оценка (звук)"], edited.set_index(df.index)["Оценка (звук)"]):
+        o, n = _ai.get(o, ""), _ai.get(n, "")
+        if o != n:
+            set_avote(root, wid, n)
     with cap_col:
         _tb_pager(page, pages, len(sel), len(rows))
     sel_set.difference_update(vis_ids)
@@ -799,15 +879,18 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
             st.session_state["tb_selver"] = st.session_state.get("tb_selver", 0) + 1  # новый key -> data_editor перечитает df
             notify.report("success" if rc == 0 else "error", "Подсказки", details=[out[-1500:]])
             st.rerun()
-        if act_cols[5].button(f"Сгенерировать звук ({len(targets)})", disabled=not targets, key="words_tts_btn",
+        if _ask("tts", act_cols[5].button(f"Сгенерировать звук ({len(targets)})", disabled=not targets, key="words_tts_btn",
                              help="Озвучка (ru) выбранных слов: Chatterbox, клон голоса; ударение — из колонки «Ударение». "
-                                  "Нужен запущенный scripts/tts_server.py (~3–5 с на слово)."):
+                                  "Нужен запущенный scripts/tts_server.py (~3–5 с на слово)."), targets, avotes) \
+                or st.session_state.pop("_go_tts", False):
             ru_t = dict(zip(edited["id"], edited[lang_label("ru")].fillna("")))
             st_n = dict(zip(edited["id"], edited["Ударение"]))
             items = [{"id": i, "text": ru_t[i], "stress": int(st_n[i]) if st_n[i] == st_n[i] and st_n[i] else None}
                      for i in targets if ru_t.get(i)]
             with st.spinner(f"Озвучка: {len(items)} шт., по очереди…"):
                 rc, out = run_tts(items)
+            for i in targets:
+                set_avote(root, i, "")  # новая озвучка -> старая оценка сброшена
             st.session_state["tb_selver"] = st.session_state.get("tb_selver", 0) + 1
             notify.report("success" if rc == 0 else "error", "Озвучка", details=[out[-1500:]])
             st.rerun()
@@ -815,7 +898,8 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
                           type="primary" if st.session_state.get("tb_prev") else "secondary")
         gen_label = (f"Перегенерировать отмеченные ({len(marked)})" if marked
                      else f"Сгенерировать картинку ({len(picked)})")
-        if act_cols[2].button(gen_label, disabled=not targets, key="words_gen_btn", help=GEN_HELP):
+        if _ask("img", act_cols[2].button(gen_label, disabled=not targets, key="words_gen_btn", help=GEN_HELP), targets, votes) \
+                or st.session_state.pop("_go_img", False):
             hints = dict(zip(edited["id"], (edited["Подсказка"].fillna("").str.strip())))
             with st.spinner(f"Генерация: {len(targets)} шт., по очереди…"):
                 record_feedback(root, load_images_reg(root), {i: h for i, h in hints.items() if i in targets})
@@ -823,6 +907,22 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
             notify.report("success" if rc == 0 else "error", "Генерация картинок", details=[out[-1500:]])
             st.rerun()
         save = act_cols[3].button("Сохранить в черновик", type="primary", key="words_save_btn")
+    cf = st.session_state.get("_cf")
+    if cf:
+        liked = [i for i in targets if (votes if cf == "img" else avotes).get(i) == "up"]
+        if not liked:
+            st.session_state.pop("_cf")
+        else:
+            st.warning(f"У {len(liked)} из {len(targets)} слов стоит 👍 ({'картинка' if cf == 'img' else 'звук'}). "
+                       f"Перегенерировать и потерять удачный вариант?")
+            y, n, _sp = st.columns([2, 1, 6])
+            if y.button("Да, перегенерировать", key="cf_yes", type="primary"):
+                st.session_state.pop("_cf")
+                st.session_state["_go_" + cf] = True
+                st.rerun()
+            if n.button("Отмена", key="cf_no"):
+                st.session_state.pop("_cf")
+                st.rerun()
     if st.session_state.get("tb_prev") and prev_rows:
         _preview(root, prev_rows)
     st.divider()
@@ -931,3 +1031,4 @@ def render() -> None:
         _add(root, rows, langs)
     with t3:
         _check(root, rows, langs)
+    _tts_settings()
