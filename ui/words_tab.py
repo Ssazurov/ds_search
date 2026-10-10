@@ -447,20 +447,34 @@ def img_uri(rel: str) -> str | None:
     return f"dsdoc://{_WSL_DISTRO}{_HOST_WORDS_ROOT}/{rel}" if rel else None
 
 
+@st.cache_data(show_spinner=False, max_entries=3000)
+def _b64(path: str, mtime: float) -> str:
+    import base64
+    return base64.b64encode(Path(path).read_bytes()).decode()
+
+
+# клик по ссылке «Озвучка» (https://ds-audio.invalid/<lang>/<id>.mp3) -> играем звук в странице, окно не открываем
+_APLAY_JS = (r"if(p.__aplay)return;p.__aplay=1;const o=p.open.bind(p);let a=null;"
+             r"p.open=function(u){const m=typeof u==='string'&&u.match(/^https:\/\/ds-audio\.invalid\/(.+)\.mp3/);"
+             r"if(m&&p.__amap[m[1]]){if(a)a.pause();a=new p.Audio('data:audio/mpeg;base64,'+p.__amap[m[1]]);a.play();return null;}"
+             r"return o.apply(p,arguments);};")
+
+
 def audio_uri(r: dict) -> str | None:
     """Ссылка на озвучку (ru, иначе первый язык); нет звука -> None (пустая ячейка)."""
     langs = r["audio"]
     if not langs:
         return None
     lang = "ru" if "ru" in langs else langs[0]
-    return img_uri(f"audio/{lang}/{r['id']}.mp3")
+    return f"https://ds-audio.invalid/{lang}/{r['id']}.mp3"
 
 
 TTS_URL = os.environ.get("TTS_URL", "http://host.docker.internal:8790")
 # имя -> (min, max, step, default, подпись/подсказка)
 TTS_RU = {"exaggeration": "Выразительность", "cfg_weight": "Следование образцу и темп", "temperature": "Случайность",
           "top_p": "Ядро выборки (top-p)", "min_p": "Мин. вероятность (min-p)", "repetition_penalty": "Штраф за повторы",
-          "tempo": "Скорость речи", "pad": "Тишина после слова, с", "margin": "Запас перед обрезкой хвоста, с"}
+          "tempo": "Скорость речи", "pad": "Тишина после слова, с", "margin": "Запас перед обрезкой хвоста, с",
+          "tail_semi": "Снижение тона в конце, полутонов", "tail_ms": "Длина снижения тона, мс"}
 TTS_PARAMS = {
     "exaggeration": (0.25, 2.0, 0.05, 0.2, "Выразительность: ниже = ровнее"),
     "cfg_weight": (0.0, 1.0, 0.05, 0.5, "CFG/темп: ниже = медленнее, ровнее"),
@@ -471,6 +485,8 @@ TTS_PARAMS = {
     "tempo": (0.5, 1.5, 0.01, 0.87, "Скорость речи (<1 медленнее)"),
     "pad": (0.0, 3.0, 0.1, 1.0, "Тишина после слова, с"),
     "margin": (0.0, 0.5, 0.05, 0.15, "Запас перед обрезкой хвоста, с"),
+    "tail_semi": (-3.0, 4.0, 0.25, 1.5, "Плавно понизить тон к концу слова (полутонов); 0 = выкл, минус = повысить"),
+    "tail_ms": (50.0, 500.0, 10.0, 250.0, "Сколько последних мс слова снижается тон"),
 }
 
 
@@ -483,14 +499,137 @@ def _tts_reset() -> None:
         st.session_state[f"tts_{k}"] = v[3]
 
 
-def _tts_settings() -> None:
-    """Последний блок вкладки: параметры голоса; применяются к следующей «Сгенерировать звук»."""
+_REF_EXT = (".wav", ".mp3", ".flac", ".ogg", ".m4a")
+
+
+def _refs(root: Path) -> list[str]:
+    v = root / "voice"
+    ps = [*v.glob("*"), *(v / "refs").glob("*")]
+    return sorted(str(p.relative_to(root)) for p in ps if p.suffix.lower() in _REF_EXT)
+
+
+def load_profiles(root: Path) -> dict:
+    f = root / "voice" / "profiles.json"
+    d = json.loads(f.read_text("utf-8")) if f.exists() else {}
+    d.setdefault("profiles", {})
+    if not d["profiles"]:
+        d["profiles"]["Основной"] = {"ref": "voice/ref.wav", "params": {k: v[3] for k, v in TTS_PARAMS.items()}}
+        d["active"] = "Основной"
+    return d
+
+
+def save_profiles(root: Path, d: dict) -> None:
+    (root / "voice").mkdir(exist_ok=True)
+    (root / "voice" / "profiles.json").write_text(json.dumps(d, ensure_ascii=False, indent=1), "utf-8")
+
+
+def _prof_apply(pr: dict) -> None:
+    for k, v in TTS_PARAMS.items():
+        st.session_state[f"tts_{k}"] = float(pr.get("params", {}).get(k, v[3]))
+    st.session_state["tts_ref"] = pr.get("ref", "")
+
+
+def _prof_load(root: Path) -> None:
+    d = load_profiles(root)
+    name = st.session_state.get("tts_prof")
+    if name in d["profiles"]:
+        _prof_apply(d["profiles"][name])
+        d["active"] = name
+        save_profiles(root, d)
+
+
+def _prof_save(root: Path) -> None:
+    name = (st.session_state.get("tts_newname") or st.session_state.get("tts_prof") or "").strip()
+    if not name:
+        return
+    d = load_profiles(root)
+    new = name not in d["profiles"]
+    d["profiles"][name] = {"ref": "" if new else st.session_state.get("tts_ref", ""), "params": tts_params()}
+    if new:
+        st.session_state["tts_ref"] = ""  # новый профиль — без прикреплённого файла
+    d["active"] = name
+    save_profiles(root, d)
+    st.session_state["tts_prof"] = name
+    st.session_state["tts_newname"] = ""
+
+
+def _prof_del(root: Path) -> None:
+    d = load_profiles(root)
+    d["profiles"].pop(st.session_state.get("tts_prof"), None)
+    d = load_profiles_fix(root, d)
+    st.session_state["tts_prof"] = d["active"]
+    _prof_apply(d["profiles"][d["active"]])
+    save_profiles(root, d)
+
+
+def load_profiles_fix(root: Path, d: dict) -> dict:
+    if not d["profiles"]:
+        d["profiles"]["Основной"] = {"ref": "voice/ref.wav", "params": {k: v[3] for k, v in TTS_PARAMS.items()}}
+    if d.get("active") not in d["profiles"]:
+        d["active"] = next(iter(d["profiles"]))
+    return d
+
+
+def _ref_del(root: Path) -> None:
+    rel = st.session_state.get("tts_ref", "")
+    if not rel or rel == "voice/ref.wav":
+        return
+    (root / rel).unlink(missing_ok=True)
+    d = load_profiles(root)
+    for pr in d["profiles"].values():
+        if pr.get("ref") == rel:
+            pr["ref"] = ""
+    save_profiles(root, d)
+    st.session_state["tts_ref"] = ""
+
+
+def _ref_add(root: Path) -> None:
+    ver = st.session_state.get("tts_upver", 0)
+    up = st.session_state.get(f"tts_up_{ver}")
+    if not up:
+        return
+    dst = root / "voice" / "refs" / Path(up.name).name
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    dst.write_bytes(up.getvalue())
+    st.session_state["tts_ref"] = str(dst.relative_to(root))
+    st.session_state["tts_upver"] = ver + 1
+
+
+def _tts_settings(root: Path) -> None:
+    """Последний блок вкладки: профили голоса (референс + параметры); применяются к следующей «Сгенерировать звук»."""
     st.divider()
     with st.expander("Настройки голоса (TTS)", expanded=False):
+        d = load_profiles(root)
+        names = list(d["profiles"])
+        if st.session_state.get("tts_prof") not in names:
+            st.session_state["tts_prof"] = d.get("active") if d.get("active") in names else names[0]
+            _prof_apply(d["profiles"][st.session_state["tts_prof"]])
+        p1, p2, p3, p4, _p5 = st.columns([3, 3, 2, 2, 3], vertical_alignment="bottom", gap="small")
+        p1.selectbox("Профиль голоса", names, key="tts_prof", on_change=_prof_load, args=(root,))
+        p2.text_input("Имя", key="tts_newname")
+        p3.button("Сохранить профиль", key="tts_prof_save", on_click=_prof_save, args=(root,), type="primary")
+        p4.button("Удалить профиль", key="tts_prof_del", on_click=_prof_del, args=(root,), disabled=len(names) < 2)
+        refs = _refs(root)
+        if st.session_state.get("tts_ref") not in ["", *refs]:
+            st.session_state["tts_ref"] = ""
+        r1, r2 = st.columns([5, 3])
+        r1.selectbox("Референс (голос-образец)", ["", *refs], key="tts_ref", format_func=lambda x: x or "— без файла (по умолчанию) —",
+                     help="Один файл можно использовать в разных профилях")
+        cur_rel = st.session_state.get("tts_ref", "")
+        if cur_rel and (root / cur_rel).is_file():
+            r1.audio((root / cur_rel).read_bytes())
+        r1.button("Удалить выбранный референс", key="tts_ref_del", on_click=_ref_del, args=(root,),
+                  disabled=not cur_rel or cur_rel == "voice/ref.wav")
+        ver = st.session_state.get("tts_upver", 0)
+        up = r2.file_uploader("Загрузить референс (wav/mp3/flac/ogg/m4a)", type=[e[1:] for e in _REF_EXT], key=f"tts_up_{ver}")
+        r2.button("Добавить референс", key="tts_up_btn", on_click=_ref_add, args=(root,), disabled=not up)
+        st.caption("Референс: 5–15 с чистой речи одного человека, без шума, музыки и эха, ровная нейтральная интонация, "
+                   "слова/фразы с обычным понижением в конце, без длинных пауз. Тембр, темп, эмоции и «вопросительность» "
+                   "в конце слов наследуются из референса — лучше всего читать список отдельных слов с ровным концом.")
         cols = st.columns(3)
-        for n, (k, (lo, hi, step, d, hlp)) in enumerate(TTS_PARAMS.items()):
-            cols[n % 3].slider(TTS_RU.get(k, k), lo, hi, d, step, key=f"tts_{k}", help=hlp)
-        st.button("Сбросить", on_click=_tts_reset, key="tts_reset_btn")
+        for n, (k, (lo, hi, step, d0, hlp)) in enumerate(TTS_PARAMS.items()):
+            cols[n % 3].slider(TTS_RU.get(k, k), lo, hi, d0, step, key=f"tts_{k}", help=hlp)
+        st.button("Сбросить параметры", on_click=_tts_reset, key="tts_reset_btn")
         st.caption("Применяется сразу к следующей кнопке «Сгенерировать звук» (выберите слова в таблице).")
 
 
@@ -498,7 +637,8 @@ def run_tts(items: list[dict], lang: str = "ru") -> tuple[int, str]:
     """Озвучка через локальный сервис ds_words/scripts/tts_server.py (Chatterbox, клон голоса)."""
     import urllib.request
     req = urllib.request.Request(f"{TTS_URL}/gen",
-                                 json.dumps({"lang": lang, "items": items, "params": tts_params()}).encode(),
+                                 json.dumps({"lang": lang, "items": items, "params": tts_params(),
+                                            "ref": st.session_state.get("tts_ref"), "profile": st.session_state.get("tts_prof")}).encode(),
                                  {"Content-Type": "application/json"})
     try:
         with urllib.request.urlopen(req, timeout=60 * len(items) + 60) as f:
@@ -848,6 +988,15 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
             set_avote(root, wid, n)
     with cap_col:
         _tb_pager(page, pages, len(sel), len(rows))
+    import streamlit.components.v1 as _cv
+    amap = {}
+    for r in chunk:
+        if r["audio"]:
+            k = f"{'ru' if 'ru' in r['audio'] else r['audio'][0]}/{r['id']}"
+            f = root / "audio" / f"{k}.mp3"
+            if f.is_file():
+                amap[k] = _b64(str(f), f.stat().st_mtime)
+    _cv.html("<script>(function(){const p=window.parent;p.__amap=" + json.dumps(amap) + ";" + _APLAY_JS + "})();</script>", height=0)
     sel_set.difference_update(vis_ids)
     sel_set.update(edited.loc[edited["Выбор"], "id"].tolist())
     sel_set.intersection_update(r["id"] for r in sel)  # выбор невидимых (отфильтрованных) строк не живёт
@@ -1031,4 +1180,4 @@ def render() -> None:
         _add(root, rows, langs)
     with t3:
         _check(root, rows, langs)
-    _tts_settings()
+    _tts_settings(root)
