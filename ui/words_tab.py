@@ -579,7 +579,7 @@ def _prof_del(root: Path) -> None:
 
 def _ref_del(root: Path) -> None:
     rel = st.session_state.get("tts_ref", "")
-    if not rel or rel == "voice/ref.wav":
+    if not rel:
         return
     (root / rel).unlink(missing_ok=True)
     d = load_profiles(root)
@@ -631,7 +631,7 @@ def _tts_settings(root: Path) -> None:
         if cur_rel and (root / cur_rel).is_file():
             r1.audio((root / cur_rel).read_bytes())
         r1.button("Удалить выбранный референс", key="tts_ref_del", on_click=_ref_del, args=(root,),
-                  disabled=not cur_rel or cur_rel == "voice/ref.wav")
+                  disabled=not cur_rel)
         ver = st.session_state.get("tts_upver", 0)
         up = r2.file_uploader("Загрузить референс (wav/mp3/flac/ogg/m4a)", type=[e[1:] for e in _REF_EXT], key=f"tts_up_{ver}")
         r2.button("Добавить референс", key="tts_up_btn", on_click=_ref_add, args=(root,), disabled=not up)
