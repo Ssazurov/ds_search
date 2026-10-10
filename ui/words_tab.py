@@ -76,10 +76,12 @@ def load_rows(root: Path) -> tuple[list[dict], list[str]]:
         raise ValueError("; ".join(errs[:5]))
     flags = {r["id"]: r["flags"] for r in R.data()}
     dec = load_decisions(root)
+    ap = root / "registry" / "audio.json"
+    areg = json.loads(ap.read_text("utf-8")) if ap.exists() else {}
     rows = []
     for w in words:
         img, aud = W.media(w["id"])
-        rows.append({"id": w["id"], "cat": w["category"], "pos": w["pos"], "prio": w["prio"],
+        rows.append({"stress": areg.get(w["id"], {}).get("ru", {}).get("stress"), "id": w["id"], "cat": w["category"], "pos": w["pos"], "prio": w["prio"],
                      "age": w["age"], "note": w.get("note") or "", "hint": w.get("hint") or "",
                      "tr": w["tr"], "flags": flags.get(w["id"], []), "img": img or "",
                      "audio": sorted(aud), "review": dec.get(w["id"], {}).get("verdict", "")})
@@ -423,6 +425,32 @@ def img_uri(rel: str) -> str | None:
     return f"dsdoc://{_WSL_DISTRO}{_HOST_WORDS_ROOT}/{rel}" if rel else None
 
 
+def audio_uri(r: dict) -> str | None:
+    """Ссылка на озвучку (ru, иначе первый язык); нет звука -> None (пустая ячейка)."""
+    langs = r["audio"]
+    if not langs:
+        return None
+    lang = "ru" if "ru" in langs else langs[0]
+    return img_uri(f"audio/{lang}/{r['id']}.mp3")
+
+
+TTS_URL = os.environ.get("TTS_URL", "http://host.docker.internal:8790")
+
+
+def run_tts(items: list[dict], lang: str = "ru") -> tuple[int, str]:
+    """Озвучка через локальный сервис ds_words/scripts/tts_server.py (Chatterbox, клон голоса)."""
+    import urllib.request
+    req = urllib.request.Request(f"{TTS_URL}/gen", json.dumps({"lang": lang, "items": items}).encode(),
+                                 {"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=60 * len(items) + 60) as f:
+            res = json.load(f)
+    except Exception as e:
+        return 1, f"TTS-сервис недоступен ({TTS_URL}): {e}. Запуск: ~/chatterbox-venv/bin/python scripts/tts_server.py"
+    msg = f"готово: {len(res['ok'])}" + (f"; ошибки: {res['err']}" if res["err"] else "")
+    return (1 if res["err"] else 0), msg
+
+
 def _tb_restore(valid: dict) -> None:
     """Один раз за сессию: фильтры из query params -> session_state (переживает F5)."""
     if st.session_state.get("_tb_restored"):
@@ -704,7 +732,7 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
             staged = e.get(l) if l in ("ru", "en") else e.get("tr", {}).get(l)
             row[lang_label(l)] = staged or r["tr"].get(l, "")
         row.update({"Часть речи": POS_RU[e.get("pos", r["pos"])], "Картинка": img_uri(r["img"]), "Оценка": VOTE_ICON.get(votes.get(r["id"], ""), ""),
-                    "Озвучка": ",".join(r["audio"]), "Заметка": e.get("note", r["note"]),
+                    "Озвучка": audio_uri(r), "Ударение": r.get("stress"), "Заметка": e.get("note", r["note"]),
                     "Подсказка": e.get("hint", r["hint"]), "Флаги": "; ".join(r["flags"])})
         recs.append(row)
     df = pd.DataFrame(recs)
@@ -726,7 +754,10 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
          "Выбор": st.column_config.CheckboxColumn("Выбор", width="small"),
          "Оценка": st.column_config.TextColumn("Оценка", width="small", alignment="center"),
          "Подсказка": st.column_config.TextColumn("Подсказка", help="Доп. описание для картинки; русский переводится на английский"),
-         "Картинка": st.column_config.LinkColumn("Картинка", display_text=":material/image:", width="small")},
+         "Картинка": st.column_config.LinkColumn("Картинка", display_text=":material/image:", width="small"),
+         "Озвучка": st.column_config.LinkColumn("Озвучка", display_text=":material/play_circle:", width="small"),
+         "Ударение": st.column_config.NumberColumn("Ударение", min_value=1, max_value=20, step=1, width="small",
+                                                   help="Номер ударного слога (по гласным); пусто — авто. Затем «Сгенерировать звук»")},
         pinned=("Выбор", "Решение", "id"), host=gear_col)
     if sort:
         df = df.sort_values(sort[0], ascending=sort[1], kind="stable")
@@ -750,7 +781,7 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
     marked = [r["id"] for r in prev_rows if st.session_state.get(f"pv_{r['id']}")] if st.session_state.get("tb_prev") else []
     targets = marked or picked
     with st.container(key="actions_words"):
-        act_cols = st.columns([2, 1, 1, 1, 1])
+        act_cols = st.columns([2, 1, 1, 1, 1, 1])
         act_cols[0].markdown(f"<div style='display:flex;align-items:center;height:100%;'><span style='font-family:IBM Plex Sans,system-ui,sans-serif;font-size:11px;font-weight:500;color:#596178;line-height:32px;'>✓ ок: {c['ok']} · ✗ удалить: {c['del']} · с правками: {c['edit']} · всего слов: {len(rows)}</span></div>", unsafe_allow_html=True)
         if act_cols[4].button(f"Сгенерировать подсказку ({len(targets)})", disabled=not targets, key="words_vis_btn",
                              help="LLM пишет сцену-подсказку (ru) для выбранных слов; затем правьте и генерируйте картинку"):
@@ -765,6 +796,18 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
                 save_decisions(root, dec)
             st.session_state["tb_selver"] = st.session_state.get("tb_selver", 0) + 1  # новый key -> data_editor перечитает df
             notify.report("success" if rc == 0 else "error", "Подсказки", details=[out[-1500:]])
+            st.rerun()
+        if act_cols[5].button(f"Сгенерировать звук ({len(targets)})", disabled=not targets, key="words_tts_btn",
+                             help="Озвучка (ru) выбранных слов: Chatterbox, клон голоса; ударение — из колонки «Ударение». "
+                                  "Нужен запущенный scripts/tts_server.py (~3–5 с на слово)."):
+            ru_t = dict(zip(edited["id"], edited[lang_label("ru")].fillna("")))
+            st_n = dict(zip(edited["id"], edited["Ударение"]))
+            items = [{"id": i, "text": ru_t[i], "stress": int(st_n[i]) if st_n[i] == st_n[i] and st_n[i] else None}
+                     for i in targets if ru_t.get(i)]
+            with st.spinner(f"Озвучка: {len(items)} шт., по очереди…"):
+                rc, out = run_tts(items)
+            st.session_state["tb_selver"] = st.session_state.get("tb_selver", 0) + 1
+            notify.report("success" if rc == 0 else "error", "Озвучка", details=[out[-1500:]])
             st.rerun()
         act_cols[1].button("Просмотр", key="words_prev_btn", disabled=not prev_rows, on_click=_toggle_prev,
                           type="primary" if st.session_state.get("tb_prev") else "secondary")
