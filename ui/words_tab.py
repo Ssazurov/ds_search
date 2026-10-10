@@ -508,14 +508,24 @@ def _refs(root: Path) -> list[str]:
     return sorted(str(p.relative_to(root)) for p in ps if p.suffix.lower() in _REF_EXT)
 
 
+DEF_PROFILE = "По умолчанию"
+
+
+def _prof_fix(d: dict) -> dict:
+    P = d.setdefault("profiles", {})
+    if "Основной" in P and DEF_PROFILE not in P:  # миграция имени
+        P[DEF_PROFILE] = P.pop("Основной")
+    if not P:
+        P[DEF_PROFILE] = {"ref": "voice/ref.wav", "params": {k: v[3] for k, v in TTS_PARAMS.items()}}
+    m = d.pop("active", None) if "main" not in d else d.get("main")
+    m = d.get("main") or m
+    d["main"] = m if m in P else (DEF_PROFILE if DEF_PROFILE in P else next(iter(P)))
+    return d
+
+
 def load_profiles(root: Path) -> dict:
     f = root / "voice" / "profiles.json"
-    d = json.loads(f.read_text("utf-8")) if f.exists() else {}
-    d.setdefault("profiles", {})
-    if not d["profiles"]:
-        d["profiles"]["Основной"] = {"ref": "voice/ref.wav", "params": {k: v[3] for k, v in TTS_PARAMS.items()}}
-        d["active"] = "Основной"
-    return d
+    return _prof_fix(json.loads(f.read_text("utf-8")) if f.exists() else {})
 
 
 def save_profiles(root: Path, d: dict) -> None:
@@ -534,8 +544,6 @@ def _prof_load(root: Path) -> None:
     name = st.session_state.get("tts_prof")
     if name in d["profiles"]:
         _prof_apply(d["profiles"][name])
-        d["active"] = name
-        save_profiles(root, d)
 
 
 def _prof_save(root: Path) -> None:
@@ -547,27 +555,26 @@ def _prof_save(root: Path) -> None:
     d["profiles"][name] = {"ref": "" if new else st.session_state.get("tts_ref", ""), "params": tts_params()}
     if new:
         st.session_state["tts_ref"] = ""  # новый профиль — без прикреплённого файла
-    d["active"] = name
     save_profiles(root, d)
     st.session_state["tts_prof"] = name
     st.session_state["tts_newname"] = ""
 
 
+def _prof_main(root: Path) -> None:
+    d = load_profiles(root)
+    if st.session_state.get("tts_prof") in d["profiles"]:
+        d["main"] = st.session_state["tts_prof"]
+        save_profiles(root, d)
+
+
 def _prof_del(root: Path) -> None:
     d = load_profiles(root)
+    if st.session_state.get("tts_prof") == d["main"]:
+        return
     d["profiles"].pop(st.session_state.get("tts_prof"), None)
-    d = load_profiles_fix(root, d)
-    st.session_state["tts_prof"] = d["active"]
-    _prof_apply(d["profiles"][d["active"]])
+    st.session_state["tts_prof"] = d["main"]
+    _prof_apply(d["profiles"][d["main"]])
     save_profiles(root, d)
-
-
-def load_profiles_fix(root: Path, d: dict) -> dict:
-    if not d["profiles"]:
-        d["profiles"]["Основной"] = {"ref": "voice/ref.wav", "params": {k: v[3] for k, v in TTS_PARAMS.items()}}
-    if d.get("active") not in d["profiles"]:
-        d["active"] = next(iter(d["profiles"]))
-    return d
 
 
 def _ref_del(root: Path) -> None:
@@ -602,13 +609,18 @@ def _tts_settings(root: Path) -> None:
         d = load_profiles(root)
         names = list(d["profiles"])
         if st.session_state.get("tts_prof") not in names:
-            st.session_state["tts_prof"] = d.get("active") if d.get("active") in names else names[0]
+            st.session_state["tts_prof"] = d["main"]
             _prof_apply(d["profiles"][st.session_state["tts_prof"]])
-        p1, p2, p3, p4, _p5 = st.columns([3, 3, 2, 2, 3], vertical_alignment="bottom", gap="small")
-        p1.selectbox("Профиль голоса", names, key="tts_prof", on_change=_prof_load, args=(root,))
+        p1, p2, p3, p4, p5 = st.columns([3, 3, 2, 2, 2], vertical_alignment="bottom", gap="small")
+        p1.selectbox("Профиль голоса", names, key="tts_prof", on_change=_prof_load, args=(root,),
+                     format_func=lambda n: n + (" ★ основной" if n == d["main"] else ""),
+                     help="★ — основной: используется для генерации по умолчанию (в т.ч. вне этой страницы)")
         p2.text_input("Имя", key="tts_newname")
         p3.button("Сохранить профиль", key="tts_prof_save", on_click=_prof_save, args=(root,), type="primary")
-        p4.button("Удалить профиль", key="tts_prof_del", on_click=_prof_del, args=(root,), disabled=len(names) < 2)
+        p4.button("Удалить профиль", key="tts_prof_del", on_click=_prof_del, args=(root,),
+                  disabled=st.session_state.get("tts_prof") == d["main"])
+        p5.button("Сделать основным", key="tts_prof_main", on_click=_prof_main, args=(root,),
+                  disabled=st.session_state.get("tts_prof") == d["main"])
         refs = _refs(root)
         if st.session_state.get("tts_ref") not in ["", *refs]:
             st.session_state["tts_ref"] = ""
