@@ -2,9 +2,11 @@
 Ядро — ds_words/scripts/storygen.py (DS_WORDS_DIR, COMFY_URL). Вкладка читает/пишет файлы ds_words."""
 from __future__ import annotations
 
+import io
 import os
 import re
 import sys
+import textwrap
 from pathlib import Path
 
 import streamlit as st
@@ -77,6 +79,46 @@ def _gallery(sg, sid, k, state, key):
                 sg.like(sid, k, v["id"], not v.get("liked")); st.rerun()
             if b[2].button("🗑", key=f"{key}d{v['id']}", help="Удалить"):
                 sg.delete(sid, k, v["id"]); st.rerun()
+
+
+def _font(size):
+    from PIL import ImageFont
+    for f in ("DejaVuSans.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", "LiberationSans-Regular.ttf"):
+        try:
+            return ImageFont.truetype(f, size)
+        except OSError:
+            pass
+    try:
+        import matplotlib
+        return ImageFont.truetype(str(Path(matplotlib.get_data_path()) / "fonts/ttf/DejaVuSans.ttf"), size)
+    except Exception:
+        return ImageFont.load_default()
+
+
+def _strip(sg, sid, story, state) -> bytes:
+    """Ряд: колонка на шаг (подпись + выбранный и лайкнутые варианты друг под другом)."""
+    from PIL import Image, ImageDraw
+    T, H = 320, 90
+    cols = []
+    for s in story["steps"]:
+        stp = state["steps"][s["id"]]
+        vs = [v for v in stp["variants"] if v["id"] == stp["selected"] or v.get("liked")]
+        cols.append((s, sorted(vs, key=lambda v: v["id"] != stp["selected"]), stp["selected"]))
+    rows = max(1, max(len(v) for _, v, _ in cols))
+    im = Image.new("RGB", (len(cols) * T, H + rows * T), "white")
+    d, f, fb = ImageDraw.Draw(im), _font(14), _font(18)
+    for i, (s, vs, sel) in enumerate(cols):
+        x = i * T
+        d.text((x + 6, 4), s["id"], fill="black", font=fb)
+        for n, line in enumerate(textwrap.wrap(s["text"].get("ru", ""), 34)[:4]):
+            d.text((x + 6, 28 + n * 16), line, fill=(60, 60, 60), font=f)
+        if not vs:
+            d.text((x + 6, H + 6), "нет выбранной / ♥", fill=(180, 0, 0), font=f)
+        for j, v in enumerate(vs):
+            y = H + j * T
+            im.paste(Image.open(sg.work(sid) / v["file"]).convert("RGB").resize((T - 6, T - 6)), (x + 3, y + 3))
+            d.rectangle((x + 1, y + 1, x + T - 2, y + T - 2), outline=(0, 160, 0) if v["id"] == sel else (220, 60, 120), width=3)
+    b = io.BytesIO(); im.save(b, "PNG"); return b.getvalue()
 
 
 def _step(sg, sid, story, state, ch, idx, s):
@@ -162,7 +204,13 @@ def render():
                                "outfit": last.get("outfit", "home"), "location": last["location"]})
         _save_story(sg, sid, story); st.rerun()
     st.divider()
-    a = st.columns(2)
+    a = st.columns(3)
+    if a[2].button("Сгенерировать ряд", key=f"strip_{sid}", help="Общая картинка из выбранных и ♥ кадров всех шагов"):
+        st.session_state[f"strip_img_{sid}"] = _strip(sg, sid, story, state)
+    img = st.session_state.get(f"strip_img_{sid}")
+    if img:
+        st.image(img, caption="Ряд: зелёная рамка — выбранный, розовая — ♥")
+        st.download_button("Скачать ряд (PNG)", img, f"{sid}_strip.png", "image/png", key=f"dl_{sid}")
     if a[0].button("Удалить без ♥ (вся история)", key=f"prall_{sid}"):
         st.toast(f"Удалено: {sg.prune(sid)}"); st.rerun()
     if a[1].button("Принять историю", type="primary", key=f"acc_{sid}"):
