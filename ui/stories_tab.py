@@ -12,12 +12,14 @@ import yaml
 
 
 def _sg():
-    root = os.environ.get("DS_WORDS_DIR") or str(Path(__file__).resolve().parents[2] / "ds_words")
-    os.environ.setdefault("DS_WORDS_DIR", root)
+    """storygen из каталога историй: DS_STORIES_DIR (ds_words на main), иначе DS_WORDS_DIR."""
+    root = os.environ.get("DS_STORIES_DIR") or os.environ.get("DS_WORDS_DIR") or str(Path(__file__).resolve().parents[2] / "ds_words")
     p = str(Path(root) / "scripts")
     if p not in sys.path:
         sys.path.insert(0, p)
+    os.environ.setdefault("DS_WORDS_DIR", root)
     import storygen
+    storygen.ROOT = Path(root)
     return storygen
 
 
