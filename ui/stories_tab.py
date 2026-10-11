@@ -165,8 +165,10 @@ def _step(sg, sid, story, state, ch, idx, s):
         if stp["variants"]:
             r = st.columns([1, 3, 1])
             par = r[0].selectbox("Доработать", [v["id"] for v in stp["variants"]], key=key + "par")
-            ex = r[1].text_input("Что изменить (EN)", key=key + "rex", placeholder="remove the towel from the wall")
-            if r[2].button("Доработать", key=key + "ref", disabled=not ex.strip()):
+            ex = r[1].text_input("Что изменить (EN)", key=key + "rex", placeholder="remove the towel from the wall",
+                                 on_change=st.session_state.__setitem__, args=(key + "go", True))
+            go = r[2].button("Доработать", key=key + "ref")
+            if (st.session_state.pop(key + "go", False) or go) and ex.strip():
                 with st.spinner("Доработка…"):
                     try:
                         sg.gen(sid, k, 2, ex.strip(), parent=par)
