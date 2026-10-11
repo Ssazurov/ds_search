@@ -115,3 +115,24 @@ def test_img_uri():
     from ui.words_tab import img_uri
     assert img_uri("") is None
     assert img_uri("images/pear.png").startswith("dsdoc://") and img_uri("images/pear.png").endswith("/images/pear.png")
+
+
+def test_sets_crud_and_prune(root):
+    sid = wt.create_set(root, "Мой набор", ["bread", "bread", "to_bake"])
+    assert sid == "moy_nabor"
+    assert wt.load_sets(root)[sid]["words"] == ["bread", "to_bake"]
+    with pytest.raises(ValueError):
+        wt.create_set(root, "Мой набор")
+    with pytest.raises(ValueError):
+        wt.create_set(root, " ")
+    wt.update_set(root, sid, title="Новое", words=["to_bake"])
+    assert wt.load_sets(root)[sid] == {"title": {"ru": "Новое"}, "words": ["to_bake"]}
+    wt.drop_words_from_sets(root, {"to_bake"})
+    assert wt.load_sets(root)[sid]["words"] == []
+    assert wt.delete_set(root, sid) and not wt.delete_set(root, sid)
+
+
+def test_set_slug_unique():
+    assert wt.set_slug("Еда", {"eda"}) == "eda_2"
+    assert wt.set_slug("123", set()) == "set_123"
+    assert wt.set_slug("!!!", set()) == "set"

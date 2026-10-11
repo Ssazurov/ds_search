@@ -288,10 +288,12 @@ def add_word(root: Path, cat: str, wid: str, ru: str, pos: str, prio: int,
 def apply_decisions(root: Path) -> dict[str, int]:
     """Применить черновик к YAML: ✗ — удалить слово, правки ru/en/pos/переводов — записать.
     Вердикты ✓ остаются в черновике, применённые правки и ✗ убираются."""
-    dec, n, keep = load_decisions(root), {"del": 0, "edit": 0}, {}
+    dec, n, keep, gone = load_decisions(root), {"del": 0, "edit": 0}, {}, set()
     for wid, e in dec.items():
         if e.get("verdict") == "del":
-            n["del"] += int(edit_word(root, wid, delete=True))
+            if edit_word(root, wid, delete=True):
+                n["del"] += 1
+                gone.add(wid)
             continue
         tr = {k: e[k] for k in ("ru", "en") if k in e} | e.get("tr", {})
         if tr or e.get("pos") or e.get("note") or e.get("hint"):
@@ -300,7 +302,84 @@ def apply_decisions(root: Path) -> dict[str, int]:
         if e.get("verdict"):
             keep[wid] = {"verdict": e["verdict"]}
     save_decisions(root, keep)
+    drop_words_from_sets(root, gone)
     return n
+
+
+# ---------- наборы (sets/sets.yaml, ds_words#53) ----------
+
+SETS_REL = Path("sets") / "sets.yaml"
+_TR = dict(zip("абвгдеёжзийклмнопрстуфхцчшщъыьэюя",
+               ["a", "b", "v", "g", "d", "e", "e", "zh", "z", "i", "y", "k", "l", "m", "n", "o", "p", "r", "s", "t",
+                "u", "f", "h", "ts", "ch", "sh", "sch", "", "y", "", "e", "yu", "ya"]))
+
+
+def load_sets(root: Path) -> dict[str, dict]:
+    p = root / SETS_REL
+    if not p.exists():
+        return {}
+    d = yaml.safe_load(p.read_text("utf-8")) or {}
+    return {k: {"title": dict((v or {}).get("title") or {}), "words": list((v or {}).get("words") or [])}
+            for k, v in (d.get("sets") or {}).items()}
+
+
+def save_sets(root: Path, sets: dict[str, dict]) -> None:
+    p = root / SETS_REL
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(yaml.safe_dump({"sets": sets}, allow_unicode=True, sort_keys=False, width=100), "utf-8")
+
+
+def set_slug(title: str, existing) -> str:
+    s = re.sub(r"[^a-z0-9]+", "_", "".join(_TR.get(ch, ch) for ch in title.lower())).strip("_")
+    s = "set_" + s if s and not s[0].isalpha() else (s or "set")
+    base, i = s, 2
+    while s in existing:
+        s, i = f"{base}_{i}", i + 1
+    return s
+
+
+def create_set(root: Path, title: str, words=()) -> str:
+    title = title.strip()
+    if not title:
+        raise ValueError("Пустое название")
+    sets = load_sets(root)
+    if any(v["title"].get("ru") == title for v in sets.values()):
+        raise ValueError("Набор с таким названием уже есть")
+    sid = set_slug(title, sets)
+    sets[sid] = {"title": {"ru": title}, "words": list(dict.fromkeys(words))}
+    save_sets(root, sets)
+    return sid
+
+
+def update_set(root: Path, sid: str, *, title: str | None = None, words=None) -> None:
+    sets = load_sets(root)
+    if sid not in sets:
+        raise ValueError(f"Нет набора {sid}")
+    if title is not None:
+        if not title.strip():
+            raise ValueError("Пустое название")
+        sets[sid]["title"]["ru"] = title.strip()
+    if words is not None:
+        sets[sid]["words"] = list(dict.fromkeys(words))
+    save_sets(root, sets)
+
+
+def delete_set(root: Path, sid: str) -> bool:
+    sets = load_sets(root)
+    if sid not in sets:
+        return False
+    del sets[sid]
+    save_sets(root, sets)
+    return True
+
+
+def drop_words_from_sets(root: Path, gone: set[str]) -> None:
+    sets = load_sets(root)
+    if not gone or not sets:
+        return
+    for v in sets.values():
+        v["words"] = [w for w in v["words"] if w not in gone]
+    save_sets(root, sets)
 
 
 # ---------- команды ----------
@@ -410,7 +489,7 @@ def commit(root: Path, branch: str, msg: str) -> tuple[int, str]:
             rc, out = _run(root, "git", "checkout", branch)
         if rc:
             return rc, out
-    paths = ["words"] + (["review/ui_decisions.json"] if (root / "review" / "ui_decisions.json").exists() else [])
+    paths = ["words"] + (["sets"] if (root / "sets").exists() else []) + (["review/ui_decisions.json"] if (root / "review" / "ui_decisions.json").exists() else [])
     _run(root, "git", "add", *paths)
     return _run(root, "git", "commit", "-m", msg)
 
@@ -1146,6 +1225,48 @@ def _add(root: Path, rows: list[dict], langs: list[str]) -> None:
         st.rerun()
 
 
+def _sets(root: Path, rows: list[dict]) -> None:
+    sets = load_sets(root)
+    labels = {r["id"]: f'{r["tr"].get("ru", r["id"])} ({r["id"]})' for r in rows}
+    with st.form("set_new", clear_on_submit=True):
+        c = st.columns([3, 1])
+        title = c[0].text_input("Новый набор (название)")
+        ok = c[1].form_submit_button("Создать")
+    if ok:
+        try:
+            st.session_state["set_sel"] = create_set(root, title)
+        except ValueError as e:
+            notify.report("error", "Набор не создан", details=[str(e)])
+        else:
+            notify.report("success", f"Создан набор: {title.strip()}")
+            st.rerun()
+    if not sets:
+        st.info("Наборов нет")
+        return
+    sid = st.selectbox("Набор", list(sets), key="set_sel",
+                       format_func=lambda k: f'{sets[k]["title"].get("ru", k)} · {len(sets[k]["words"])}')
+    cur = sets[sid]
+    new_title = st.text_input("Название", cur["title"].get("ru", ""), key=f"set_title_{sid}")
+    sel = st.multiselect("Слова (порядок = порядок в игре)", list(labels),
+                         default=[w for w in cur["words"] if w in labels], key=f"set_words_{sid}",
+                         format_func=labels.get)
+    b = st.columns(3)
+    if b[0].button("Сохранить набор", type="primary", key=f"set_save_{sid}"):
+        try:
+            update_set(root, sid, title=new_title, words=sel)
+        except ValueError as e:
+            notify.report("error", "Не сохранено", details=[str(e)])
+        else:
+            notify.report("success", f"Сохранено: {new_title.strip()} ({len(sel)})")
+            st.rerun()
+    sure = b[1].checkbox("Подтверждаю удаление", key=f"set_del_ok_{sid}")
+    if b[2].button("Удалить набор", disabled=not sure, key=f"set_del_{sid}"):
+        delete_set(root, sid)
+        st.session_state.pop("set_sel", None)
+        notify.report("success", "Набор удалён (слова остались в справочнике)")
+        st.rerun()
+
+
 def _check(root: Path, rows: list[dict], langs: list[str]) -> None:
     cols = st.columns(len(langs))
     for col, l in zip(cols, langs):
@@ -1185,9 +1306,11 @@ def render() -> None:
         notify.report("error", "Не удалось загрузить словарь", details=[str(exc)])
         return
     langs = langs_of(rows, st.session_state.get("words_langs"))
-    t1, t2, t3 = st.tabs(["Таблица", "Добавить слово", "Проверка и коммит"])
+    t1, t4, t2, t3 = st.tabs(["Таблица", "Наборы", "Добавить слово", "Проверка и коммит"])
     with t1:
         _table(root, rows, langs)
+    with t4:
+        _sets(root, rows)
     with t2:
         _add(root, rows, langs)
     with t3:
