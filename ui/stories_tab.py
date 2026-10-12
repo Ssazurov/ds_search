@@ -247,7 +247,7 @@ def _ru(old, new):
     return old if isinstance(old, dict) and old.get("ru", "") == new else {"ru": new}
 
 
-def _sgallery(sg, scn, stt, key, kind=None):
+def _sgallery(sg, scn, stt, key, kind=None, op=None):
     vs, sel = stt["variants"], stt["selected"]
     for j in range(0, len(vs), 4):
         for c, v in zip(st.columns(4), vs[j:j + 4]):
@@ -255,11 +255,11 @@ def _sgallery(sg, scn, stt, key, kind=None):
                     caption=f"{v['id']} · seed {v['seed']}" + (" · ✅" if v["id"] == sel else "") + (" · ♥" if v.get("liked") else ""))
             b = c.columns(3)
             if b[0].button("✔", key=f"{key}s{v['id']}", help="Выбрать"):
-                sg.sselect(scn, v["id"], kind); st.rerun()
+                sg.sselect(scn, v["id"], kind); op and st.session_state.__setitem__(op, True); st.rerun()
             if b[1].button("♥", key=f"{key}l{v['id']}", help="Лайк"):
-                sg.slike(scn, v["id"], not v.get("liked"), kind); st.rerun()
+                sg.slike(scn, v["id"], not v.get("liked"), kind); op and st.session_state.__setitem__(op, True); st.rerun()
             if b[2].button("🗑", key=f"{key}d{v['id']}", help="Удалить"):
-                sg.sdelete(scn, v["id"], kind); st.rerun()
+                sg.sdelete(scn, v["id"], kind); op and st.session_state.__setitem__(op, True); st.rerun()
 
 
 def _scenes_list(sg, scenes):
@@ -396,7 +396,7 @@ def _sstates(sg, scn, stt, items, sc, k):
         sk = stt.get("states", {}).get(kd, {"selected": None, "variants": []})
         kk = f"{k}{kd}_"
         ttl = items.get(iid, {}).get("title", {}).get("ru", iid)
-        with st.expander(f"Без: {ttl} — видов {len(sk['variants'])}" + (" ✅" if sk["selected"] else "")):
+        with st.expander(f"Без: {ttl} — видов {len(sk['variants'])}" + (" ✅" if sk["selected"] else ""), expanded=bool(st.session_state.get(kk + "op"))):
             with st.container(key=f"stgen_{scn}_{kd}"):
                 g = st.columns(4)
             m = g[0].number_input("Кол-во", 1, 8, 5, key=kk + "n")
@@ -407,10 +407,10 @@ def _sstates(sg, scn, stt, items, sc, k):
                         sg.sgen(scn, int(m), ex, kind=kd)
                     except Exception as e:
                         st.error(f"Ошибка генерации: {e}"); return
-                st.rerun()
+                st.session_state[kk + "op"] = True; st.rerun()
             if g[3].button("Удалить без ♥", key=kk + "pr"):
-                st.toast(f"Удалено: {sg.sprune(scn, kd)}"); st.rerun()
-            _sgallery(sg, scn, sk, kk, kd)
+                st.session_state[kk + "op"] = True; st.toast(f"Удалено: {sg.sprune(scn, kd)}"); st.rerun()
+            _sgallery(sg, scn, sk, kk, kd, kk + "op")
             if sk["variants"]:
                 with st.container(key=f"strf_{scn}_{kd}"):
                     r = st.columns(3)
@@ -423,7 +423,7 @@ def _sstates(sg, scn, stt, items, sc, k):
                             sg.sgen(scn, 2, rx.strip(), parent=par, kind=kd)
                         except Exception as e:
                             st.error(f"Ошибка генерации: {e}"); return
-                    st.rerun()
+                    st.session_state[kk + "op"] = True; st.rerun()
 
 
 def _igallery(sg, iid, kind, stt, key):
