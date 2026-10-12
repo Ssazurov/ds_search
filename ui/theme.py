@@ -162,7 +162,7 @@ hr { border-color: var(--border) !important; }
 
 def inject_theme() -> None:
     """Подключает шрифты IBM Plex и базовые правила. Вызывать после st.set_page_config."""
-    st.markdown(f"<style>{_FONT_FACES}{_RULES}{_SIDEBAR}{_COMPONENTS}{_GAR}{_NAV}</style>", unsafe_allow_html=True)
+    st.markdown(f"<style>{_FONT_FACES}{_RULES}{_SIDEBAR}{_COMPONENTS}{_GAR}{_NAV}{_STORIES}</style>", unsafe_allow_html=True)
 
 
 
@@ -394,3 +394,28 @@ def topbar(page: str) -> None:
         )
     else:
         st.markdown(f'<div class="gar-topbar"><b>{page}</b></div>', unsafe_allow_html=True)
+
+
+_STORIES = """
+/* Истории (ds_search#614) */
+.st-key-tabmain [class*="st-key-scrow_"] [data-testid="stHorizontalBlock"] {
+  display: grid !important; grid-template-columns: 28px minmax(0, 1fr) 36px 36px 36px; gap: 4px !important; align-items: start; }
+.st-key-tabmain [class*="st-key-stgen_"] [data-testid="stHorizontalBlock"], .st-key-tabmain [class*="st-key-strf_"] [data-testid="stHorizontalBlock"] {
+  display: grid !important; grid-template-columns: 190px 760px max-content max-content; gap: 8px !important; align-items: center; justify-content: start; }
+.st-key-tabmain [class*="st-key-scrow_"] [data-testid="stColumn"], .st-key-tabmain [class*="st-key-stgen_"] [data-testid="stColumn"], .st-key-tabmain [class*="st-key-strf_"] [data-testid="stColumn"] {
+  width: auto !important; flex: none !important; min-width: 0 !important; }
+.st-key-tabmain [class*="st-key-scrow_"] button { width: 36px; padding: 0 !important; }
+.st-key-tabmain [class*="st-key-scmeta_"] [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stNumberInput"]) {
+  grid-template-columns: max-content minmax(0, 1fr) !important; column-gap: 6px !important; }
+.st-key-tabmain [class*="st-key-scmeta_"] [data-testid="stWidgetLabel"], .st-key-tabmain [class*="st-key-stp_"] [data-testid="stWidgetLabel"] {
+  justify-content: flex-start; text-align: left; white-space: nowrap; }
+.st-key-tabmain [class*="st-key-stp_"] [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stSelectbox"]) {
+  grid-template-columns: 150px minmax(0, 640px) !important; }
+.st-key-tabmain [class*="st-key-stgen_"] [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stNumberInput"]),
+.st-key-tabmain [class*="st-key-strf_"] [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stNumberInput"]) {
+  grid-template-columns: max-content minmax(0, 1fr) !important; column-gap: 6px !important; }
+.st-key-tabmain [class*="st-key-stp_"] [data-baseweb="input"], .st-key-tabmain [class*="st-key-stp_"] [data-baseweb="select"] > div {
+  min-height: 32px !important; height: 32px !important; }
+.st-key-tabmain [class*="st-key-stp_"] input { height: 30px !important; padding-top: 0 !important; padding-bottom: 0 !important; }
+.st-key-tabmain [class*="st-key-stp_"] button { min-height: 32px !important; height: 32px !important; padding-top: 0 !important; padding-bottom: 0 !important; white-space: nowrap; }
+"""

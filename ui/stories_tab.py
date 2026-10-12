@@ -125,12 +125,11 @@ def _step(sg, sid, story, state, ch, idx, s):
     k, key = s["id"], f"{sid}_{s['id']}_"
     stp = state["steps"][k]
     locs, outs = list(ch["locations"]), list(ch["characters"]["hero"]["outfits"])
-    with st.container(border=True):
+    with st.container(border=True, key=f"stp_{sid}_{k}"):
         st.markdown(f"**{idx + 1}. {s['text'].get('ru', '') or '— текст не задан (вкладка «Сценарий») —'}**")
-        c = st.columns(2)
         text = s["text"].get("ru", "")
-        loc = c[0].selectbox("Локация", locs, index=locs.index(s["location"]) if s["location"] in locs else 0, key=key + "loc")
-        outfit = c[1].selectbox("Одежда", outs, index=outs.index(s.get("outfit", "home")) if s.get("outfit", "home") in outs else 0, key=key + "out")
+        loc = st.selectbox("Локация", locs, index=locs.index(s["location"]) if s["location"] in locs else 0, key=key + "loc")
+        outfit = st.selectbox("Одежда", outs, index=outs.index(s.get("outfit", "home")) if s.get("outfit", "home") in outs else 0, key=key + "out")
         action = st.text_input("Действие кадра (по-русски; в модель уйдёт по-английски)", stp["action"], key=key + "a")
         note = st.text_input("Заметка автора", stp["note"], key=key + "n")
         if st.button("Сохранить шаг", key=key + "sv"):
@@ -142,8 +141,9 @@ def _step(sg, sid, story, state, ch, idx, s):
                                         extra=st.session_state.get(key + "ex", "")), language=None)
             except Exception as e:  # Ollama недоступна и т.п.
                 st.warning(str(e))
-        g = st.columns([1, 3, 1, 1])
-        n = g[0].number_input("N", 1, 8, 5, key=key + "n3")
+        with st.container(key=f"stgen_{sid}_{k}"):
+            g = st.columns(4)
+        n = g[0].number_input("Кол-во", 1, 8, 5, key=key + "n3")
         extra = g[1].text_input("Доп. промпт (по-русски)", key=key + "ex")
         if g[2].button("Сгенерировать", key=key + "gen"):
             with st.spinner(f"Генерация {n} кадр. (~6 с/кадр)…"):
@@ -157,7 +157,8 @@ def _step(sg, sid, story, state, ch, idx, s):
             st.toast(f"Удалено: {sg.prune(sid, k)}"); st.rerun()
         _gallery(sg, sid, k, state, key)
         if stp["variants"]:
-            r = st.columns([1, 3, 1])
+            with st.container(key=f"strf_{sid}_{k}"):
+                r = st.columns(3)
             par = r[0].selectbox("Доработать", [v["id"] for v in stp["variants"]], key=key + "par")
             ex = r[1].text_input("Что изменить (по-русски)", key=key + "rex", placeholder="убери полотенце со стены",
                                  on_change=st.session_state.__setitem__, args=(key + "go", True))
@@ -180,7 +181,8 @@ def _new_step(story, text=""):
 
 def _scenario(sg, sid, story, state):
     """Предварительный этап: тексты шагов, порядок, категория/уровень/теги."""
-    c = st.columns([2, 1, 3])
+    with st.container(key=f"scmeta_{sid}"):
+        c = st.columns([2, 1, 3])
     cat = c[0].text_input("Категория", story.get("category", ""), key=f"cat_{sid}")
     lvl = c[1].number_input("Уровень", 1, 9, int(story.get("level", 1)), key=f"lvl_{sid}")
     tags = [t.strip() for t in c[2].text_input("Теги (через запятую)", ", ".join(story.get("tags", [])), key=f"tg_{sid}").split(",") if t.strip()]
@@ -189,7 +191,8 @@ def _scenario(sg, sid, story, state):
     steps, changed = story["steps"], False
     for idx, s in enumerate(steps):
         k = s["id"]; has = bool(state["steps"][k]["variants"])
-        r = st.columns([0.4, 5, 0.35, 0.35, 0.35, 3])
+        with st.container(key=f"scrow_{sid}_{k}"):
+            r = st.columns(5)
         r[0].markdown(f"**{idx + 1}**")
         t = r[1].text_area("Текст шага", s["text"].get("ru", ""), key=f"sc_{sid}_{k}", height=68, label_visibility="collapsed")
         if t != s["text"].get("ru", ""):
