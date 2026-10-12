@@ -162,7 +162,7 @@ hr { border-color: var(--border) !important; }
 
 def inject_theme() -> None:
     """Подключает шрифты IBM Plex и базовые правила. Вызывать после st.set_page_config."""
-    st.markdown(f"<style>{_FONT_FACES}{_RULES}{_SIDEBAR}{_COMPONENTS}{_GAR}{_NAV}</style>", unsafe_allow_html=True)
+    st.markdown(f"<style>{_FONT_FACES}{_RULES}{_SIDEBAR}{_COMPONENTS}{_GAR}{_NAV}{_STORIES}</style>", unsafe_allow_html=True)
 
 
 
@@ -225,15 +225,15 @@ div.block-container { padding-top: 72px !important; }
 
 /* Все вкладки: подпись слева от поля (компактно по вертикали).
    Без подписи (collapsed) — исключены по ключам src_search, dp_sel_*. */
-.st-key-tabmain [data-testid="stElementContainer"]:not([class*="st-key-src_search"]):not([class*="st-key-dp_sel_"]):not([class*="_limit"]) > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stNumberInput"], [data-testid="stTextArea"], [data-testid="stMultiSelect"], [data-testid="stDateInput"], [data-testid="stTimeInput"], [data-testid="stRadio"]) {
-  display: grid !important; grid-template-columns: 180px minmax(0, 1fr); column-gap: 12px; align-items: center; }
-.st-key-tabmain [data-testid="stColumn"] [data-testid="stElementContainer"]:not([class*="st-key-src_search"]):not([class*="st-key-dp_sel_"]):not([class*="_limit"]) > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stNumberInput"], [data-testid="stTextArea"], [data-testid="stMultiSelect"], [data-testid="stDateInput"], [data-testid="stTimeInput"], [data-testid="stRadio"]) {
+.st-key-tabmain [data-testid="stElementContainer"]:not([class*="st-key-src_search"]):not([class*="st-key-dp_sel_"]):not([class*="_limit"]):not([class*="st-key-sc_"]) > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stNumberInput"], [data-testid="stTextArea"], [data-testid="stMultiSelect"], [data-testid="stDateInput"], [data-testid="stTimeInput"], [data-testid="stRadio"]) {
+  display: grid !important; grid-template-columns: 180px minmax(0, 1fr); column-gap: 4px; align-items: center; }
+.st-key-tabmain [data-testid="stColumn"] [data-testid="stElementContainer"]:not([class*="st-key-src_search"]):not([class*="st-key-dp_sel_"]):not([class*="_limit"]):not([class*="st-key-sc_"]) > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stNumberInput"], [data-testid="stTextArea"], [data-testid="stMultiSelect"], [data-testid="stDateInput"], [data-testid="stTimeInput"], [data-testid="stRadio"]) {
   grid-template-columns: 110px minmax(0, 1fr); }
 .st-key-tabmain [data-testid="stTextArea"], .st-key-tabmain [data-testid="stMultiSelect"] { align-items: start !important; }
-.st-key-tabmain [data-testid="stWidgetLabel"] { margin: 0 !important; min-height: 0 !important; }
+.st-key-tabmain [data-testid="stWidgetLabel"] { margin: 0 !important; min-height: 0 !important; justify-content: flex-end; text-align: right; }
 .st-key-tabmain [data-testid="stWidgetLabel"] p { font-size: 12px !important; color: var(--sub); }
 .st-key-tabmain [data-testid="stVerticalBlock"] { gap: 0.4rem !important; }
-.st-key-tabmain [data-testid="stHorizontalBlock"] { gap: 0.75rem !important; }
+.st-key-tabmain [data-testid="stHorizontalBlock"] { gap: 0.4rem !important; }
 .st-key-tabmain hr { margin: 0.5rem 0 !important; }
 /* Загрузка: «Файл документа» | имя файла | кнопка «Выбрать» в одной строке */
 .st-key-upl_file_row [data-testid="stHorizontalBlock"] {
@@ -394,3 +394,36 @@ def topbar(page: str) -> None:
         )
     else:
         st.markdown(f'<div class="gar-topbar"><b>{page}</b></div>', unsafe_allow_html=True)
+
+
+_STORIES = """
+/* Истории (ds_search#614) */
+.st-key-tabmain [class*="st-key-scrow_"] [data-testid="stHorizontalBlock"] {
+  display: grid !important; grid-template-columns: 28px minmax(0, 1fr) 36px 36px 36px; gap: 4px !important; align-items: start; }
+.st-key-tabmain [class*="st-key-stgen_"] [data-testid="stHorizontalBlock"], .st-key-tabmain [class*="st-key-strf_"] [data-testid="stHorizontalBlock"] {
+  display: grid !important; grid-template-columns: 190px minmax(0, 1fr) max-content max-content; gap: 8px !important; align-items: center; justify-content: start; }
+.st-key-tabmain [class*="st-key-scrow_"] [data-testid="stColumn"], .st-key-tabmain [class*="st-key-stgen_"] [data-testid="stColumn"], .st-key-tabmain [class*="st-key-strf_"] [data-testid="stColumn"] {
+  width: auto !important; flex: none !important; min-width: 0 !important; }
+.st-key-tabmain [class*="st-key-scrow_"] button { width: 36px; min-height: 32px !important; height: 32px !important; padding: 0 !important; }
+.st-key-tabmain [class*="st-key-scrow_"] [data-testid="stElementContainer"], .st-key-tabmain [class*="st-key-scrow_"] [data-testid="stTextArea"] { width: 100% !important; }
+.st-key-tabmain [class*="st-key-scrow_"] [data-testid="stTextAreaRootElement"], .st-key-tabmain [class*="st-key-scrow_"] textarea { width: 100% !important; flex: 1 1 100% !important; }
+.st-key-tabmain [class*="st-key-scrow_"] p { margin: 0 !important; line-height: 32px; }
+.st-key-tabmain [class*="st-key-scmeta_"] [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stNumberInput"]) {
+  grid-template-columns: max-content minmax(0, 1fr) !important; column-gap: 6px !important; }
+.st-key-tabmain [class*="st-key-scmeta_"] [data-testid="stWidgetLabel"], .st-key-tabmain [class*="st-key-stp_"] [data-testid="stWidgetLabel"] {
+  justify-content: flex-start; text-align: left; white-space: nowrap; }
+.st-key-tabmain [class*="st-key-stp_"] [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stSelectbox"]) {
+  grid-template-columns: 210px minmax(0, 1fr) !important; }
+.st-key-tabmain [class*="st-key-stgen_"] [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stNumberInput"]),
+.st-key-tabmain [class*="st-key-strf_"] [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stNumberInput"]) {
+  grid-template-columns: max-content minmax(0, 1fr) !important; column-gap: 6px !important; }
+.st-key-tabmain [class*="st-key-stp_"] [data-baseweb="input"], .st-key-tabmain [class*="st-key-stp_"] [data-baseweb="select"] > div {
+  min-height: 32px !important; height: 32px !important; }
+.st-key-tabmain [class*="st-key-stp_"] input { height: 30px !important; padding-top: 0 !important; padding-bottom: 0 !important; }
+.st-key-tabmain [class*="st-key-stp_"] button { min-height: 32px !important; height: 32px !important; padding-top: 0 !important; padding-bottom: 0 !important; white-space: nowrap; }
+.st-key-tabmain [class*="st-key-sthead_"] [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stRadio"]) {
+  grid-template-columns: max-content minmax(0, 1fr) !important; column-gap: 6px !important; }
+.st-key-tabmain [class*="st-key-sthead_"] [data-testid="stWidgetLabel"] { justify-content: flex-start; text-align: left; white-space: nowrap; }
+.st-key-tabmain [class*="st-key-sthead_top"] [data-testid="stHorizontalBlock"] { display: grid !important; grid-template-columns: max-content minmax(0, 1fr); gap: 24px !important; }
+.st-key-tabmain [class*="st-key-sthead_top"] [data-testid="stColumn"] { width: auto !important; flex: none !important; min-width: 0 !important; }
+"""
