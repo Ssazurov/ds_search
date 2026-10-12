@@ -1196,16 +1196,16 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
 def _add(root: Path, rows: list[dict], langs: list[str]) -> None:
     ids = {r["id"] for r in rows}
     cats = sorted({r["cat"] for r in rows}, key=cat_label)
-    with st.form("words_add"):
+    with st.container(key="words_add"):
         c = st.columns(3)
         cat = c[0].selectbox("Категория", cats, format_func=cat_label)
         newcat = c[1].text_input("Новая категория (id, латиница; если не из списка)")
-        wid = c[2].text_input("id слова (латиница)")
+        wid = c[2].text_input("id слова (латиница)", key="wa_id")
         c = st.columns(2)
         pos = c[0].selectbox("Часть речи", list(POS_RU), format_func=POS_RU.get)
         prio = c[1].selectbox("Приоритет (1 — высокий, 3 — низкий)", [1, 2, 3], index=1)
-        vals = {l: st.text_input(f"Перевод: {lang_label(l)}") for l in langs}
-        ok = st.form_submit_button("Добавить слово", type="primary")
+        vals = {l: st.text_input(f"Перевод: {lang_label(l)}", key=f"wa_tr_{l}") for l in langs}
+        ok = st.button("Добавить слово", type="primary", key="wa_go")
     if ok:
         try:
             add_word(root, newcat.strip() or cat, wid, vals.get("ru", ""), pos, prio,
@@ -1214,6 +1214,8 @@ def _add(root: Path, rows: list[dict], langs: list[str]) -> None:
             notify.report("error", "Слово не добавлено", details=[str(e)])
         else:
             notify.report("success", f"Добавлено: {wid}")
+            for _k in [k for k in st.session_state if str(k).startswith(("wa_tr_", "wa_id", "wa_newcat"))]:
+                st.session_state.pop(_k, None)
             st.rerun()
     st.divider()
     lc, bc = st.columns([3, 1])
@@ -1228,10 +1230,10 @@ def _add(root: Path, rows: list[dict], langs: list[str]) -> None:
 def _sets(root: Path, rows: list[dict]) -> None:
     sets = load_sets(root)
     labels = {r["id"]: f'{r["tr"].get("ru", r["id"])} ({r["id"]})' for r in rows}
-    with st.form("set_new", clear_on_submit=True):
+    with st.container(key="set_new"):
         c = st.columns([3, 1])
-        title = c[0].text_input("Новый набор (название)")
-        ok = c[1].form_submit_button("Создать")
+        title = c[0].text_input("Новый набор (название)", key="set_newtitle")
+        ok = c[1].button("Создать", key="set_newgo")
     if ok:
         try:
             st.session_state["set_sel"] = create_set(root, title)
@@ -1239,6 +1241,7 @@ def _sets(root: Path, rows: list[dict]) -> None:
             notify.report("error", "Набор не создан", details=[str(e)])
         else:
             notify.report("success", f"Создан набор: {title.strip()}")
+            st.session_state.pop("set_newtitle", None)
             st.rerun()
     if not sets:
         st.info("Наборов нет")

@@ -298,16 +298,16 @@ def _delete_batch(items: list[dict]) -> None:
 def _render_manual_form() -> None:
     """Ручное создание черновика (issue #217): без LLM и проверки лицензии."""
     with st.expander("Создать черновик вручную"):
-        with st.form("manual_draft", clear_on_submit=True):
-            title = st.text_input("Заголовок *")
-            body = st.text_area("Текст (markdown) *", height=200)
-            summary = st.text_area("Краткое содержание (пусто — первые 300 симв. текста)")
-            tags = st.text_input("Теги (через запятую)")
-            name = st.text_input("Источник", DEFAULT_SOURCE_NAME)
-            url = st.text_input("Ссылка (необязательно)")
-            pub = st.text_input("Дата публикации источника (необязательно)")
-            reviewed = st.checkbox("Проверено, не требует ревью")
-            submitted = st.form_submit_button("Создать черновик")
+        with st.container(key="manual_draft"):
+            title = st.text_input("Заголовок *", key="md_title")
+            body = st.text_area("Текст (markdown) *", height=200, key="md_body")
+            summary = st.text_area("Краткое содержание (пусто — первые 300 симв. текста)", key="md_sum")
+            tags = st.text_input("Теги (через запятую)", key="md_tags")
+            name = st.text_input("Источник", DEFAULT_SOURCE_NAME, key="md_name")
+            url = st.text_input("Ссылка (необязательно)", key="md_url")
+            pub = st.text_input("Дата публикации источника (необязательно)", key="md_pub")
+            reviewed = st.checkbox("Проверено, не требует ревью", key="md_rev")
+            submitted = st.button("Создать черновик", key="md_go")
         if submitted:
             try:
                 new_id = create_manual_draft(
@@ -318,6 +318,8 @@ def _render_manual_form() -> None:
                 notify.report("error", "Ошибка создания черновика", details=[str(exc)])
             else:
                 notify.report("success", "Черновик создан", details=[f"id={new_id}"])
+                for _k in ("md_title", "md_body", "md_sum", "md_tags", "md_name", "md_url", "md_pub", "md_rev"):
+                    st.session_state.pop(_k, None)
                 st.rerun()
 
 
