@@ -355,9 +355,6 @@ def _scenes(sg):
                 st.rerun()
 
 
-_KIND = {"view": "Вид (нейтральный фон)", "hand": "В руках (героиня держит предмет)"}
-
-
 def _igallery(sg, iid, kind, stt, key):
     vs, sel = stt[kind]["variants"], stt[kind]["selected"]
     for j in range(0, len(vs), 4):
@@ -373,24 +370,26 @@ def _igallery(sg, iid, kind, stt, key):
                 sg.idelete(iid, kind, v["id"]); st.rerun()
 
 
-def _ikind(sg, iid, kind, hero, stt):
-    k = f"it_{iid}_{kind}_"
-    st.markdown(f"**{_KIND[kind]}**")
+def _ikind(sg, iid, kind, title, stt):
+    ks = kind.replace(":", "_")
+    k = f"it_{iid}_{ks}_"
+    stt.setdefault(kind, {"selected": None, "variants": []})
+    st.markdown(f"**{title}**")
     if st.checkbox("Показать итоговый промпт (английский, уходит в модель)", key=k + "pv"):
         try:
-            pr = sg.item_prompt(iid, kind, hero, st.session_state.get(k + "ex", ""))
+            pr = sg.item_prompt(iid, kind, st.session_state.get(k + "ex", ""))
             st.session_state[k + "pt"] = pr
             st.text_area("Промпт (англ.)", height=max(110, 24 * (len(pr) // 110 + 2)), key=k + "pt", disabled=True)
         except Exception as e:
             st.warning(str(e))
-    with st.container(key=f"stgen_{iid}_{kind}"):
+    with st.container(key=f"stgen_{iid}_{ks}"):
         g = st.columns(4)
-    n = g[0].number_input("Кол-во", 1, 8, 3, key=k + "n")
+    n = g[0].number_input("Кол-во", 1, 8, 5, key=k + "n")
     extra = g[1].text_input("Доп. промпт (по-русски)", key=k + "ex", **_enter(k + "gengo"))
     if g[2].button("Сгенерировать", key=k + "gen") | st.session_state.pop(k + "gengo", False):
         with st.spinner(f"Генерация {n} (~6 с/кадр)…"):
             try:
-                sg.igen(iid, kind, int(n), extra, hero=hero)
+                sg.igen(iid, kind, int(n), extra)
             except Exception as e:
                 st.error(f"Ошибка генерации: {e}"); return
         st.rerun()
@@ -398,7 +397,7 @@ def _ikind(sg, iid, kind, hero, stt):
         st.toast(f"Удалено: {sg.iprune(iid, kind)}"); st.rerun()
     _igallery(sg, iid, kind, stt, k)
     if stt[kind]["variants"]:
-        with st.container(key=f"strf_{iid}_{kind}"):
+        with st.container(key=f"strf_{iid}_{ks}"):
             r = st.columns(3)
         par = r[0].selectbox("Доработать", [v["id"] for v in stt[kind]["variants"]], key=k + "par")
         ex = r[1].text_input("Что изменить (по-русски)", key=k + "rex", placeholder="сделай поменьше", **_enter(k + "rgo"))
@@ -406,21 +405,22 @@ def _ikind(sg, iid, kind, hero, stt):
         if (st.session_state.pop(k + "rgo", False) or go) and ex.strip():
             with st.spinner("Доработка…"):
                 try:
-                    sg.igen(iid, kind, 2, ex.strip(), parent=par, hero=hero)
+                    sg.igen(iid, kind, 2, ex.strip(), parent=par)
                 except Exception as e:
                     st.error(f"Ошибка генерации: {e}"); return
             st.rerun()
 
 
 def _items(sg):
-    """Вкладка «Предметы» (ds_search#622): описание, вид на нейтральном фоне и «в руках», выбор/♥/доработка."""
-    items = sg.lib("items")
+    """Вкладка «Предметы» (ds_search#622): описание, вид на нейтральном фоне и «в руках» (герой или любой персонаж), выбор/♥/доработка."""
+    items, hold = sg.lib("items"), sg.holders()
     if items:
         rows = []
         for i, it in items.items():
             s = sg.iload(i)
+            hands = [v for kk, x in s.items() if kk.startswith("hand:") for v in x["variants"]]
             rows.append({"id": i, "название": it["title"]["ru"], "видов": len(s["view"]["variants"]), "вид выбран": "да" if s["view"]["selected"] else "нет",
-                         "в руках": len(s["hand"]["variants"]), "«в руках» выбран": "да" if s["hand"]["selected"] else "нет"})
+                         "в руках": len(hands)})
         st.dataframe(rows, hide_index=True, use_container_width=True)
     with st.expander("Создать предмет"):
         with st.container(key="scmeta_nit"):
@@ -442,14 +442,15 @@ def _items(sg):
     title = top[1].text_input("Название", it["title"].get("ru", ""), key=f"it_{iid}_t")
     if title != it["title"].get("ru", "") and title.strip():
         it["title"] = {"ru": title.strip()}; sg.lib_save("items", items)
-    hero = top[2].radio("Герой", ["girl", "boy"], horizontal=True, key="it_hero")
+    who = top[2].selectbox("Герой", ["all"] + list(hold), format_func=lambda x: "Все" if x == "all" else hold[x], key="it_hero")
     stt = sg.iload(iid)
     with st.container(border=True, key=f"stp_it_{iid}"):
         desc = st.text_area("Описание предмета", it["desc"].get("ru", ""), key=f"it_{iid}_d", height=100)
         if st.button("Сохранить", key=f"it_{iid}_sv"):
             it["desc"] = _ru(it["desc"], desc); sg.lib_save("items", items); st.toast("Сохранено"); st.rerun()
-        for kind in ("view", "hand"):
-            _ikind(sg, iid, kind, hero, stt)
+        _ikind(sg, iid, "view", "Вид (нейтральный фон)", stt)
+        for h in (list(hold) if who == "all" else [who]):
+            _ikind(sg, iid, f"hand:{h}", f"В руках — {hold[h]} (держит предмет)", stt)
 
 
 def render():
