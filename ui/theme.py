@@ -225,15 +225,15 @@ div.block-container { padding-top: 72px !important; }
 
 /* Все вкладки: подпись слева от поля (компактно по вертикали).
    Без подписи (collapsed) — исключены по ключам src_search, dp_sel_*. */
-.st-key-tabmain [data-testid="stElementContainer"]:not([class*="st-key-src_search"]):not([class*="st-key-dp_sel_"]):not([class*="_limit"]) > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stNumberInput"], [data-testid="stTextArea"], [data-testid="stMultiSelect"], [data-testid="stDateInput"], [data-testid="stTimeInput"], [data-testid="stRadio"]) {
-  display: grid !important; grid-template-columns: 180px minmax(0, 1fr); column-gap: 12px; align-items: center; }
-.st-key-tabmain [data-testid="stColumn"] [data-testid="stElementContainer"]:not([class*="st-key-src_search"]):not([class*="st-key-dp_sel_"]):not([class*="_limit"]) > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stNumberInput"], [data-testid="stTextArea"], [data-testid="stMultiSelect"], [data-testid="stDateInput"], [data-testid="stTimeInput"], [data-testid="stRadio"]) {
+.st-key-tabmain [data-testid="stElementContainer"]:not([class*="st-key-src_search"]):not([class*="st-key-dp_sel_"]):not([class*="_limit"]):not([class*="st-key-sc_"]) > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stNumberInput"], [data-testid="stTextArea"], [data-testid="stMultiSelect"], [data-testid="stDateInput"], [data-testid="stTimeInput"], [data-testid="stRadio"]) {
+  display: grid !important; grid-template-columns: 180px minmax(0, 1fr); column-gap: 4px; align-items: center; }
+.st-key-tabmain [data-testid="stColumn"] [data-testid="stElementContainer"]:not([class*="st-key-src_search"]):not([class*="st-key-dp_sel_"]):not([class*="_limit"]):not([class*="st-key-sc_"]) > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stNumberInput"], [data-testid="stTextArea"], [data-testid="stMultiSelect"], [data-testid="stDateInput"], [data-testid="stTimeInput"], [data-testid="stRadio"]) {
   grid-template-columns: 110px minmax(0, 1fr); }
 .st-key-tabmain [data-testid="stTextArea"], .st-key-tabmain [data-testid="stMultiSelect"] { align-items: start !important; }
-.st-key-tabmain [data-testid="stWidgetLabel"] { margin: 0 !important; min-height: 0 !important; }
+.st-key-tabmain [data-testid="stWidgetLabel"] { margin: 0 !important; min-height: 0 !important; justify-content: flex-end; text-align: right; }
 .st-key-tabmain [data-testid="stWidgetLabel"] p { font-size: 12px !important; color: var(--sub); }
 .st-key-tabmain [data-testid="stVerticalBlock"] { gap: 0.4rem !important; }
-.st-key-tabmain [data-testid="stHorizontalBlock"] { gap: 0.75rem !important; }
+.st-key-tabmain [data-testid="stHorizontalBlock"] { gap: 0.4rem !important; }
 .st-key-tabmain hr { margin: 0.5rem 0 !important; }
 /* Загрузка: «Файл документа» | имя файла | кнопка «Выбрать» в одной строке */
 .st-key-upl_file_row [data-testid="stHorizontalBlock"] {

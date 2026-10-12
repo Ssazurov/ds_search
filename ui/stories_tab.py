@@ -189,7 +189,7 @@ def _scenario(sg, sid, story, state):
     steps, changed = story["steps"], False
     for idx, s in enumerate(steps):
         k = s["id"]; has = bool(state["steps"][k]["variants"])
-        r = st.columns([0.5, 8, 0.8, 0.8, 0.8])
+        r = st.columns([0.4, 5, 0.35, 0.35, 0.35, 3])
         r[0].markdown(f"**{idx + 1}**")
         t = r[1].text_area("Текст шага", s["text"].get("ru", ""), key=f"sc_{sid}_{k}", height=68, label_visibility="collapsed")
         if t != s["text"].get("ru", ""):
