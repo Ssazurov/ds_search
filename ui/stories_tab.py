@@ -496,9 +496,9 @@ def _items(sg):
         rows = []
         for i, it in items.items():
             s = sg.iload(i)
-            hands = [v for kk, x in s.items() if kk.startswith("hand:") for v in x["variants"]]
+            hands = [v for kk, x in s.items() if kk.startswith(("hand:", "scene:", "on:")) for v in x["variants"]]
             rows.append({"id": i, "название": it["title"]["ru"], "видов": len(s["view"]["variants"]), "вид выбран": "да" if s["view"]["selected"] else "нет",
-                         "в руках": len(hands)})
+                         "др. виды": len(hands)})
         st.dataframe(rows, hide_index=True, use_container_width=True)
     with st.expander("Создать предмет"):
         with st.container(key="scmeta_nit"):
@@ -520,15 +520,31 @@ def _items(sg):
     title = top[1].text_input("Название", it["title"].get("ru", ""), key=f"it_{iid}_t")
     if title != it["title"].get("ru", "") and title.strip():
         it["title"] = {"ru": title.strip()}; sg.lib_save("items", items)
-    who = top[2].selectbox("Герой", ["all"] + list(hold), format_func=lambda x: "Все" if x == "all" else hold[x], key="it_hero")
+    mode = top[2].selectbox("Где", ["view", "hand", "scene", "on"], format_func=lambda x: {"view": "Нейтральный фон", "hand": "В руках", "scene": "В сцене", "on": "На предмете"}[x], key="it_mode")
     stt = sg.iload(iid)
     with st.container(border=True, key=f"stp_it_{iid}"):
         desc = st.text_area("Описание предмета", it["desc"].get("ru", ""), key=f"it_{iid}_d", height=100)
         if st.button("Сохранить", key=f"it_{iid}_sv"):
             it["desc"] = _ru(it["desc"], desc); sg.lib_save("items", items); st.toast("Сохранено"); st.rerun()
-        _ikind(sg, iid, "view", "Вид (нейтральный фон)", stt)
-        for h in (list(hold) if who == "all" else [who]):
+        if mode == "view":
+            _ikind(sg, iid, "view", "Вид (нейтральный фон)", stt)
+        elif mode == "hand":
+            h = st.selectbox("Кто держит", list(hold), format_func=lambda x: hold[x], key=f"it_{iid}_h")
             _ikind(sg, iid, f"hand:{h}", f"В руках — {hold[h]} (держит предмет)", stt)
+        elif mode == "scene":
+            scs = sg.lib("scenes")
+            if not scs:
+                st.info("Нет сцен")
+            else:
+                sc_ = st.selectbox("Сцена", list(scs), format_func=lambda x: sg.txt_ru(scs[x].get("title")) or x, key=f"it_{iid}_sc")
+                _ikind(sg, iid, f"scene:{sc_}", f"В сцене — {sg.txt_ru(scs[sc_].get('title')) or sc_}", stt)
+        else:
+            objs = [x for x in items if x != iid]
+            if not objs:
+                st.info("Нет других предметов")
+            else:
+                o_ = st.selectbox("На каком предмете", objs, format_func=lambda x: items[x]["title"]["ru"], key=f"it_{iid}_on")
+                _ikind(sg, iid, f"on:{o_}", f"На предмете — {items[o_]['title']['ru']}", stt)
 
 
 def _chars(sg):
@@ -616,7 +632,7 @@ def _prompts(sg):
         ("Общее (стиль, герой, местоимения)", ["style", "hero_who", "default_bible", "word_character", "pron_girl", "pron_boy", "pron_character", "outfit_part", "keep_item", "wearing_part"]),
         ("Шаги историй", ["hands_line", "step_loc", "step_scene"]),
         ("Локации и сцены", ["bg", "scene", "state_no"]),
-        ("Предметы", ["item_view", "item_hand_ref", "item_hand"]),
+        ("Предметы", ["item_view", "item_hand_ref", "item_hand", "item_in_scene", "item_on_ref", "item_on"]),
         ("Персонажи", ["char_sheet", "char_new_outfit", "char_outfit_edit"]),
     ]
     used = {k for _, ks in G for k in ks}
