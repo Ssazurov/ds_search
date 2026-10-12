@@ -429,4 +429,10 @@ _STORIES = """
 .st-key-tabmain [class*="st-key-scmeta_new"] [data-testid="stSelectbox"] div:has(> input) { border: 1px solid var(--border) !important; border-radius: 6px !important; }
 .st-key-tabmain .st-key-stfoot [data-testid="stHorizontalBlock"] { display: grid !important; grid-template-columns: repeat(3, max-content); gap: 8px !important; justify-content: start; }
 .st-key-tabmain .st-key-stfoot [data-testid="stColumn"] { width: auto !important; flex: none !important; min-width: 0 !important; }
+.st-key-tabmain [class*="st-key-snrow_"] [data-testid="stHorizontalBlock"] {
+  display: grid !important; grid-template-columns: 202px minmax(0, 1fr) 36px; gap: 8px !important; align-items: center; }
+.st-key-tabmain [class*="st-key-snrow_"] [data-testid="stColumn"] { width: auto !important; flex: none !important; min-width: 0 !important; }
+.st-key-tabmain [class*="st-key-snrow_"] [data-testid="stElementContainer"] > [data-testid="stTextInput"] { grid-template-columns: minmax(0, 1fr) !important; }
+.st-key-tabmain [class*="st-key-snrow_"] button { width: 36px; padding: 0 !important; }
+.st-key-tabmain [class*="st-key-snrow_"] p { margin: 0 !important; }
 """
