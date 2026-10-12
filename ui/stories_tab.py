@@ -25,6 +25,11 @@ def _sg():
     return storygen
 
 
+def _enter(flag):
+    """Enter в однострочном поле = нажатие связанной кнопки (флаг в session_state)."""
+    return {"on_change": st.session_state.__setitem__, "args": (flag, True)}
+
+
 def _save_story(sg, sid, story):
     (sg.ROOT / f"stories/{sid}.yaml").write_text(
         yaml.safe_dump(story, allow_unicode=True, sort_keys=False, width=1000), encoding="utf-8")
@@ -49,11 +54,11 @@ def _list(sg, ids):
 def _create(sg, ch):
     with st.expander("Создать историю"):
         c = st.columns(4)
-        sid = c[0].text_input("id (слаг)", key="ns_id")
-        title = c[1].text_input("Название", key="ns_title")
-        cat = c[2].text_input("Категория", "routine", key="ns_cat")
+        sid = c[0].text_input("id (слаг)", key="ns_id", **_enter("ns_do"))
+        title = c[1].text_input("Название", key="ns_title", **_enter("ns_do"))
+        cat = c[2].text_input("Категория", "routine", key="ns_cat", **_enter("ns_do"))
         loc = c[3].selectbox("Локация 1-го шага", list(ch["locations"]), key="ns_loc")
-        if st.button("Создать", key="ns_go"):
+        if st.button("Создать", key="ns_go") | st.session_state.pop("ns_do", False):
             if not re.fullmatch(r"[a-z][a-z0-9_]{1,40}", sid or "") or (sg.ROOT / f"stories/{sid}.yaml").exists():
                 st.error("id: латиница/цифры/_, уникальный")
             elif not title.strip():
@@ -130,9 +135,9 @@ def _step(sg, sid, story, state, ch, idx, s):
         text = s["text"].get("ru", "")
         loc = st.selectbox("Локация", locs, index=locs.index(s["location"]) if s["location"] in locs else 0, key=key + "loc")
         outfit = st.selectbox("Одежда", outs, index=outs.index(s.get("outfit", "home")) if s.get("outfit", "home") in outs else 0, key=key + "out")
-        action = st.text_input("Действие кадра", stp["action"], key=key + "a", help="По-русски; в модель уйдёт по-английски")
-        note = st.text_input("Заметка автора", stp["note"], key=key + "n")
-        if st.button("Сохранить шаг", key=key + "sv"):
+        action = st.text_input("Действие кадра", stp["action"], key=key + "a", help="По-русски; в модель уйдёт по-английски", **_enter(key + "svgo"))
+        note = st.text_input("Заметка автора", stp["note"], key=key + "n", **_enter(key + "svgo"))
+        if st.button("Сохранить шаг", key=key + "sv") | st.session_state.pop(key + "svgo", False):
             s["text"]["ru"], s["location"], s["outfit"] = text, loc, outfit
             _save_story(sg, sid, story); sg.set_step(sid, k, action=action, note=note); st.rerun()
         if st.checkbox("Показать итоговый промпт (английский, уходит в модель)", key=key + "pv"):
@@ -144,8 +149,8 @@ def _step(sg, sid, story, state, ch, idx, s):
         with st.container(key=f"stgen_{sid}_{k}"):
             g = st.columns(4)
         n = g[0].number_input("Кол-во", 1, 8, 5, key=key + "n3")
-        extra = g[1].text_input("Доп. промпт (по-русски)", key=key + "ex")
-        if g[2].button("Сгенерировать", key=key + "gen"):
+        extra = g[1].text_input("Доп. промпт (по-русски)", key=key + "ex", **_enter(key + "gengo"))
+        if g[2].button("Сгенерировать", key=key + "gen") | st.session_state.pop(key + "gengo", False):
             with st.spinner(f"Генерация {n} кадр. (~6 с/кадр)…"):
                 try:
                     sg.set_step(sid, k, action=action, note=note)
@@ -228,9 +233,11 @@ def render():
     _create(sg, ch)
     if not ids:
         return
-    sid = st.selectbox("История", ids, key="stories_sel")
+    with st.container(key="sthead_sel"):
+        sid = st.selectbox("История", ids, key="stories_sel")
     story, state = sg.load_story(sid), sg.load_state(sid)
-    top = st.columns([1, 2, 1])
+    with st.container(key="sthead_top"):
+        top = st.columns(2)
     hero = top[0].radio("Герой", ["girl", "boy"], index=["girl", "boy"].index(state["hero"]), horizontal=True, key=f"hero_{sid}")
     if hero != state["hero"]:
         state["hero"] = hero; sg.save_state(sid, state); st.rerun()

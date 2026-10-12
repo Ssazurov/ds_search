@@ -413,7 +413,7 @@ _STORIES = """
 .st-key-tabmain [class*="st-key-scmeta_"] [data-testid="stWidgetLabel"], .st-key-tabmain [class*="st-key-stp_"] [data-testid="stWidgetLabel"] {
   justify-content: flex-start; text-align: left; white-space: nowrap; }
 .st-key-tabmain [class*="st-key-stp_"] [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stSelectbox"]) {
-  grid-template-columns: 150px minmax(0, 1fr) !important; }
+  grid-template-columns: 210px minmax(0, 1fr) !important; }
 .st-key-tabmain [class*="st-key-stgen_"] [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stNumberInput"]),
 .st-key-tabmain [class*="st-key-strf_"] [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stNumberInput"]) {
   grid-template-columns: max-content minmax(0, 1fr) !important; column-gap: 6px !important; }
@@ -421,4 +421,9 @@ _STORIES = """
   min-height: 32px !important; height: 32px !important; }
 .st-key-tabmain [class*="st-key-stp_"] input { height: 30px !important; padding-top: 0 !important; padding-bottom: 0 !important; }
 .st-key-tabmain [class*="st-key-stp_"] button { min-height: 32px !important; height: 32px !important; padding-top: 0 !important; padding-bottom: 0 !important; white-space: nowrap; }
+.st-key-tabmain [class*="st-key-sthead_"] [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stRadio"]) {
+  grid-template-columns: max-content minmax(0, 1fr) !important; column-gap: 6px !important; }
+.st-key-tabmain [class*="st-key-sthead_"] [data-testid="stWidgetLabel"] { justify-content: flex-start; text-align: left; white-space: nowrap; }
+.st-key-tabmain [class*="st-key-sthead_top"] [data-testid="stHorizontalBlock"] { display: grid !important; grid-template-columns: max-content minmax(0, 1fr); gap: 24px !important; }
+.st-key-tabmain [class*="st-key-sthead_top"] [data-testid="stColumn"] { width: auto !important; flex: none !important; min-width: 0 !important; }
 """
