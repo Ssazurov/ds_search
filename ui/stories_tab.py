@@ -134,7 +134,7 @@ def _step(sg, sid, story, state, ch, idx, s):
         text = c[0].text_area("Текст (ru)", s["text"].get("ru", ""), key=key + "t", height=70)
         loc = c[1].selectbox("Локация", locs, index=locs.index(s["location"]) if s["location"] in locs else 0, key=key + "loc")
         outfit = c[2].selectbox("Одежда", outs, index=outs.index(s.get("outfit", "home")) if s.get("outfit", "home") in outs else 0, key=key + "out")
-        action = st.text_input("Действие кадра (EN, фрагмент промпта)", stp["action"], key=key + "a")
+        action = st.text_input("Действие кадра (по-русски; в модель уйдёт по-английски)", stp["action"], key=key + "a")
         note = st.text_input("Заметка автора", stp["note"], key=key + "n")
         if st.button("Сохранить шаг", key=key + "sv"):
             s["text"]["ru"], s["location"], s["outfit"] = text, loc, outfit
@@ -146,11 +146,14 @@ def _step(sg, sid, story, state, ch, idx, s):
             else:
                 sts[idx], sts[idx + move] = sts[idx + move], sts[idx]
             _save_story(sg, sid, story); st.rerun()
-        with st.expander("Итоговый промпт"):
-            st.code(sg.build_prompt(ch, {**s, "text": {"ru": text}, "location": loc, "outfit": outfit}, action, state["hero"]), language=None)
+        with st.expander("Итоговый промпт (то, что уходит в модель, на английском)"):
+            try:
+                st.code(sg.build_prompt(ch, {**s, "text": {"ru": text}, "location": loc, "outfit": outfit}, action, state["hero"], extra=st.session_state.get(key + "ex", "")), language=None)
+            except Exception as e:  # Ollama недоступна и т.п.
+                st.warning(str(e))
         g = st.columns([1, 3, 1, 1])
-        n = g[0].number_input("N", 1, 6, 3, key=key + "n3")
-        extra = g[1].text_input("Доп. промпт", key=key + "ex")
+        n = g[0].number_input("N", 1, 8, 5, key=key + "n3")
+        extra = g[1].text_input("Доп. промпт (по-русски)", key=key + "ex")
         if g[2].button("Сгенерировать", key=key + "gen"):
             with st.spinner(f"Генерация {n} кадр. (~6 с/кадр)…"):
                 try:
@@ -165,7 +168,7 @@ def _step(sg, sid, story, state, ch, idx, s):
         if stp["variants"]:
             r = st.columns([1, 3, 1])
             par = r[0].selectbox("Доработать", [v["id"] for v in stp["variants"]], key=key + "par")
-            ex = r[1].text_input("Что изменить (EN)", key=key + "rex", placeholder="remove the towel from the wall",
+            ex = r[1].text_input("Что изменить (по-русски)", key=key + "rex", placeholder="убери полотенце со стены",
                                  on_change=st.session_state.__setitem__, args=(key + "go", True))
             go = r[2].button("Доработать", key=key + "ref")
             if (st.session_state.pop(key + "go", False) or go) and ex.strip():
