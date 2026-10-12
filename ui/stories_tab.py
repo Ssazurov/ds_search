@@ -216,7 +216,7 @@ def _scenario(sg, sid, story, state):
     if st.button("+ шаг", key=f"add_{sid}"):
         _new_step(story); _save_story(sg, sid, story); st.rerun()
     with st.expander("Добавить шаги списком (по строке на шаг)"):
-        with st.container(key="stp_bulk"):
+        with st.container(key="scmeta_bulk"):
             bulk = st.text_area("Шаги", key=f"bulk_{sid}", height=120, placeholder="Я подхожу к ванной.\nВключаю свет.")
         if st.button("Добавить", key=f"bulkgo_{sid}"):
             for line in [x.strip() for x in bulk.splitlines() if x.strip()]:
@@ -235,12 +235,12 @@ def render():
     _create(sg, ch)
     if not ids:
         return
-    with st.container(key="sthead_sel"):
-        sid = st.selectbox("История", ids, key="stories_sel")
-    story, state = sg.load_story(sid), sg.load_state(sid)
     with st.container(key="sthead_top"):
         top = st.columns(2)
-    hero = top[0].radio("Герой", ["girl", "boy"], index=["girl", "boy"].index(state["hero"]), horizontal=True, key=f"hero_{sid}")
+    sid = top[0].selectbox("История", ids, key="stories_sel")
+    story, state = sg.load_story(sid), sg.load_state(sid)
+    with st.container(key="sthead_hero"):
+        hero = st.radio("Герой", ["girl", "boy"], index=["girl", "boy"].index(state["hero"]), horizontal=True, key=f"hero_{sid}")
     if hero != state["hero"]:
         state["hero"] = hero; sg.save_state(sid, state); st.rerun()
     title = top[1].text_input("Название", story["title"]["ru"], key=f"ttl_{sid}")
@@ -256,7 +256,8 @@ def render():
 def _frames(sg, sid, story, state, ch):
     for idx, s in enumerate(story["steps"]):
         _step(sg, sid, story, state, ch, idx, s)
-    a = st.columns(3)
+    with st.container(key="stfoot"):
+        a = st.columns(3)
     if a[2].button("Сгенерировать ряд", key=f"strip_{sid}", help="Общая картинка из выбранных и ♥ кадров всех шагов"):
         st.session_state[f"strip_img_{sid}"] = _strip(sg, sid, story, state)
     img = st.session_state.get(f"strip_img_{sid}")
