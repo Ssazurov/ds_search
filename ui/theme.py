@@ -408,6 +408,7 @@ _STORIES = """
 .st-key-tabmain [class*="st-key-scrow_"] [data-testid="stElementContainer"], .st-key-tabmain [class*="st-key-scrow_"] [data-testid="stTextArea"] { width: 100% !important; }
 .st-key-tabmain [class*="st-key-scrow_"] [data-testid="stTextAreaRootElement"], .st-key-tabmain [class*="st-key-scrow_"] textarea { width: 100% !important; flex: 1 1 100% !important; }
 .st-key-tabmain [class*="st-key-scrow_"] p { margin: 0 !important; line-height: 32px; }
+.st-key-tabmain [data-testid="stExpander"]:has([class*="st-key-stp_"]) { border: 1px solid #9aa1ad !important; border-radius: 8px !important; }
 .st-key-tabmain [class*="st-key-scmeta_"] [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stNumberInput"], [data-testid="stSelectbox"], [data-testid="stTextArea"]) {
   grid-template-columns: max-content minmax(0, 1fr) !important; column-gap: 6px !important; }
 .st-key-tabmain [class*="st-key-scmeta_"] [data-testid="stWidgetLabel"], .st-key-tabmain [class*="st-key-stp_"] [data-testid="stWidgetLabel"] {
