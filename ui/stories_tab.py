@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import os
+import copy
 import re
 import sys
 import textwrap
@@ -279,16 +280,23 @@ def _scenes(sg):
         _scenes_list(sg, scenes)
     with st.expander("Создать сцену"):
         with st.container(key="scmeta_nsc"):
-            c = st.columns(2)
+            c = st.columns(3)
         nid = c[0].text_input("id (слаг)", key="nsc_id")
         nt = c[1].text_input("Название", key="nsc_title")
+        tpl = c[2].selectbox("Шаблон", ["—"] + list(scenes), key="nsc_tpl",
+                             format_func=lambda k: "— без шаблона —" if k == "—" else scenes[k]["title"].get("ru", k))
         if st.button("Создать", key="nsc_go"):
             if not re.fullmatch(r"[a-z][a-z0-9_]{1,40}", nid or "") or nid in scenes:
                 st.error("id: латиница/цифры/_, уникальный")
-            elif not nt.strip():
+            elif not nt.strip() and tpl == "—":
                 st.error("Нужно название")
             else:
-                scenes[nid] = {"title": {"ru": nt.strip()}, "desc": {"ru": ""}, "camera": {"ru": ""}, "items": []}
+                if tpl == "—":
+                    obj = {"title": {"ru": nt.strip()}, "desc": {"ru": ""}, "camera": {"ru": ""}, "items": []}
+                else:  # копия полей шаблона (описание, камера, предметы), без картинок
+                    obj = copy.deepcopy(scenes[tpl])
+                    obj["title"] = {**obj.get("title", {}), "ru": nt.strip() or f"{scenes[tpl]['title'].get('ru', tpl)} (копия)"}
+                scenes[nid] = obj
                 sg.lib_save("scenes", scenes); st.rerun()
     if not scenes:
         return
@@ -502,15 +510,24 @@ def _items(sg):
         st.dataframe(rows, hide_index=True, use_container_width=True)
     with st.expander("Создать предмет"):
         with st.container(key="scmeta_nit"):
-            n = st.columns(3)
+            n = st.columns(4)
         iid = n[0].text_input("id (слаг)", key="nit_id")
         it_t = n[1].text_input("Название", key="nit_t")
         it_d = n[2].text_input("Описание", key="nit_d")
+        tpl = n[3].selectbox("Шаблон", ["—"] + list(items), key="nit_tpl",
+                             format_func=lambda k: "— без шаблона —" if k == "—" else items[k]["title"].get("ru", k))
         if st.button("Создать", key="nit_go"):
-            if not re.fullmatch(r"[a-z][a-z0-9_]{1,40}", iid or "") or iid in items or not it_t.strip():
-                st.error("id: латиница/цифры/_, уникальный; нужно название")
+            if not re.fullmatch(r"[a-z][a-z0-9_]{1,40}", iid or "") or iid in items or (not it_t.strip() and tpl == "—"):
+                st.error("id: латиница/цифры/_, уникальный; нужно название (без шаблона)")
             else:
-                items[iid] = {"title": {"ru": it_t.strip()}, "desc": {"ru": it_d.strip()}}; sg.lib_save("items", items); st.rerun()
+                if tpl == "—":
+                    obj = {"title": {"ru": it_t.strip()}, "desc": {"ru": it_d.strip()}}
+                else:  # копия полей шаблона, без картинок; заполненные поля формы перекрывают шаблон
+                    obj = copy.deepcopy(items[tpl])
+                    obj["title"] = {**obj.get("title", {}), "ru": it_t.strip() or f"{items[tpl]['title'].get('ru', tpl)} (копия)"}
+                    if it_d.strip():
+                        obj["desc"] = {**obj.get("desc", {}), "ru": it_d.strip()}
+                items[iid] = obj; sg.lib_save("items", items); st.rerun()
     if not items:
         return
     with st.container(key="sthead_top_it"):
