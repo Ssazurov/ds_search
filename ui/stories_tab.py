@@ -143,8 +143,10 @@ def _step(sg, sid, story, state, ch, idx, s):
             _save_story(sg, sid, story); sg.set_step(sid, k, action=action, note=note); st.rerun()
         if st.checkbox("Показать итоговый промпт (английский, уходит в модель)", key=key + "pv"):
             try:
-                st.code(sg.build_prompt(ch, {**s, "text": {"ru": text}, "location": loc, "outfit": outfit}, action, state["hero"],
-                                        extra=st.session_state.get(key + "ex", "")), language=None)
+                pr = sg.build_prompt(ch, {**s, "text": {"ru": text}, "location": loc, "outfit": outfit}, action, state["hero"],
+                                     extra=st.session_state.get(key + "ex", ""))
+                st.session_state[key + "pt"] = pr
+                st.text_area("Промпт (англ.)", height=max(110, 24 * (len(pr) // 110 + 2)), key=key + "pt", disabled=True)
             except Exception as e:  # Ollama недоступна и т.п.
                 st.warning(str(e))
         with st.container(key=f"stgen_{sid}_{k}"):
@@ -236,11 +238,10 @@ def render():
     if not ids:
         return
     with st.container(key="sthead_top"):
-        top = st.columns(2)
+        top = st.columns(3)
     sid = top[0].selectbox("История", ids, key="stories_sel")
     story, state = sg.load_story(sid), sg.load_state(sid)
-    with st.container(key="sthead_hero"):
-        hero = st.radio("Герой", ["girl", "boy"], index=["girl", "boy"].index(state["hero"]), horizontal=True, key=f"hero_{sid}")
+    hero = top[2].radio("Герой", ["girl", "boy"], index=["girl", "boy"].index(state["hero"]), horizontal=True, key=f"hero_{sid}")
     if hero != state["hero"]:
         state["hero"] = hero; sg.save_state(sid, state); st.rerun()
     title = top[1].text_input("Название", story["title"]["ru"], key=f"ttl_{sid}")
