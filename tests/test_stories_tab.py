@@ -109,3 +109,9 @@ def test_items_store(tmp_path, monkeypatch):
     sg.idelete("towel", "view", v[0]["id"])
     st_ = sg.iload("towel")
     assert st_["view"]["selected"] is None and not st_["view"]["variants"] and len(st_["hand:boy"]["variants"]) == 1
+
+
+def test_chars_tab():
+    at = AppTest.from_function(_app, default_timeout=30).run()
+    assert not at.exception
+    assert any(s.label == "Персонаж" for s in at.selectbox)
