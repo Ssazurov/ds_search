@@ -55,11 +55,11 @@ def _create(sg, ch):
     with st.expander("Создать историю"):
         with st.container(key="scmeta_new"):
             c = st.columns(4)
-        sid = c[0].text_input("id (слаг)", key="ns_id", **_enter("ns_do"))
-        title = c[1].text_input("Название", key="ns_title", **_enter("ns_do"))
-        cat = c[2].text_input("Категория", "routine", key="ns_cat", **_enter("ns_do"))
+        sid = c[0].text_input("id (слаг)", key="ns_id")
+        title = c[1].text_input("Название", key="ns_title")
+        cat = c[2].text_input("Категория", "routine", key="ns_cat")
         loc = c[3].selectbox("Локация 1-го шага", list(ch["locations"]), key="ns_loc")
-        if st.button("Создать", key="ns_go") | st.session_state.pop("ns_do", False):
+        if st.button("Создать", key="ns_go"):
             if not re.fullmatch(r"[a-z][a-z0-9_]{1,40}", sid or "") or (sg.ROOT / f"stories/{sid}.yaml").exists():
                 st.error("id: латиница/цифры/_, уникальный")
             elif not title.strip():
@@ -280,9 +280,9 @@ def _scenes(sg):
     with st.expander("Создать сцену"):
         with st.container(key="scmeta_nsc"):
             c = st.columns(2)
-        nid = c[0].text_input("id (слаг)", key="nsc_id", **_enter("nsc_do"))
-        nt = c[1].text_input("Название", key="nsc_title", **_enter("nsc_do"))
-        if st.button("Создать", key="nsc_go") | st.session_state.pop("nsc_do", False):
+        nid = c[0].text_input("id (слаг)", key="nsc_id")
+        nt = c[1].text_input("Название", key="nsc_title")
+        if st.button("Создать", key="nsc_go"):
             if not re.fullmatch(r"[a-z][a-z0-9_]{1,40}", nid or "") or nid in scenes:
                 st.error("id: латиница/цифры/_, уникальный")
             elif not nt.strip():
@@ -323,15 +323,15 @@ def _scenes(sg):
             with st.container(key=f"stgen_add_{scn}"):
                 a = st.columns(4)
             pick = a[0].selectbox("Предмет", free, format_func=lambda x: items[x]["title"]["ru"], key=k + "np", disabled=not free)
-            pl = a[1].text_input("Размещение", key=k + "npl", placeholder="висит на крючке справа от раковины", **_enter(k + "addgo"))
-            if (a[2].button("Добавить", key=k + "add") | st.session_state.pop(k + "addgo", False)) and pick and pl.strip():
+            pl = a[1].text_input("Размещение", key=k + "npl", placeholder="висит на крючке справа от раковины")
+            if (a[2].button("Добавить", key=k + "add")) and pick and pl.strip():
                 sc["items"].append({"item": pick, "place": {"ru": pl.strip()}}); sg.lib_save("scenes", scenes); st.rerun()
             with st.container(key=f"scmeta_ni_{scn}"):
                 n = st.columns(3)
-            iid = n[0].text_input("Новый предмет: id", key=k + "ni", **_enter(k + "newgo"))
-            it_t = n[1].text_input("Название", key=k + "nit", **_enter(k + "newgo"))
-            it_d = n[2].text_input("Описание", key=k + "nid", **_enter(k + "newgo"))
-            if st.button("Создать предмет", key=k + "newgo_b") | st.session_state.pop(k + "newgo", False):
+            iid = n[0].text_input("Новый предмет: id", key=k + "ni")
+            it_t = n[1].text_input("Название", key=k + "nit")
+            it_d = n[2].text_input("Описание", key=k + "nid")
+            if st.button("Создать предмет", key=k + "newgo_b"):
                 if not re.fullmatch(r"[a-z][a-z0-9_]{1,40}", iid or "") or iid in items or not it_t.strip():
                     st.error("id: латиница/цифры/_, уникальный; нужно название")
                 else:
@@ -503,10 +503,10 @@ def _items(sg):
     with st.expander("Создать предмет"):
         with st.container(key="scmeta_nit"):
             n = st.columns(3)
-        iid = n[0].text_input("id (слаг)", key="nit_id", **_enter("nit_do"))
-        it_t = n[1].text_input("Название", key="nit_t", **_enter("nit_do"))
-        it_d = n[2].text_input("Описание", key="nit_d", **_enter("nit_do"))
-        if st.button("Создать", key="nit_go") | st.session_state.pop("nit_do", False):
+        iid = n[0].text_input("id (слаг)", key="nit_id")
+        it_t = n[1].text_input("Название", key="nit_t")
+        it_d = n[2].text_input("Описание", key="nit_d")
+        if st.button("Создать", key="nit_go"):
             if not re.fullmatch(r"[a-z][a-z0-9_]{1,40}", iid or "") or iid in items or not it_t.strip():
                 st.error("id: латиница/цифры/_, уникальный; нужно название")
             else:
@@ -542,10 +542,10 @@ def _chars(sg):
     with st.expander("Создать персонажа"):
         with st.container(key="scmeta_nch"):
             n = st.columns(3)
-        cid = n[0].text_input("id (слаг)", key="nch_id", **_enter("nch_do"))
-        nm = n[1].text_input("Имя", key="nch_n", **_enter("nch_do"))
-        bb = n[2].text_input("Внешность (англ.)", key="nch_b", **_enter("nch_do"))
-        if st.button("Создать", key="nch_go") | st.session_state.pop("nch_do", False):
+        cid = n[0].text_input("id (слаг)", key="nch_id")
+        nm = n[1].text_input("Имя", key="nch_n")
+        bb = n[2].text_input("Внешность (англ.)", key="nch_b")
+        if st.button("Создать", key="nch_go"):
             if not re.fullmatch(r"[a-z][a-z0-9_]{1,40}", cid or "") or cid in chs or not nm.strip() or not bb.strip():
                 st.error("id: латиница/цифры/_, уникальный; нужны имя и внешность")
             else:
@@ -587,10 +587,10 @@ def _chars(sg):
         with st.expander("Добавить одежду"):
             with st.container(key=f"scmeta_nco_{cid}"):
                 a = st.columns(3)
-            oid = a[0].text_input("id (слаг)", key=f"nco_{cid}_id", **_enter(f"nco_{cid}_do"))
-            ot = a[1].text_input("Название", key=f"nco_{cid}_t", **_enter(f"nco_{cid}_do"))
-            od = a[2].text_input("Описание (англ.)", key=f"nco_{cid}_d", **_enter(f"nco_{cid}_do"))
-            if st.button("Добавить", key=f"nco_{cid}_go") | st.session_state.pop(f"nco_{cid}_do", False):
+            oid = a[0].text_input("id (слаг)", key=f"nco_{cid}_id")
+            ot = a[1].text_input("Название", key=f"nco_{cid}_t")
+            od = a[2].text_input("Описание (англ.)", key=f"nco_{cid}_d")
+            if st.button("Добавить", key=f"nco_{cid}_go"):
                 if not re.fullmatch(r"[a-z][a-z0-9_]{1,40}", oid or "") or oid in outs or not ot.strip() or not od.strip():
                     st.error("id: латиница/цифры/_, уникальный; нужны название и описание")
                 else:
@@ -641,11 +641,48 @@ def _stories(sg):
     title = top[1].text_input("Название", story["title"]["ru"], key=f"ttl_{sid}")
     if title != story["title"]["ru"] and title.strip():
         story["title"]["ru"] = title.strip(); _save_story(sg, sid, story)
-    tab_sc, tab_fr = st.tabs(["Сценарий", "Кадры"])
+    tab_sc, tab_fr, tab_vo = st.tabs(["Сценарий", "Кадры", "Озвучка"])
     with tab_sc:
         _scenario(sg, sid, story, state)
     with tab_fr:
         _frames(sg, sid, story, state, ch)
+    with tab_vo:
+        _voice(sg, sid, story)
+
+
+def _voice(sg, sid, story):
+    """Озвучка шагов (Chatterbox через tts_server): прослушивание, озвучить/перегенерировать. Файл: audio/ru/<история>_<шаг>.mp3."""
+    from ui import words_tab as wt
+    root, steps = sg.ROOT, story["steps"]
+    path = lambda k: root / "audio" / "ru" / f"{sid}_{k}.mp3"
+    with st.expander("Голос (профиль, референс, параметры)"):
+        wt._tts_settings(root)
+
+    def gen(ks):
+        items = [{"id": f"{sid}_{x['id']}", "text": x["text"].get("ru", "").strip(), "stress": None}
+                 for x in steps if x["id"] in ks and x["text"].get("ru", "").strip()]
+        if not items:
+            return 1, "Нет текста для озвучки"
+        with st.spinner(f"Озвучка: {len(items)} шаг. (~несколько с на шаг)…"):
+            return wt.run_tts(items)
+
+    a = st.columns(3)
+    todo = [x["id"] for x in steps if not path(x["id"]).is_file()]
+    if a[0].button(f"Озвучить недостающие ({len(todo)})", key=f"vo_miss_{sid}", disabled=not todo):
+        st.toast(gen(todo)[1]); st.rerun()
+    if a[1].button("Перегенерировать все", key=f"vo_all_{sid}"):
+        st.toast(gen([x["id"] for x in steps])[1]); st.rerun()
+    for idx, x in enumerate(steps):
+        k, f = x["id"], path(x["id"])
+        with st.container(border=True, key=f"vo_{sid}_{k}"):
+            c = st.columns([5, 4, 2])
+            c[0].markdown(f"**{idx + 1}.** {x['text'].get('ru', '') or '— текст не задан —'}")
+            if f.is_file():
+                c[1].audio(f.read_bytes(), format="audio/mp3")
+            else:
+                c[1].caption("нет озвучки")
+            if c[2].button("Заново" if f.is_file() else "Озвучить", key=f"vo_b_{sid}_{k}"):
+                st.toast(gen([k])[1]); st.rerun()
 
 
 def _frames(sg, sid, story, state, ch):
