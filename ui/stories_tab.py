@@ -165,11 +165,12 @@ def _step(sg, sid, story, state, ch, idx, s):
                 st.text_area("Промпт (англ.)", height=max(110, 24 * (len(pr) // 110 + 2)), key=key + "pt", disabled=True)
             except Exception as e:  # Ollama недоступна и т.п.
                 st.warning(str(e))
-        with st.container(key=f"stgen_{sid}_{k}"):
-            g = st.columns(4)
+        with st.form(key="fm_" + f"stgen_{sid}_{k}", border=False):
+            with st.container(key=f"stgen_{sid}_{k}"):
+                g = st.columns(4)
         n = g[0].number_input("Кол-во", 1, 8, 5, key=key + "n3")
-        extra = g[1].text_input("Доп. промпт (по-русски)", key=key + "ex", **_enter(key + "gengo"))
-        if g[2].button("Сгенерировать", key=key + "gen") | st.session_state.pop(key + "gengo", False):
+        extra = g[1].text_input("Доп. промпт (по-русски)", key=key + "ex")
+        if g[2].form_submit_button("Сгенерировать"):
             with st.spinner(f"Генерация {n} кадр. (~6 с/кадр)…"):
                 try:
                     sg.set_step(sid, k, action=action, note=note)
@@ -177,17 +178,17 @@ def _step(sg, sid, story, state, ch, idx, s):
                 except Exception as e:  # ComfyUI недоступен / ошибка workflow
                     st.error(f"Ошибка генерации: {e}"); return
             st.rerun()
-        if g[3].button("Удалить без ♥", key=key + "pr", help="Выбранные и лайкнутые остаются"):
+        if g[3].form_submit_button("Удалить без ♥", help="Выбранные и лайкнутые остаются"):
             st.toast(f"Удалено: {sg.prune(sid, k)}"); st.rerun()
         _gallery(sg, sid, k, state, key)
         if stp["variants"]:
-            with st.container(key=f"strf_{sid}_{k}"):
-                r = st.columns(3)
+            with st.form(key="fm_" + f"strf_{sid}_{k}", border=False):
+                with st.container(key=f"strf_{sid}_{k}"):
+                    r = st.columns(3)
             par = r[0].selectbox("Доработать", [v["id"] for v in stp["variants"]], key=key + "par")
-            ex = r[1].text_input("Что изменить (по-русски)", key=key + "rex", placeholder="убери полотенце со стены",
-                                 on_change=st.session_state.__setitem__, args=(key + "go", True))
-            go = r[2].button("Доработать", key=key + "ref")
-            if (st.session_state.pop(key + "go", False) or go) and ex.strip():
+            ex = r[1].text_input("Что изменить (по-русски)", key=key + "rex", placeholder="убери полотенце со стены")
+            go = r[2].form_submit_button("Доработать")
+            if go and ex.strip():
                 with st.spinner("Доработка…"):
                     try:
                         sg.gen(sid, k, 2, ex.strip(), parent=par)
@@ -342,27 +343,29 @@ def _scenes(sg):
                 st.text_area("Промпт (англ.)", height=max(110, 24 * (len(pr) // 110 + 2)), key=k + "pt", disabled=True)
             except Exception as e:
                 st.warning(str(e))
-        with st.container(key=f"stgen_{scn}"):
-            g = st.columns(4)
+        with st.form(key="fm_" + f"stgen_{scn}", border=False):
+            with st.container(key=f"stgen_{scn}"):
+                g = st.columns(4)
         n = g[0].number_input("Кол-во", 1, 8, 5, key=k + "n")
-        extra = g[1].text_input("Доп. промпт (по-русски)", key=k + "ex", **_enter(k + "gengo"))
-        if g[2].button("Сгенерировать", key=k + "gen") | st.session_state.pop(k + "gengo", False):
+        extra = g[1].text_input("Доп. промпт (по-русски)", key=k + "ex")
+        if g[2].form_submit_button("Сгенерировать"):
             with st.spinner(f"Генерация {n} видов (~6 с/вид)…"):
                 try:
                     sg.sgen(scn, int(n), extra)
                 except Exception as e:
                     st.error(f"Ошибка генерации: {e}"); return
             st.rerun()
-        if g[3].button("Удалить без ♥", key=k + "pr", help="Выбранный и лайкнутые остаются"):
+        if g[3].form_submit_button("Удалить без ♥", help="Выбранный и лайкнутые остаются"):
             st.toast(f"Удалено: {sg.sprune(scn)}"); st.rerun()
         _sgallery(sg, scn, stt, k)
         if stt["variants"]:
-            with st.container(key=f"strf_{scn}"):
-                r = st.columns(3)
+            with st.form(key="fm_" + f"strf_{scn}", border=False):
+                with st.container(key=f"strf_{scn}"):
+                    r = st.columns(3)
             par = r[0].selectbox("Доработать", [v["id"] for v in stt["variants"]], key=k + "par")
-            ex = r[1].text_input("Что изменить (по-русски)", key=k + "rex", placeholder="убери полотенце со стены", **_enter(k + "rgo"))
-            go = r[2].button("Доработать", key=k + "ref")
-            if (st.session_state.pop(k + "rgo", False) or go) and ex.strip():
+            ex = r[1].text_input("Что изменить (по-русски)", key=k + "rex", placeholder="убери полотенце со стены")
+            go = r[2].form_submit_button("Доработать")
+            if go and ex.strip():
                 with st.spinner("Доработка…"):
                     try:
                         sg.sgen(scn, 2, ex.strip(), parent=par)
@@ -397,27 +400,29 @@ def _sstates(sg, scn, stt, items, sc, k):
         kk = f"{k}{kd}_"
         ttl = items.get(iid, {}).get("title", {}).get("ru", iid)
         with st.expander(f"Без: {ttl} — видов {len(sk['variants'])}" + (" ✅" if sk["selected"] else ""), expanded=bool(st.session_state.get(kk + "op"))):
-            with st.container(key=f"stgen_{scn}_{kd}"):
-                g = st.columns(4)
+            with st.form(key="fm_" + f"stgen_{scn}_{kd}", border=False):
+                with st.container(key=f"stgen_{scn}_{kd}"):
+                    g = st.columns(4)
             m = g[0].number_input("Кол-во", 1, 8, 5, key=kk + "n")
-            ex = g[1].text_input("Доп. промпт (по-русски)", key=kk + "ex", **_enter(kk + "gengo"))
-            if g[2].button("Сгенерировать", key=kk + "gen") | st.session_state.pop(kk + "gengo", False):
+            ex = g[1].text_input("Доп. промпт (по-русски)", key=kk + "ex")
+            if g[2].form_submit_button("Сгенерировать"):
                 with st.spinner(f"Генерация {m} видов…"):
                     try:
                         sg.sgen(scn, int(m), ex, kind=kd)
                     except Exception as e:
                         st.error(f"Ошибка генерации: {e}"); return
                 st.session_state[kk + "op"] = True; st.rerun()
-            if g[3].button("Удалить без ♥", key=kk + "pr"):
+            if g[3].form_submit_button("Удалить без ♥"):
                 st.session_state[kk + "op"] = True; st.toast(f"Удалено: {sg.sprune(scn, kd)}"); st.rerun()
             _sgallery(sg, scn, sk, kk, kd, kk + "op")
             if sk["variants"]:
-                with st.container(key=f"strf_{scn}_{kd}"):
-                    r = st.columns(3)
+                with st.form(key="fm_" + f"strf_{scn}_{kd}", border=False):
+                    with st.container(key=f"strf_{scn}_{kd}"):
+                        r = st.columns(3)
                 par = r[0].selectbox("Доработать", [v["id"] for v in sk["variants"]], key=kk + "par")
-                rx = r[1].text_input("Что изменить (по-русски)", key=kk + "rex", **_enter(kk + "rgo"))
-                go = r[2].button("Доработать", key=kk + "ref")
-                if (st.session_state.pop(kk + "rgo", False) or go) and rx.strip():
+                rx = r[1].text_input("Что изменить (по-русски)", key=kk + "rex")
+                go = r[2].form_submit_button("Доработать")
+                if go and rx.strip():
                     with st.spinner("Доработка…"):
                         try:
                             sg.sgen(scn, 2, rx.strip(), parent=par, kind=kd)
@@ -453,27 +458,29 @@ def _ikind(sg, iid, kind, title, stt):
             st.text_area("Промпт (англ.)", height=max(110, 24 * (len(pr) // 110 + 2)), key=k + "pt", disabled=True)
         except Exception as e:
             st.warning(str(e))
-    with st.container(key=f"stgen_{iid}_{ks}"):
-        g = st.columns(4)
+    with st.form(key="fm_" + f"stgen_{iid}_{ks}", border=False):
+        with st.container(key=f"stgen_{iid}_{ks}"):
+            g = st.columns(4)
     n = g[0].number_input("Кол-во", 1, 8, 5, key=k + "n")
-    extra = g[1].text_input("Доп. промпт (по-русски)", key=k + "ex", **_enter(k + "gengo"))
-    if g[2].button("Сгенерировать", key=k + "gen") | st.session_state.pop(k + "gengo", False):
+    extra = g[1].text_input("Доп. промпт (по-русски)", key=k + "ex")
+    if g[2].form_submit_button("Сгенерировать"):
         with st.spinner(f"Генерация {n} (~6 с/кадр)…"):
             try:
                 sg.igen(iid, kind, int(n), extra)
             except Exception as e:
                 st.error(f"Ошибка генерации: {e}"); return
         st.rerun()
-    if g[3].button("Удалить без ♥", key=k + "pr", help="Выбранный и лайкнутые остаются"):
+    if g[3].form_submit_button("Удалить без ♥", help="Выбранный и лайкнутые остаются"):
         st.toast(f"Удалено: {sg.iprune(iid, kind)}"); st.rerun()
     _igallery(sg, iid, kind, stt, k)
     if stt[kind]["variants"]:
-        with st.container(key=f"strf_{iid}_{ks}"):
-            r = st.columns(3)
+        with st.form(key="fm_" + f"strf_{iid}_{ks}", border=False):
+            with st.container(key=f"strf_{iid}_{ks}"):
+                r = st.columns(3)
         par = r[0].selectbox("Доработать", [v["id"] for v in stt[kind]["variants"]], key=k + "par")
-        ex = r[1].text_input("Что изменить (по-русски)", key=k + "rex", placeholder="сделай поменьше", **_enter(k + "rgo"))
-        go = r[2].button("Доработать", key=k + "ref")
-        if (st.session_state.pop(k + "rgo", False) or go) and ex.strip():
+        ex = r[1].text_input("Что изменить (по-русски)", key=k + "rex", placeholder="сделай поменьше")
+        go = r[2].form_submit_button("Доработать")
+        if go and ex.strip():
             with st.spinner("Доработка…"):
                 try:
                     sg.igen(iid, kind, 2, ex.strip(), parent=par)
