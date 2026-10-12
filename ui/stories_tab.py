@@ -511,6 +511,22 @@ def _items(sg):
                 st.error("id: латиница/цифры/_, уникальный; нужно название")
             else:
                 items[iid] = {"title": {"ru": it_t.strip()}, "desc": {"ru": it_d.strip()}}; sg.lib_save("items", items); st.rerun()
+    with st.expander("Шаблоны промпта предмета (английский)"):
+        T = sg.item_templates()
+        st.caption("Подстановки: {desc} описание предмета, {style} общий стиль, {who} кто на картинке 1, {word} girl/boy/character, "
+                   "{pron} her/him/them, {keep} фраза «сохранить лицо и одежду». Пустое поле = стандартный шаблон.")
+        names = {"view": "Вид на нейтральном фоне", "hand_ref": "В руках (есть выбранный вид предмета)", "hand": "В руках (вида предмета нет)"}
+        new_t = {k: st.text_area(v, T[k], key=f"ipt_{k}", height=110) for k, v in names.items()}
+        b = st.columns(3)
+        if b[0].button("Сохранить шаблоны", key="ipt_save"):
+            lp = sg.lib("prompts")
+            lp["item"] = {k: x.strip() for k, x in new_t.items() if x.strip() and x.strip() != sg.ITEM_PROMPTS[k]}
+            sg.lib_save("prompts", lp); st.toast("Сохранено"); st.rerun()
+        if b[1].button("Сбросить к стандартным", key="ipt_reset"):
+            lp = sg.lib("prompts"); lp.pop("item", None); sg.lib_save("prompts", lp)
+            for k in names:
+                st.session_state.pop(f"ipt_{k}", None)
+            st.rerun()
     if not items:
         return
     with st.container(key="sthead_top_it"):
