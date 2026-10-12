@@ -231,7 +231,7 @@ def _ru(old, new):
     return old if isinstance(old, dict) and old.get("ru", "") == new else {"ru": new}
 
 
-def _sgallery(sg, scn, stt, key):
+def _sgallery(sg, scn, stt, key, kind=None):
     vs, sel = stt["variants"], stt["selected"]
     for j in range(0, len(vs), 4):
         for c, v in zip(st.columns(4), vs[j:j + 4]):
@@ -239,11 +239,11 @@ def _sgallery(sg, scn, stt, key):
                     caption=f"{v['id']} · seed {v['seed']}" + (" · ✅" if v["id"] == sel else "") + (" · ♥" if v.get("liked") else ""))
             b = c.columns(3)
             if b[0].button("✔", key=f"{key}s{v['id']}", help="Выбрать"):
-                sg.sselect(scn, v["id"]); st.rerun()
+                sg.sselect(scn, v["id"], kind); st.rerun()
             if b[1].button("♥", key=f"{key}l{v['id']}", help="Лайк"):
-                sg.slike(scn, v["id"], not v.get("liked")); st.rerun()
+                sg.slike(scn, v["id"], not v.get("liked"), kind); st.rerun()
             if b[2].button("🗑", key=f"{key}d{v['id']}", help="Удалить"):
-                sg.sdelete(scn, v["id"]); st.rerun()
+                sg.sdelete(scn, v["id"], kind); st.rerun()
 
 
 def _scenes_list(sg, scenes):
@@ -353,6 +353,61 @@ def _scenes(sg):
                     except Exception as e:
                         st.error(f"Ошибка генерации: {e}"); return
                 st.rerun()
+        _sstates(sg, scn, stt, items, sc, k)
+
+
+def _sstates(sg, scn, stt, items, sc, k):
+    """Состояния сцены (ds_search#623): «без предмета X» — правка выбранного вида «все предметы»."""
+    kinds = sg.sstates(scn)
+    if not kinds:
+        return
+    st.markdown("##### Состояния сцены")
+    if not stt["selected"]:
+        st.caption("Выберите вид «все предметы» (✔) — состояния строятся его правкой.")
+        return
+    with st.container(key=f"stgen_all_{scn}"):
+        a = st.columns(3)
+    n = a[0].number_input("Кол-во на состояние", 1, 8, 2, key=k + "sn")
+    if a[1].button("Сгенерировать все", key=k + "sall", help="Для состояний без выбранного вида"):
+        with st.spinner("Генерация состояний…"):
+            try:
+                c = sg.sgen_all(scn, int(n))
+            except Exception as e:
+                st.error(f"Ошибка генерации: {e}"); return
+        st.toast(f"Сгенерировано: {c}"); st.rerun()
+    for kd in kinds:
+        iid = kd.split(":", 1)[1]
+        sk = stt.get("states", {}).get(kd, {"selected": None, "variants": []})
+        kk = f"{k}{kd}_"
+        ttl = items.get(iid, {}).get("title", {}).get("ru", iid)
+        with st.expander(f"Без: {ttl} — видов {len(sk['variants'])}" + (" ✅" if sk["selected"] else "")):
+            with st.container(key=f"stgen_{scn}_{kd}"):
+                g = st.columns(4)
+            m = g[0].number_input("Кол-во", 1, 8, 5, key=kk + "n")
+            ex = g[1].text_input("Доп. промпт (по-русски)", key=kk + "ex", **_enter(kk + "gengo"))
+            if g[2].button("Сгенерировать", key=kk + "gen") | st.session_state.pop(kk + "gengo", False):
+                with st.spinner(f"Генерация {m} видов…"):
+                    try:
+                        sg.sgen(scn, int(m), ex, kind=kd)
+                    except Exception as e:
+                        st.error(f"Ошибка генерации: {e}"); return
+                st.rerun()
+            if g[3].button("Удалить без ♥", key=kk + "pr"):
+                st.toast(f"Удалено: {sg.sprune(scn, kd)}"); st.rerun()
+            _sgallery(sg, scn, sk, kk, kd)
+            if sk["variants"]:
+                with st.container(key=f"strf_{scn}_{kd}"):
+                    r = st.columns(3)
+                par = r[0].selectbox("Доработать", [v["id"] for v in sk["variants"]], key=kk + "par")
+                rx = r[1].text_input("Что изменить (по-русски)", key=kk + "rex", **_enter(kk + "rgo"))
+                go = r[2].button("Доработать", key=kk + "ref")
+                if (st.session_state.pop(kk + "rgo", False) or go) and rx.strip():
+                    with st.spinner("Доработка…"):
+                        try:
+                            sg.sgen(scn, 2, rx.strip(), parent=par, kind=kd)
+                        except Exception as e:
+                            st.error(f"Ошибка генерации: {e}"); return
+                    st.rerun()
 
 
 def _igallery(sg, iid, kind, stt, key):
