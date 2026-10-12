@@ -126,26 +126,16 @@ def _step(sg, sid, story, state, ch, idx, s):
     stp = state["steps"][k]
     locs, outs = list(ch["locations"]), list(ch["characters"]["hero"]["outfits"])
     with st.container(border=True):
-        h = st.columns([6, 1, 1, 1])
-        h[0].markdown(f"**{k}**")
-        move = (-1 if h[1].button("⬆", key=key + "up", disabled=idx == 0) else 0) or (1 if h[2].button("⬇", key=key + "dn", disabled=idx == len(story["steps"]) - 1) else 0)
-        drop = h[3].button("✖", key=key + "rm", help="Удалить шаг", disabled=len(story["steps"]) < 2)
-        c = st.columns([4, 1, 1])
-        text = c[0].text_area("Текст (ru)", s["text"].get("ru", ""), key=key + "t", height=70)
-        loc = c[1].selectbox("Локация", locs, index=locs.index(s["location"]) if s["location"] in locs else 0, key=key + "loc")
-        outfit = c[2].selectbox("Одежда", outs, index=outs.index(s.get("outfit", "home")) if s.get("outfit", "home") in outs else 0, key=key + "out")
+        st.markdown(f"**{idx + 1}. {s['text'].get('ru', '') or '— текст не задан (вкладка «Сценарий») —'}**")
+        c = st.columns(2)
+        text = s["text"].get("ru", "")
+        loc = c[0].selectbox("Локация", locs, index=locs.index(s["location"]) if s["location"] in locs else 0, key=key + "loc")
+        outfit = c[1].selectbox("Одежда", outs, index=outs.index(s.get("outfit", "home")) if s.get("outfit", "home") in outs else 0, key=key + "out")
         action = st.text_input("Действие кадра (по-русски; в модель уйдёт по-английски)", stp["action"], key=key + "a")
         note = st.text_input("Заметка автора", stp["note"], key=key + "n")
         if st.button("Сохранить шаг", key=key + "sv"):
             s["text"]["ru"], s["location"], s["outfit"] = text, loc, outfit
             _save_story(sg, sid, story); sg.set_step(sid, k, action=action, note=note); st.rerun()
-        if move or drop:
-            sts = story["steps"]
-            if drop:
-                sts.pop(idx)
-            else:
-                sts[idx], sts[idx + move] = sts[idx + move], sts[idx]
-            _save_story(sg, sid, story); st.rerun()
         if st.checkbox("Показать итоговый промпт (английский, уходит в модель)", key=key + "pv"):
             try:
                 st.code(sg.build_prompt(ch, {**s, "text": {"ru": text}, "location": loc, "outfit": outfit}, action, state["hero"],
@@ -181,6 +171,49 @@ def _step(sg, sid, story, state, ch, idx, s):
                 st.rerun()
 
 
+def _new_step(story, text=""):
+    n = 1 + max([int(re.sub(r"\D", "", x["id"]) or 0) for x in story["steps"]] or [0])
+    last = story["steps"][-1] if story["steps"] else {"outfit": "home", "location": "bathroom"}
+    story["steps"].append({"id": f"s{n}", "text": {"ru": text}, "hero": True, "characters": ["hero"],
+                           "outfit": last.get("outfit", "home"), "location": last["location"]})
+
+
+def _scenario(sg, sid, story, state):
+    """Предварительный этап: тексты шагов, порядок, категория/уровень/теги."""
+    c = st.columns([2, 1, 3])
+    cat = c[0].text_input("Категория", story.get("category", ""), key=f"cat_{sid}")
+    lvl = c[1].number_input("Уровень", 1, 9, int(story.get("level", 1)), key=f"lvl_{sid}")
+    tags = [t.strip() for t in c[2].text_input("Теги (через запятую)", ", ".join(story.get("tags", [])), key=f"tg_{sid}").split(",") if t.strip()]
+    if (cat, lvl, tags) != (story.get("category", ""), int(story.get("level", 1)), story.get("tags", [])):
+        story.update(category=cat, level=int(lvl), tags=tags); _save_story(sg, sid, story)
+    steps, changed = story["steps"], False
+    for idx, s in enumerate(steps):
+        k = s["id"]; has = bool(state["steps"][k]["variants"])
+        r = st.columns([0.5, 8, 0.8, 0.8, 0.8])
+        r[0].markdown(f"**{idx + 1}**")
+        t = r[1].text_area("Текст шага", s["text"].get("ru", ""), key=f"sc_{sid}_{k}", height=68, label_visibility="collapsed")
+        if t != s["text"].get("ru", ""):
+            s["text"]["ru"] = t; changed = True
+        move = (-1 if r[2].button("⬆", key=f"scu_{sid}_{k}", disabled=idx == 0) else 0) or (1 if r[3].button("⬇", key=f"scd_{sid}_{k}", disabled=idx == len(steps) - 1) else 0)
+        drop = r[4].button("✖", key=f"scx_{sid}_{k}", disabled=has or len(steps) < 2, help="Удалить шаг" if not has else "У шага есть кадры — сначала удалите их во вкладке «Кадры»")
+        if move or drop:
+            if drop:
+                steps.pop(idx)
+            else:
+                steps[idx], steps[idx + move] = steps[idx + move], steps[idx]
+            _save_story(sg, sid, story); st.rerun()
+    if changed:
+        _save_story(sg, sid, story)
+    if st.button("+ шаг", key=f"add_{sid}"):
+        _new_step(story); _save_story(sg, sid, story); st.rerun()
+    with st.expander("Добавить шаги списком (по строке на шаг)"):
+        bulk = st.text_area("Шаги", key=f"bulk_{sid}", height=120, placeholder="Я подхожу к ванной.\nВключаю свет.")
+        if st.button("Добавить", key=f"bulkgo_{sid}"):
+            for line in [x.strip() for x in bulk.splitlines() if x.strip()]:
+                _new_step(story, line)
+            _save_story(sg, sid, story); st.rerun()
+
+
 def render():
     sg = _sg()
     if not (sg.ROOT / "stories").is_dir():
@@ -201,14 +234,16 @@ def render():
     title = top[1].text_input("Название", story["title"]["ru"], key=f"ttl_{sid}")
     if title != story["title"]["ru"] and title.strip():
         story["title"]["ru"] = title.strip(); _save_story(sg, sid, story)
+    tab_sc, tab_fr = st.tabs(["Сценарий", "Кадры"])
+    with tab_sc:
+        _scenario(sg, sid, story, state)
+    with tab_fr:
+        _frames(sg, sid, story, state, ch)
+
+
+def _frames(sg, sid, story, state, ch):
     for idx, s in enumerate(story["steps"]):
         _step(sg, sid, story, state, ch, idx, s)
-    if st.button("+ шаг", key=f"add_{sid}"):
-        n = 1 + max(int(re.sub(r"\D", "", x["id"]) or 0) for x in story["steps"])
-        last = story["steps"][-1]
-        story["steps"].append({"id": f"s{n}", "text": {"ru": ""}, "hero": True, "characters": ["hero"],
-                               "outfit": last.get("outfit", "home"), "location": last["location"]})
-        _save_story(sg, sid, story); st.rerun()
     st.divider()
     a = st.columns(3)
     if a[2].button("Сгенерировать ряд", key=f"strip_{sid}", help="Общая картинка из выбранных и ♥ кадров всех шагов"):
