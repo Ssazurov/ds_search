@@ -134,16 +134,32 @@ def _step(sg, sid, story, state, ch, idx, s):
     with st.container(border=True, key=f"stp_{sid}_{k}"):
         st.markdown(f"**{idx + 1}. {s['text'].get('ru', '') or '— текст не задан (вкладка «Сценарий») —'}**")
         text = s["text"].get("ru", "")
-        loc = st.selectbox("Локация", locs, index=locs.index(s["location"]) if s["location"] in locs else 0, key=key + "loc")
+        scs, sit = sg.lib("scenes"), sg.lib("items")
+        sopt = [""] + list(scs)
+        scn = st.selectbox("Сцена", sopt, index=sopt.index(s["scene"]) if s.get("scene") in scs else 0, key=key + "scn",
+                           format_func=lambda x: scs[x]["title"]["ru"] if x else "— локация реестра —")
+        uses = []
+        if scn:
+            ids = [it["item"] for it in scs[scn].get("items", [])]
+            uses = st.multiselect("Используемые предметы (на сцене не рисуются)", ids, default=[u for u in s.get("uses", []) if u in ids],
+                                  format_func=lambda x: sit.get(x, {}).get("title", {}).get("ru", x), key=key + "us")
+            if len(uses) > 1:
+                st.caption("Фон — состояние «без предмета» только для первого из выбранных; остальные исключены из описания сцены.")
+            loc = s["location"]
+        else:
+            loc = st.selectbox("Локация", locs, index=locs.index(s["location"]) if s["location"] in locs else 0, key=key + "loc")
         outfit = st.selectbox("Одежда", outs, index=outs.index(s.get("outfit", "home")) if s.get("outfit", "home") in outs else 0, key=key + "out")
         action = st.text_input("Действие кадра", stp["action"], key=key + "a", help="По-русски; в модель уйдёт по-английски", **_enter(key + "svgo"))
         note = st.text_input("Заметка автора", stp["note"], key=key + "n", **_enter(key + "svgo"))
         if st.button("Сохранить шаг", key=key + "sv") | st.session_state.pop(key + "svgo", False):
             s["text"]["ru"], s["location"], s["outfit"] = text, loc, outfit
+            for kk, vv in (("scene", scn), ("uses", uses)):
+                s.pop(kk, None)
+                if vv: s[kk] = vv
             _save_story(sg, sid, story); sg.set_step(sid, k, action=action, note=note); st.rerun()
         if st.checkbox("Показать итоговый промпт (английский, уходит в модель)", key=key + "pv"):
             try:
-                pr = sg.build_prompt(ch, {**s, "text": {"ru": text}, "location": loc, "outfit": outfit}, action, state["hero"],
+                pr = sg.build_prompt(ch, {**s, "text": {"ru": text}, "location": loc, "outfit": outfit, "scene": scn, "uses": uses}, action, state["hero"],
                                      extra=st.session_state.get(key + "ex", ""))
                 st.session_state[key + "pt"] = pr
                 st.text_area("Промпт (англ.)", height=max(110, 24 * (len(pr) // 110 + 2)), key=key + "pt", disabled=True)
