@@ -78,3 +78,28 @@ def test_scenes_store(tmp_path, monkeypatch):
     sg.sdelete("bath", v[0]["id"])
     st_ = sg.sload("bath")
     assert st_["selected"] is None and [x["id"] for x in st_["variants"]] == [v[1]["id"]]
+
+
+def test_items_store(tmp_path, monkeypatch):
+    from ui import stories_tab
+    sg = stories_tab._sg()
+    if not hasattr(sg, "igen"):
+        pytest.skip("storygen без предметов")
+    monkeypatch.setattr(sg, "ROOT", tmp_path)
+    monkeypatch.setattr(sg, "_upload", lambda png, name: name)
+    monkeypatch.setattr(sg, "_gen", lambda prompt, seed, refs: b"png")
+    monkeypatch.setattr(sg, "_square", lambda p: b"x")
+    monkeypatch.setattr(sg, "hero_ref", lambda ch, h, o: tmp_path / "h.png")
+    monkeypatch.setattr(sg, "registry", lambda: {"characters": {"hero": {"outfits": {"home": {"desc": "pink t-shirt"}}}}})
+    sg.lib_save("items", {"towel": {"title": {"ru": "П"}, "desc": {"en": "yellow towel"}}})
+    assert "yellow towel" in sg.item_prompt("towel", "view") and "neutral background" in sg.item_prompt("towel", "view")
+    assert "holding yellow towel" in sg.item_prompt("towel", "hand")
+    v = sg.igen("towel", "view", 2)
+    sg.iselect("towel", "view", v[0]["id"])
+    assert "Image 2 is yellow towel" in sg.item_prompt("towel", "hand", "boy")
+    h = sg.igen("towel", "hand", 2, hero="boy")
+    sg.ilike("towel", "hand", h[0]["id"])
+    assert sg.iprune("towel") == 2          # view[1], hand[1]
+    sg.idelete("towel", "view", v[0]["id"])
+    st_ = sg.iload("towel")
+    assert st_["view"]["selected"] is None and not st_["view"]["variants"] and len(st_["hand"]["variants"]) == 1
