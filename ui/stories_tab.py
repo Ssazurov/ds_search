@@ -53,7 +53,8 @@ def _list(sg, ids):
 
 def _create(sg, ch):
     with st.expander("Создать историю"):
-        c = st.columns(4)
+        with st.container(key="scmeta_new"):
+            c = st.columns(4)
         sid = c[0].text_input("id (слаг)", key="ns_id", **_enter("ns_do"))
         title = c[1].text_input("Название", key="ns_title", **_enter("ns_do"))
         cat = c[2].text_input("Категория", "routine", key="ns_cat", **_enter("ns_do"))
@@ -215,7 +216,8 @@ def _scenario(sg, sid, story, state):
     if st.button("+ шаг", key=f"add_{sid}"):
         _new_step(story); _save_story(sg, sid, story); st.rerun()
     with st.expander("Добавить шаги списком (по строке на шаг)"):
-        bulk = st.text_area("Шаги", key=f"bulk_{sid}", height=120, placeholder="Я подхожу к ванной.\nВключаю свет.")
+        with st.container(key="stp_bulk"):
+            bulk = st.text_area("Шаги", key=f"bulk_{sid}", height=120, placeholder="Я подхожу к ванной.\nВключаю свет.")
         if st.button("Добавить", key=f"bulkgo_{sid}"):
             for line in [x.strip() for x in bulk.splitlines() if x.strip()]:
                 _new_step(story, line)
@@ -254,7 +256,6 @@ def render():
 def _frames(sg, sid, story, state, ch):
     for idx, s in enumerate(story["steps"]):
         _step(sg, sid, story, state, ch, idx, s)
-    st.divider()
     a = st.columns(3)
     if a[2].button("Сгенерировать ряд", key=f"strip_{sid}", help="Общая картинка из выбранных и ♥ кадров всех шагов"):
         st.session_state[f"strip_img_{sid}"] = _strip(sg, sid, story, state)
