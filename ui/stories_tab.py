@@ -551,7 +551,9 @@ def _chars(sg):
             else:
                 chs[cid] = {"kind": "character", "name": {"ru": nm.strip()}, "bible": bb.strip(), "refs": [], "outfits": {}}
                 sg.registry_save(ch); st.rerun()
-    cid = st.selectbox("Персонаж", list(chs), format_func=lambda x: sg.txt_ru(chs[x].get("name")) or x, key="chr_sel")
+    with st.container(key="sthead_top_ch"):
+        top = st.columns(3)
+    cid = top[0].selectbox("Персонаж", list(chs), format_func=lambda x: sg.txt_ru(chs[x].get("name")) or x, key="chr_sel")
     c = chs[cid]; hero = "variants" in c; vs = list(c.get("variants", {}))
     with st.container(border=True, key=f"stp_ch_{cid}"):
         nm = st.text_input("Имя", sg.txt_ru(c.get("name")), key=f"ch_{cid}_n")
@@ -570,7 +572,7 @@ def _chars(sg):
                 d = st.text_area("Описание (англ.)", o.get("desc", ""), key=f"co_{cid}_{oid}_d", height=80)
                 byh = {v: st.text_input(f"Описание для варианта «{v}» (пусто = общее)", (o.get("by_hero") or {}).get(v, ""), key=f"co_{cid}_{oid}_h{v}")
                        for v in vs}
-                only = st.selectbox("Только для", ["", *vs], format_func=lambda x: x or "все", key=f"co_{cid}_{oid}_o",
+                only = st.selectbox("Герой", ["", *vs], format_func=lambda x: x or "все", key=f"cosel_{cid}_{oid}",
                                     index=(["", *vs].index(o["only"]) if o.get("only") in vs else 0)) if hero else ""
                 b = st.columns(2)
                 if b[0].button("Сохранить", key=f"co_{cid}_{oid}_sv"):
@@ -601,8 +603,8 @@ def _chars(sg):
         for oid, o in outs.items():
             if v is None or not o.get("only") or o["only"] == v:
                 kinds[f"outfit:{oid}:{v}" if v else f"outfit:{oid}"] = f"Одежда «{sg.txt_ru(o.get('title')) or oid}»{who}"
-    kind = st.selectbox("Вид (генерация)", list(kinds), format_func=kinds.get, key=f"ch_{cid}_kind")
-    with st.container(border=True, key=f"stg_ch_{cid}"):
+    with st.container(border=True, key=f"stp_chg_{cid}"):
+        kind = st.selectbox("Вид (генерация)", list(kinds), format_func=kinds.get, key=f"ch_{cid}_kind")
         _ikind(sg, iid, kind, kinds[kind], stt)
 
 
