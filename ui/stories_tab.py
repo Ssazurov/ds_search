@@ -233,8 +233,8 @@ def _ru(old, new):
 
 def _sgallery(sg, scn, stt, key):
     vs, sel = stt["variants"], stt["selected"]
-    for j in range(0, len(vs), 5):
-        for c, v in zip(st.columns(5), vs[j:j + 5]):
+    for j in range(0, len(vs), 4):
+        for c, v in zip(st.columns(4), vs[j:j + 4]):
             c.image(str(sg.swork(scn) / v["file"]),
                     caption=f"{v['id']} · seed {v['seed']}" + (" · ✅" if v["id"] == sel else "") + (" · ♥" if v.get("liked") else ""))
             b = c.columns(3)
@@ -246,11 +246,23 @@ def _sgallery(sg, scn, stt, key):
                 sg.sdelete(scn, v["id"]); st.rerun()
 
 
+def _scenes_list(sg, scenes):
+    rows = []
+    for k, sc in scenes.items():
+        stt = sg.sload(k)
+        rows.append({"id": k, "название": sc["title"]["ru"], "предметов": len(sc.get("items", [])), "видов": len(stt["variants"]),
+                     "выбран": "да" if stt["selected"] else "нет"})
+    st.dataframe(rows, hide_index=True, use_container_width=True)
+
+
 def _scenes(sg):
     """Вкладка «Сцены» (ds_search#621): статика помещения + камера, предметы с размещением, виды (5), выбор/♥/доработка."""
     scenes, items = sg.lib("scenes"), sg.lib("items")
+    if scenes:
+        _scenes_list(sg, scenes)
     with st.expander("Создать сцену"):
-        c = st.columns(2)
+        with st.container(key="scmeta_nsc"):
+            c = st.columns(2)
         nid = c[0].text_input("id (слаг)", key="nsc_id", **_enter("nsc_do"))
         nt = c[1].text_input("Название", key="nsc_title", **_enter("nsc_do"))
         if st.button("Создать", key="nsc_go") | st.session_state.pop("nsc_do", False):
@@ -263,74 +275,84 @@ def _scenes(sg):
                 sg.lib_save("scenes", scenes); st.rerun()
     if not scenes:
         return
-    scn = st.selectbox("Сцена", list(scenes), format_func=lambda k: scenes[k]["title"]["ru"], key="scn_sel")
-    sc = scenes[scn]; k = f"sc_{scn}_"
-    desc = st.text_area("Описание помещения (только статика)", sc["desc"].get("ru", ""), key=k + "d", height=100)
-    cam = st.text_input("Камера / раскладка", sc.get("camera", {}).get("ru", ""), key=k + "c",
-                        placeholder="вид спереди, камера на уровне груди ребёнка", **_enter(k + "svgo"))
-    st.markdown("**Предметы сцены**")
-    places = []
-    for i, it in enumerate(sc["items"]):
-        r = st.columns([2, 5, 1])
-        r[0].markdown(items.get(it["item"], {}).get("title", {}).get("ru", it["item"]))
-        places.append(r[1].text_input("Размещение", it.get("place", {}).get("ru", ""), key=f"{k}pl{i}",
-                                      label_visibility="collapsed", **_enter(k + "svgo")))
-        if r[2].button("✖", key=f"{k}rm{i}", help="Убрать из сцены"):
-            sc["items"].pop(i); sg.lib_save("scenes", scenes); st.rerun()
-    if st.button("Сохранить сцену", key=k + "sv") | st.session_state.pop(k + "svgo", False):
-        sc["desc"], sc["camera"] = _ru(sc["desc"], desc), _ru(sc.get("camera"), cam)
-        for it, p in zip(sc["items"], places):
-            it["place"] = _ru(it.get("place"), p)
-        sg.lib_save("scenes", scenes); st.toast("Сохранено"); st.rerun()
-    with st.expander("Добавить предмет"):
-        free = [x for x in items if x not in {it["item"] for it in sc["items"]}]
-        a = st.columns([2, 5, 1])
-        pick = a[0].selectbox("Предмет", free, format_func=lambda x: items[x]["title"]["ru"], key=k + "np", disabled=not free)
-        pl = a[1].text_input("Размещение", key=k + "npl", placeholder="висит на крючке справа от раковины", **_enter(k + "addgo"))
-        if (a[2].button("+", key=k + "add") | st.session_state.pop(k + "addgo", False)) and pick and pl.strip():
-            sc["items"].append({"item": pick, "place": {"ru": pl.strip()}}); sg.lib_save("scenes", scenes); st.rerun()
-        n = st.columns(3)
-        iid = n[0].text_input("Новый предмет: id", key=k + "ni", **_enter(k + "newgo"))
-        it_t = n[1].text_input("Название", key=k + "nit", **_enter(k + "newgo"))
-        it_d = n[2].text_input("Описание", key=k + "nid", **_enter(k + "newgo"))
-        if st.button("Создать предмет", key=k + "newgo_b") | st.session_state.pop(k + "newgo", False):
-            if not re.fullmatch(r"[a-z][a-z0-9_]{1,40}", iid or "") or iid in items or not it_t.strip():
-                st.error("id: латиница/цифры/_, уникальный; нужно название")
-            else:
-                items[iid] = {"title": {"ru": it_t.strip()}, "desc": {"ru": it_d.strip()}}; sg.lib_save("items", items); st.rerun()
+    with st.container(key="sthead_top_sn"):
+        top = st.columns(3)
+    scn = top[0].selectbox("Сцена", list(scenes), format_func=lambda k: scenes[k]["title"]["ru"], key="scn_sel")
+    sc = scenes[scn]; k = f"sn_{scn}_"
+    title = top[1].text_input("Название", sc["title"].get("ru", ""), key=k + "t")
+    if title != sc["title"].get("ru", "") and title.strip():
+        sc["title"] = {"ru": title.strip()}; sg.lib_save("scenes", scenes)
     stt = sg.sload(scn)
-    if st.checkbox("Показать итоговый промпт (английский)", key=k + "pv"):
-        try:
-            pr = sg.scene_prompt(scn, st.session_state.get(k + "ex", ""))
-            st.session_state[k + "pt"] = pr
-            st.text_area("Промпт (англ.)", height=max(110, 24 * (len(pr) // 110 + 2)), key=k + "pt", disabled=True)
-        except Exception as e:
-            st.warning(str(e))
-    g = st.columns(4)
-    n = g[0].number_input("Кол-во", 1, 8, 5, key=k + "n")
-    extra = g[1].text_input("Доп. промпт (по-русски)", key=k + "ex", **_enter(k + "gengo"))
-    if g[2].button("Сгенерировать", key=k + "gen") | st.session_state.pop(k + "gengo", False):
-        with st.spinner(f"Генерация {n} видов (~6 с/вид)…"):
+    with st.container(border=True, key=f"stp_{scn}"):
+        desc = st.text_area("Описание помещения (статика)", sc["desc"].get("ru", ""), key=k + "d", height=100)
+        cam = st.text_input("Камера / раскладка", sc.get("camera", {}).get("ru", ""), key=k + "c",
+                            placeholder="вид спереди, камера на уровне груди ребёнка", **_enter(k + "svgo"))
+        places = []
+        for i, it in enumerate(sc["items"]):
+            with st.container(key=f"snrow_{scn}_{i}"):
+                r = st.columns(3)
+            r[0].markdown(items.get(it["item"], {}).get("title", {}).get("ru", it["item"]))
+            places.append(r[1].text_input("Размещение", it.get("place", {}).get("ru", ""), key=f"{k}pl{i}",
+                                          label_visibility="collapsed", **_enter(k + "svgo")))
+            if r[2].button("✖", key=f"{k}rm{i}", help="Убрать из сцены"):
+                sc["items"].pop(i); sg.lib_save("scenes", scenes); st.rerun()
+        if st.button("Сохранить сцену", key=k + "sv") | st.session_state.pop(k + "svgo", False):
+            sc["desc"], sc["camera"] = _ru(sc["desc"], desc), _ru(sc.get("camera"), cam)
+            for it, p in zip(sc["items"], places):
+                it["place"] = _ru(it.get("place"), p)
+            sg.lib_save("scenes", scenes); st.toast("Сохранено"); st.rerun()
+        with st.expander("Добавить предмет"):
+            free = [x for x in items if x not in {it["item"] for it in sc["items"]}]
+            with st.container(key=f"stgen_add_{scn}"):
+                a = st.columns(4)
+            pick = a[0].selectbox("Предмет", free, format_func=lambda x: items[x]["title"]["ru"], key=k + "np", disabled=not free)
+            pl = a[1].text_input("Размещение", key=k + "npl", placeholder="висит на крючке справа от раковины", **_enter(k + "addgo"))
+            if (a[2].button("Добавить", key=k + "add") | st.session_state.pop(k + "addgo", False)) and pick and pl.strip():
+                sc["items"].append({"item": pick, "place": {"ru": pl.strip()}}); sg.lib_save("scenes", scenes); st.rerun()
+            with st.container(key=f"scmeta_ni_{scn}"):
+                n = st.columns(3)
+            iid = n[0].text_input("Новый предмет: id", key=k + "ni", **_enter(k + "newgo"))
+            it_t = n[1].text_input("Название", key=k + "nit", **_enter(k + "newgo"))
+            it_d = n[2].text_input("Описание", key=k + "nid", **_enter(k + "newgo"))
+            if st.button("Создать предмет", key=k + "newgo_b") | st.session_state.pop(k + "newgo", False):
+                if not re.fullmatch(r"[a-z][a-z0-9_]{1,40}", iid or "") or iid in items or not it_t.strip():
+                    st.error("id: латиница/цифры/_, уникальный; нужно название")
+                else:
+                    items[iid] = {"title": {"ru": it_t.strip()}, "desc": {"ru": it_d.strip()}}; sg.lib_save("items", items); st.rerun()
+        if st.checkbox("Показать итоговый промпт (английский, уходит в модель)", key=k + "pv"):
             try:
-                sg.sgen(scn, int(n), extra)
+                pr = sg.scene_prompt(scn, st.session_state.get(k + "ex", ""))
+                st.session_state[k + "pt"] = pr
+                st.text_area("Промпт (англ.)", height=max(110, 24 * (len(pr) // 110 + 2)), key=k + "pt", disabled=True)
             except Exception as e:
-                st.error(f"Ошибка генерации: {e}"); return
-        st.rerun()
-    if g[3].button("Удалить без ♥", key=k + "pr", help="Выбранный и лайкнутые остаются"):
-        st.toast(f"Удалено: {sg.sprune(scn)}"); st.rerun()
-    _sgallery(sg, scn, stt, k)
-    if stt["variants"]:
-        r = st.columns(3)
-        par = r[0].selectbox("Доработать", [v["id"] for v in stt["variants"]], key=k + "par")
-        ex = r[1].text_input("Что изменить (по-русски)", key=k + "rex", placeholder="убери полотенце со стены", **_enter(k + "rgo"))
-        go = r[2].button("Доработать", key=k + "ref")
-        if (st.session_state.pop(k + "rgo", False) or go) and ex.strip():
-            with st.spinner("Доработка…"):
+                st.warning(str(e))
+        with st.container(key=f"stgen_{scn}"):
+            g = st.columns(4)
+        n = g[0].number_input("Кол-во", 1, 8, 5, key=k + "n")
+        extra = g[1].text_input("Доп. промпт (по-русски)", key=k + "ex", **_enter(k + "gengo"))
+        if g[2].button("Сгенерировать", key=k + "gen") | st.session_state.pop(k + "gengo", False):
+            with st.spinner(f"Генерация {n} видов (~6 с/вид)…"):
                 try:
-                    sg.sgen(scn, 2, ex.strip(), parent=par)
+                    sg.sgen(scn, int(n), extra)
                 except Exception as e:
                     st.error(f"Ошибка генерации: {e}"); return
             st.rerun()
+        if g[3].button("Удалить без ♥", key=k + "pr", help="Выбранный и лайкнутые остаются"):
+            st.toast(f"Удалено: {sg.sprune(scn)}"); st.rerun()
+        _sgallery(sg, scn, stt, k)
+        if stt["variants"]:
+            with st.container(key=f"strf_{scn}"):
+                r = st.columns(3)
+            par = r[0].selectbox("Доработать", [v["id"] for v in stt["variants"]], key=k + "par")
+            ex = r[1].text_input("Что изменить (по-русски)", key=k + "rex", placeholder="убери полотенце со стены", **_enter(k + "rgo"))
+            go = r[2].button("Доработать", key=k + "ref")
+            if (st.session_state.pop(k + "rgo", False) or go) and ex.strip():
+                with st.spinner("Доработка…"):
+                    try:
+                        sg.sgen(scn, 2, ex.strip(), parent=par)
+                    except Exception as e:
+                        st.error(f"Ошибка генерации: {e}"); return
+                st.rerun()
 
 
 def render():
