@@ -83,23 +83,29 @@ def test_scenes_store(tmp_path, monkeypatch):
 def test_items_store(tmp_path, monkeypatch):
     from ui import stories_tab
     sg = stories_tab._sg()
-    if not hasattr(sg, "igen"):
-        pytest.skip("storygen без предметов")
+    if not hasattr(sg, "holders"):
+        pytest.skip("storygen без держателей предметов")
     monkeypatch.setattr(sg, "ROOT", tmp_path)
     monkeypatch.setattr(sg, "_upload", lambda png, name: name)
     monkeypatch.setattr(sg, "_gen", lambda prompt, seed, refs: b"png")
     monkeypatch.setattr(sg, "_square", lambda p: b"x")
     monkeypatch.setattr(sg, "hero_ref", lambda ch, h, o: tmp_path / "h.png")
-    monkeypatch.setattr(sg, "registry", lambda: {"characters": {"hero": {"outfits": {"home": {"desc": "pink t-shirt"}}}}})
+    ch = {"characters": {
+        "hero": {"kind": "hero", "variants": {"girl": {}, "boy": {}}, "outfits": {"home": {"desc": "pink t-shirt"}}},
+        "mom": {"name": {"ru": "Мама"}, "bible": "a kind woman", "refs": ["refs/mom.png"]}}}
+    monkeypatch.setattr(sg, "registry", lambda: ch)
+    assert list(sg.holders()) == ["girl", "boy", "mom"] and sg.holders()["mom"] == "Мама"
     sg.lib_save("items", {"towel": {"title": {"ru": "П"}, "desc": {"en": "yellow towel"}}})
-    assert "yellow towel" in sg.item_prompt("towel", "view") and "neutral background" in sg.item_prompt("towel", "view")
-    assert "holding yellow towel" in sg.item_prompt("towel", "hand")
+    assert "neutral background" in sg.item_prompt("towel", "view")
+    assert "holding yellow towel" in sg.item_prompt("towel", "hand:girl")
     v = sg.igen("towel", "view", 2)
     sg.iselect("towel", "view", v[0]["id"])
-    assert "Image 2 is yellow towel" in sg.item_prompt("towel", "hand", "boy")
-    h = sg.igen("towel", "hand", 2, hero="boy")
-    sg.ilike("towel", "hand", h[0]["id"])
-    assert sg.iprune("towel") == 2          # view[1], hand[1]
+    assert "Image 2 is yellow towel" in sg.item_prompt("towel", "hand:boy")
+    assert "Image 1 is a kind woman" in sg.item_prompt("towel", "hand:mom")
+    h = sg.igen("towel", "hand:boy", 2)
+    sg.ilike("towel", "hand:boy", h[0]["id"])
+    sg.igen("towel", "hand:mom", 1)
+    assert sg.iprune("towel") == 3          # view[1], hand:boy[1], hand:mom[0]
     sg.idelete("towel", "view", v[0]["id"])
     st_ = sg.iload("towel")
-    assert st_["view"]["selected"] is None and not st_["view"]["variants"] and len(st_["hand"]["variants"]) == 1
+    assert st_["view"]["selected"] is None and not st_["view"]["variants"] and len(st_["hand:boy"]["variants"]) == 1
