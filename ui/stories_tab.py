@@ -531,15 +531,92 @@ def _items(sg):
             _ikind(sg, iid, f"hand:{h}", f"В руках — {hold[h]} (держит предмет)", stt)
 
 
+def _chars(sg):
+    """Вкладка «Персонажи» (ds_search#641): реестр characters.yaml — герой и остальные, одежда (общая и по варианту героя), референс-листы."""
+    ch = sg.registry(); chs = ch["characters"]
+    st.dataframe([{"id": i, "имя": sg.txt_ru(c.get("name")) or i, "тип": "герой" if "variants" in c else "персонаж",
+                   "одежд": len(c.get("outfits") or {})} for i, c in chs.items()], hide_index=True, use_container_width=True)
+    nloc = len([l for l in (ch.get("locations") or {}) if l not in sg.lib("scenes")])
+    if nloc and st.button(f"Перенести локации реестра в сцены ({nloc})", key="chr_mig"):
+        st.toast(f"Добавлено сцен: {sg.migrate_locations()}"); st.rerun()
+    with st.expander("Создать персонажа"):
+        with st.container(key="scmeta_nch"):
+            n = st.columns(3)
+        cid = n[0].text_input("id (слаг)", key="nch_id", **_enter("nch_do"))
+        nm = n[1].text_input("Имя", key="nch_n", **_enter("nch_do"))
+        bb = n[2].text_input("Внешность (англ.)", key="nch_b", **_enter("nch_do"))
+        if st.button("Создать", key="nch_go") | st.session_state.pop("nch_do", False):
+            if not re.fullmatch(r"[a-z][a-z0-9_]{1,40}", cid or "") or cid in chs or not nm.strip() or not bb.strip():
+                st.error("id: латиница/цифры/_, уникальный; нужны имя и внешность")
+            else:
+                chs[cid] = {"kind": "character", "name": {"ru": nm.strip()}, "bible": bb.strip(), "refs": [], "outfits": {}}
+                sg.registry_save(ch); st.rerun()
+    cid = st.selectbox("Персонаж", list(chs), format_func=lambda x: sg.txt_ru(chs[x].get("name")) or x, key="chr_sel")
+    c = chs[cid]; hero = "variants" in c; vs = list(c.get("variants", {}))
+    with st.container(border=True, key=f"stp_ch_{cid}"):
+        nm = st.text_input("Имя", sg.txt_ru(c.get("name")), key=f"ch_{cid}_n")
+        bibles = {v: st.text_area(f"Внешность (англ.) — {sg.holders(ch).get(v, v)}", c["variants"][v].get("bible", ""), key=f"ch_{cid}_b{v}", height=90)
+                  for v in vs} if hero else {None: st.text_area("Внешность (англ.)", c.get("bible", ""), key=f"ch_{cid}_b", height=90)}
+        if st.button("Сохранить", key=f"ch_{cid}_sv"):
+            c["name"] = {"ru": nm.strip() or cid}
+            for v, b in bibles.items():
+                (c["variants"][v] if hero else c)["bible"] = b.strip()
+            sg.registry_save(ch); st.toast("Сохранено"); st.rerun()
+        outs = c.setdefault("outfits", {})
+        st.markdown("**Одежда**")
+        for oid, o in list(outs.items()):
+            with st.expander(f"{sg.txt_ru(o.get('title')) or oid} · {oid}" + (f" · только {o['only']}" if o.get("only") else "")):
+                t = st.text_input("Название", sg.txt_ru(o.get("title")), key=f"co_{cid}_{oid}_t")
+                d = st.text_area("Описание (англ.)", o.get("desc", ""), key=f"co_{cid}_{oid}_d", height=80)
+                byh = {v: st.text_input(f"Описание для варианта «{v}» (пусто = общее)", (o.get("by_hero") or {}).get(v, ""), key=f"co_{cid}_{oid}_h{v}")
+                       for v in vs}
+                only = st.selectbox("Только для", ["", *vs], format_func=lambda x: x or "все", key=f"co_{cid}_{oid}_o",
+                                    index=(["", *vs].index(o["only"]) if o.get("only") in vs else 0)) if hero else ""
+                b = st.columns(2)
+                if b[0].button("Сохранить", key=f"co_{cid}_{oid}_sv"):
+                    o["title"] = {"ru": t.strip() or oid}; o["desc"] = d.strip()
+                    h = {v: x.strip() for v, x in byh.items() if x.strip()}
+                    o.pop("by_hero", None); o.pop("only", None)
+                    if h: o["by_hero"] = h
+                    if only: o["only"] = only
+                    sg.registry_save(ch); st.toast("Сохранено"); st.rerun()
+                if b[1].button("Удалить одежду", key=f"co_{cid}_{oid}_del"):
+                    del outs[oid]; sg.registry_save(ch); st.rerun()
+        with st.expander("Добавить одежду"):
+            with st.container(key=f"scmeta_nco_{cid}"):
+                a = st.columns(3)
+            oid = a[0].text_input("id (слаг)", key=f"nco_{cid}_id", **_enter(f"nco_{cid}_do"))
+            ot = a[1].text_input("Название", key=f"nco_{cid}_t", **_enter(f"nco_{cid}_do"))
+            od = a[2].text_input("Описание (англ.)", key=f"nco_{cid}_d", **_enter(f"nco_{cid}_do"))
+            if st.button("Добавить", key=f"nco_{cid}_go") | st.session_state.pop(f"nco_{cid}_do", False):
+                if not re.fullmatch(r"[a-z][a-z0-9_]{1,40}", oid or "") or oid in outs or not ot.strip() or not od.strip():
+                    st.error("id: латиница/цифры/_, уникальный; нужны название и описание")
+                else:
+                    outs[oid] = {"title": {"ru": ot.strip()}, "desc": od.strip()}; sg.registry_save(ch); st.rerun()
+    iid = "chr_" + cid; stt = sg.iload(iid)
+    kinds = {}
+    for v in (vs or [None]):
+        pre, who = (f"{{}}:{v}" if v else "{}"), (f" — {sg.holders(ch).get(v, v)}" if v else "")
+        kinds[pre.format("sheet")] = f"Референс-лист{who}"
+        for oid, o in outs.items():
+            if v is None or not o.get("only") or o["only"] == v:
+                kinds[f"outfit:{oid}:{v}" if v else f"outfit:{oid}"] = f"Одежда «{sg.txt_ru(o.get('title')) or oid}»{who}"
+    kind = st.selectbox("Вид (генерация)", list(kinds), format_func=kinds.get, key=f"ch_{cid}_kind")
+    with st.container(border=True, key=f"stg_ch_{cid}"):
+        _ikind(sg, iid, kind, kinds[kind], stt)
+
+
 def render():
     sg = _sg()
-    t_st, t_sc, t_it = st.tabs(["Истории", "Сцены", "Предметы"])
+    t_st, t_sc, t_it, t_ch = st.tabs(["Истории", "Сцены", "Предметы", "Персонажи"])
     with t_st:
         _stories(sg)
     with t_sc:
         _scenes(sg)
     with t_it:
         _items(sg)
+    with t_ch:
+        _chars(sg)
 
 
 def _stories(sg):
