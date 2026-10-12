@@ -511,22 +511,6 @@ def _items(sg):
                 st.error("id: латиница/цифры/_, уникальный; нужно название")
             else:
                 items[iid] = {"title": {"ru": it_t.strip()}, "desc": {"ru": it_d.strip()}}; sg.lib_save("items", items); st.rerun()
-    with st.expander("Шаблоны промпта предмета (английский)"):
-        T = sg.item_templates()
-        st.caption("Подстановки: {desc} описание предмета, {style} общий стиль, {who} кто на картинке 1, {word} girl/boy/character, "
-                   "{pron} her/him/them, {keep} фраза «сохранить лицо и одежду». Пустое поле = стандартный шаблон.")
-        names = {"view": "Вид на нейтральном фоне", "hand_ref": "В руках (есть выбранный вид предмета)", "hand": "В руках (вида предмета нет)"}
-        new_t = {k: st.text_area(v, T[k], key=f"ipt_{k}", height=110) for k, v in names.items()}
-        b = st.columns(3)
-        if b[0].button("Сохранить шаблоны", key="ipt_save"):
-            lp = sg.lib("prompts")
-            lp["item"] = {k: x.strip() for k, x in new_t.items() if x.strip() and x.strip() != sg.ITEM_PROMPTS[k]}
-            sg.lib_save("prompts", lp); st.toast("Сохранено"); st.rerun()
-        if b[1].button("Сбросить к стандартным", key="ipt_reset"):
-            lp = sg.lib("prompts"); lp.pop("item", None); sg.lib_save("prompts", lp)
-            for k in names:
-                st.session_state.pop(f"ipt_{k}", None)
-            st.rerun()
     if not items:
         return
     with st.container(key="sthead_top_it"):
@@ -624,9 +608,30 @@ def _chars(sg):
         _ikind(sg, iid, kind, "", stt)
 
 
+def _prompts(sg):
+    """Вкладка «Промпты»: все шаблоны промптов генерации (умолчания — ds_words/library/prompts.default.yaml, правки — library/prompts.yaml)."""
+    D = sg._defaults()
+    st.caption("Английские шаблоны, уходящие в модель. Подстановки {имя} перечислены под полем. Пустое поле = умолчание. Правки хранятся в library/prompts.yaml.")
+    new = {}
+    for k, m in D.items():
+        cur = sg.P(k)
+        new[k] = st.text_area(m["title"], cur, key=f"pr_{k}", height=max(68, 24 * (len(cur) // 90 + 2)))
+        if m.get("vars"):
+            st.caption(f"Подстановки: {m['vars']}")
+    b = st.columns(3)
+    if b[0].button("Сохранить промпты", key="pr_save", type="primary"):
+        sg.lib_save("prompts", {k: v.strip() for k, v in new.items() if v.strip() and v.strip() != D[k]["text"]})
+        st.toast("Сохранено"); st.rerun()
+    if b[1].button("Сбросить всё к умолчаниям", key="pr_reset"):
+        sg.lib_save("prompts", {})
+        for k in D:
+            st.session_state.pop(f"pr_{k}", None)
+        st.rerun()
+
+
 def render():
     sg = _sg()
-    t_st, t_sc, t_it, t_ch = st.tabs(["Истории", "Сцены", "Предметы", "Персонажи"])
+    t_st, t_sc, t_it, t_ch, t_pr = st.tabs(["Истории", "Сцены", "Предметы", "Персонажи", "Промпты"])
     with t_st:
         _stories(sg)
     with t_sc:
@@ -635,6 +640,8 @@ def render():
         _items(sg)
     with t_ch:
         _chars(sg)
+    with t_pr:
+        _prompts(sg)
 
 
 def _stories(sg):
