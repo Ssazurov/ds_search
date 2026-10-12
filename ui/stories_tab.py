@@ -612,12 +612,26 @@ def _prompts(sg):
     """Вкладка «Промпты»: все шаблоны промптов генерации (умолчания — ds_words/library/prompts.default.yaml, правки — library/prompts.yaml)."""
     D = sg._defaults()
     st.caption("Английские шаблоны, уходящие в модель. Подстановки {имя} перечислены под полем. Пустое поле = умолчание. Правки хранятся в library/prompts.yaml.")
+    G = [
+        ("Общее (стиль, герой, местоимения)", ["style", "hero_who", "default_bible", "word_character", "pron_girl", "pron_boy", "pron_character", "outfit_part", "keep_item", "wearing_part"]),
+        ("Шаги историй", ["hands_line", "step_loc", "step_scene"]),
+        ("Локации и сцены", ["bg", "scene", "state_no"]),
+        ("Предметы", ["item_view", "item_hand_ref", "item_hand"]),
+        ("Персонажи", ["char_sheet", "char_new_outfit", "char_outfit_edit"]),
+    ]
+    used = {k for _, ks in G for k in ks}
+    G.append(("Прочее", [k for k in D if k not in used]))
     new = {}
-    for k, m in D.items():
-        cur = sg.P(k)
-        new[k] = st.text_area(m["title"], cur, key=f"pr_{k}", height=max(68, 24 * (len(cur) // 90 + 2)))
-        if m.get("vars"):
-            st.caption(f"Подстановки: {m['vars']}")
+    for gt, ks in G:
+        ks = [k for k in ks if k in D]
+        if not ks:
+            continue
+        with st.expander(f"{gt} ({len(ks)})", expanded=(gt == G[0][0])):
+            for k in ks:
+                m = D[k]; cur = sg.P(k)
+                new[k] = st.text_area(m["title"], cur, key=f"pr_{k}", height=max(68, 24 * (len(cur) // 90 + 2)))
+                if m.get("vars"):
+                    st.caption(f"Подстановки: {m['vars']}")
     b = st.columns(3)
     if b[0].button("Сохранить промпты", key="pr_save", type="primary"):
         sg.lib_save("prompts", {k: v.strip() for k, v in new.items() if v.strip() and v.strip() != D[k]["text"]})
