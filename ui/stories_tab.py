@@ -146,9 +146,10 @@ def _step(sg, sid, story, state, ch, idx, s):
             else:
                 sts[idx], sts[idx + move] = sts[idx + move], sts[idx]
             _save_story(sg, sid, story); st.rerun()
-        with st.expander("Итоговый промпт (то, что уходит в модель, на английском)"):
+        if st.checkbox("Показать итоговый промпт (английский, уходит в модель)", key=key + "pv"):
             try:
-                st.code(sg.build_prompt(ch, {**s, "text": {"ru": text}, "location": loc, "outfit": outfit}, action, state["hero"], extra=st.session_state.get(key + "ex", "")), language=None)
+                st.code(sg.build_prompt(ch, {**s, "text": {"ru": text}, "location": loc, "outfit": outfit}, action, state["hero"],
+                                        extra=st.session_state.get(key + "ex", "")), language=None)
             except Exception as e:  # Ollama недоступна и т.п.
                 st.warning(str(e))
         g = st.columns([1, 3, 1, 1])
