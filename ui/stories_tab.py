@@ -132,8 +132,8 @@ def _step(sg, sid, story, state, ch, idx, s):
     k, key = s["id"], f"{sid}_{s['id']}_"
     stp = state["steps"][k]
     locs, outs = list(ch["locations"]), list(ch["characters"]["hero"]["outfits"])
-    with st.container(border=True, key=f"stp_{sid}_{k}"):
-        st.markdown(f"**{idx + 1}. {s['text'].get('ru', '') or '— текст не задан (вкладка «Сценарий») —'}**")
+    label = f"{idx + 1}. {s['text'].get('ru', '') or '— текст не задан (вкладка «Сценарий») —'}"
+    with st.expander(label, expanded=True), st.container(key=f"stp_{sid}_{k}"):
         text = s["text"].get("ru", "")
         scs, sit = sg.lib("scenes"), sg.lib("items")
         sopt = [""] + list(scs)
