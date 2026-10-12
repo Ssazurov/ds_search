@@ -435,4 +435,10 @@ _STORIES = """
 .st-key-tabmain [class*="st-key-snrow_"] [data-testid="stElementContainer"] > [data-testid="stTextInput"] { grid-template-columns: minmax(0, 1fr) !important; }
 .st-key-tabmain [class*="st-key-snrow_"] button { width: 36px; padding: 0 !important; }
 .st-key-tabmain [class*="st-key-snrow_"] p { margin: 0 !important; }
+.st-key-tabmain [class*="st-key-scmeta_ni_"] [data-testid="stHorizontalBlock"] { display: grid !important; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 2fr); gap: 24px !important; }
+.st-key-tabmain [class*="st-key-stgen_add_"] [data-testid="stHorizontalBlock"] { display: grid !important; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) max-content; gap: 24px !important; align-items: center; justify-content: stretch; }
+.st-key-tabmain [class*="st-key-scmeta_ni_"] [data-testid="stColumn"], .st-key-tabmain [class*="st-key-stgen_add_"] [data-testid="stColumn"] { width: auto !important; flex: none !important; min-width: 0 !important; }
+.st-key-tabmain [class*="st-key-scmeta_ni_"] [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stSelectbox"]),
+.st-key-tabmain [class*="st-key-stgen_add_"] [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stSelectbox"]) {
+  grid-template-columns: max-content minmax(0, 1fr) !important; column-gap: 12px !important; }
 """
