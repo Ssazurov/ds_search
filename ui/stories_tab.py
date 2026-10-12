@@ -130,7 +130,7 @@ def _step(sg, sid, story, state, ch, idx, s):
         text = s["text"].get("ru", "")
         loc = st.selectbox("Локация", locs, index=locs.index(s["location"]) if s["location"] in locs else 0, key=key + "loc")
         outfit = st.selectbox("Одежда", outs, index=outs.index(s.get("outfit", "home")) if s.get("outfit", "home") in outs else 0, key=key + "out")
-        action = st.text_input("Действие кадра (по-русски; в модель уйдёт по-английски)", stp["action"], key=key + "a")
+        action = st.text_input("Действие кадра", stp["action"], key=key + "a", help="По-русски; в модель уйдёт по-английски")
         note = st.text_input("Заметка автора", stp["note"], key=key + "n")
         if st.button("Сохранить шаг", key=key + "sv"):
             s["text"]["ru"], s["location"], s["outfit"] = text, loc, outfit
