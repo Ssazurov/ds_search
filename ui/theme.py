@@ -408,7 +408,8 @@ _STORIES = """
 .st-key-tabmain [class*="st-key-scrow_"] [data-testid="stElementContainer"], .st-key-tabmain [class*="st-key-scrow_"] [data-testid="stTextArea"] { width: 100% !important; }
 .st-key-tabmain [class*="st-key-scrow_"] [data-testid="stTextAreaRootElement"], .st-key-tabmain [class*="st-key-scrow_"] textarea { width: 100% !important; flex: 1 1 100% !important; }
 .st-key-tabmain [class*="st-key-scrow_"] p { margin: 0 !important; line-height: 32px; }
-.st-key-tabmain [data-testid="stExpander"] { border: 1px solid var(--border) !important; box-shadow: 0 0 0 1px var(--border) inset !important; border-radius: 8px !important; }
+[data-testid="stExpander"] { border: 1px solid #c9ced8 !important; box-shadow: 0 0 0 1px #c9ced8 inset !important; border-radius: 8px !important; }
+[data-testid="stExpander"] > details { border: none !important; box-shadow: none !important; }
 .st-key-tabmain [class*="st-key-scmeta_"] [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stNumberInput"], [data-testid="stSelectbox"], [data-testid="stTextArea"]) {
   grid-template-columns: max-content minmax(0, 1fr) !important; column-gap: 6px !important; }
 .st-key-tabmain [class*="st-key-scmeta_"] [data-testid="stWidgetLabel"], .st-key-tabmain [class*="st-key-stp_"] [data-testid="stWidgetLabel"] {
