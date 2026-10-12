@@ -40,3 +40,11 @@ def test_strip(tmp_path):
     png = stories_tab._strip(SG, "x", story, state)
     im = Image.open(__import__("io").BytesIO(png))
     assert im.size == (640, 90 + 2 * 320)
+
+
+def test_new_step_ids():
+    from ui import stories_tab
+    st_ = {"steps": [{"id": "s1", "text": {"ru": "а"}, "location": "bathroom", "outfit": "home"}, {"id": "s7", "text": {"ru": "б"}, "location": "hallway", "outfit": "pajamas"}]}
+    stories_tab._new_step(st_, "в")
+    n = st_["steps"][-1]
+    assert n["id"] == "s8" and n["text"]["ru"] == "в" and n["location"] == "hallway" and n["outfit"] == "pajamas"
