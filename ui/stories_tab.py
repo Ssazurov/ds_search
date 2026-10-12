@@ -450,7 +450,7 @@ def _ikind(sg, iid, kind, title, stt):
     ks = kind.replace(":", "_")
     k = f"it_{iid}_{ks}_"
     stt.setdefault(kind, {"selected": None, "variants": []})
-    st.markdown(f"**{title}**")
+    if title: st.markdown(f"**{title}**")
     if st.checkbox("Показать итоговый промпт (английский, уходит в модель)", key=k + "pv"):
         try:
             pr = sg.item_prompt(iid, kind, st.session_state.get(k + "ex", ""))
@@ -605,7 +605,7 @@ def _chars(sg):
                 kinds[f"outfit:{oid}:{v}" if v else f"outfit:{oid}"] = f"Одежда «{sg.txt_ru(o.get('title')) or oid}»{who}"
     with st.container(border=True, key=f"stp_chg_{cid}"):
         kind = st.selectbox("Вид (генерация)", list(kinds), format_func=kinds.get, key=f"ch_{cid}_kind")
-        _ikind(sg, iid, kind, kinds[kind], stt)
+        _ikind(sg, iid, kind, "", stt)
 
 
 def render():
