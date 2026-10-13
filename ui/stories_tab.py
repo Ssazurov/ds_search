@@ -812,6 +812,7 @@ def _voice(sg, sid, story):
     активный копируется в audio/ru/stories/<история>/<шаг>.mp3 (его публикует приложение)."""
     from ui import words_tab as wt
     root, steps = sg.ROOT, story["steps"]
+    allx = steps + [{"id": "fin", "text": {"ru": "Я молодец!"}}]
     names, act = _vp_load(root, sid)
     if st.session_state.get(f"vp_{sid}") not in names:
         st.session_state[f"vp_{sid}"] = act
@@ -830,7 +831,7 @@ def _voice(sg, sid, story):
 
     def gen(ks):
         items = [{"id": f"{sid}_{x['id']}", "text": x["text"].get("ru", "").strip(), "stress": None}
-                 for x in steps if x["id"] in ks and x["text"].get("ru", "").strip()]
+                 for x in allx if x["id"] in ks and x["text"].get("ru", "").strip()]
         if not items:
             return 1, "Нет текста для озвучки"
         with st.spinner(f"Озвучка: {len(items)} шаг. (~несколько с на шаг)…"):
@@ -846,22 +847,46 @@ def _voice(sg, sid, story):
 
     with st.container(key="stvo"):
         a = st.columns(2)
-    todo = [x["id"] for x in steps if not path(x["id"]).is_file()]
+    todo = [x["id"] for x in allx if not path(x["id"]).is_file()]
     if a[0].button("Перегенерировать все", key=f"vo_all_{sid}"):
-        st.toast(gen([x["id"] for x in steps])[1]); st.rerun()
+        st.toast(gen([x["id"] for x in allx])[1]); st.rerun()
     if a[1].button(f"Озвучить недостающие ({len(todo)})", key=f"vo_miss_{sid}", disabled=not todo):
         st.toast(gen(todo)[1]); st.rerun()
-    for idx, x in enumerate(steps):
+    for idx, x in enumerate(allx):
         k, f = x["id"], path(x["id"])
         with st.container(border=True, key=f"vo_{sid}_{cur}_{k}"):
             c = st.columns([5, 4, 2])
-            c[0].markdown(f"**{idx + 1}.** {x['text'].get('ru', '') or '— текст не задан —'}")
+            c[0].markdown(f"**{'Финал' if k == 'fin' else idx + 1}.** {x['text'].get('ru', '') or '— текст не задан —'}")
             if f.is_file():
                 c[1].audio(f.read_bytes(), format="audio/mp3")
             else:
                 c[1].caption("нет озвучки")
             if c[2].button("Сгенерировать" if f.is_file() else "Озвучить", key=f"vo_b_{sid}_{cur}_{k}"):
                 st.toast(gen([k])[1]); st.rerun()
+    with st.container(border=True, key=f"vo_{sid}_{cur}_sfx"):
+        st.markdown("**Звук после финала** (после «Я молодец!»)")
+        lib = root / "sfx"; lib.mkdir(exist_ok=True)
+        up = st.file_uploader("Добавить звук (mp3) в библиотеку", type=["mp3"], key=f"sfxup_{sid}_{cur}")
+        if up and not (lib / up.name).is_file():
+            (lib / up.name).write_bytes(up.getvalue()); st.rerun()
+        files = sorted(x.name for x in lib.glob("*.mp3")); sf = path("sfx")
+        c = st.columns([5, 2, 2], vertical_alignment="bottom")
+        pick = c[0].selectbox("Звук из библиотеки", files, key=f"sfxsel_{sid}_{cur}") if files else None
+        if pick:
+            c[0].audio((lib / pick).read_bytes(), format="audio/mp3")
+        if c[1].button("Выбрать", key=f"sfxok_{sid}_{cur}", disabled=not pick):
+            pdir.mkdir(parents=True, exist_ok=True); shutil.copy2(lib / pick, sf)
+            if cur == act:
+                _vp_publish(root, sid, cur)
+            st.rerun()
+        if c[2].button("Убрать", key=f"sfxdel_{sid}_{cur}", disabled=not sf.is_file()):
+            sf.unlink()
+            if cur == act:
+                _vp_publish(root, sid, cur)
+            st.rerun()
+        st.caption("Выбран звук ниже:" if sf.is_file() else "Звук не выбран")
+        if sf.is_file():
+            st.audio(sf.read_bytes(), format="audio/mp3")
     with st.expander("Голос (профиль, референс, параметры)"):
         wt._tts_settings(root, bare=True)
 
