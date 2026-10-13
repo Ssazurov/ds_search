@@ -741,6 +741,7 @@ def _stories(sg):
         _frames(sg, sid, story, state, ch)
     with tab_vo:
         _voice(sg, sid, story)
+    _publish_bar(sg, sid)
 
 
 import json, re, shutil
@@ -869,8 +870,8 @@ def _frames(sg, sid, story, state, ch):
     for idx, s in enumerate(story["steps"]):
         _step(sg, sid, story, state, ch, idx, s)
     with st.container(key="stfoot"):
-        a = st.columns(5)
-    if a[2].button("Сгенерировать ряд", key=f"strip_{sid}", help="Общая картинка из выбранных и ♥ кадров всех шагов"):
+        a = st.columns(2)
+    if a[1].button("Сгенерировать ряд", key=f"strip_{sid}", help="Общая картинка из выбранных и ♥ кадров всех шагов"):
         st.session_state[f"strip_img_{sid}"] = _strip(sg, sid, story, state)
     img = st.session_state.get(f"strip_img_{sid}")
     if img:
@@ -878,16 +879,22 @@ def _frames(sg, sid, story, state, ch):
         st.download_button("Скачать ряд (PNG)", img, f"{sid}_strip.png", "image/png", key=f"dl_{sid}")
     if a[0].button("Удалить без ♥ (вся история)", key=f"prall_{sid}"):
         st.toast(f"Удалено: {sg.prune(sid)}"); st.rerun()
-    if a[1].button("Принять историю", type="primary", key=f"acc_{sid}"):
+
+
+def _publish_bar(sg, sid):
+    st.divider()
+    with st.container(key="stpub"):
+        a = st.columns(3)
+    if a[0].button("Принять историю", type="primary", key=f"acc_{sid}"):
         ok, log = sg.accept(sid)
         (st.success if ok else st.error)(log[-1500:])
-    if a[3].button("Принять и опубликовать в web", key=f"pub_{sid}", help="Принять кадры → пакет → web :8081 (нужен воркер ds_app/tools/publish_watch.sh)"):
+    if a[1].button("Принять и опубликовать в web", key=f"pub_{sid}", help="Принять кадры → пакет → web :8081 (нужен воркер ds_app/tools/publish_watch.sh)"):
         ok, log = sg.accept(sid)
         if ok:
             sg.request_publish(sid)
         else:
             st.error(log[-1500:])
-    if a[4].button("Пересобрать APK", key=f"apk_{sid}", help="Пакет → app-release.apk (~2 мин), без перезапуска web; нужен воркер publish_watch.sh"):
+    if a[2].button("Пересобрать APK", key=f"apk_{sid}", help="Пакет → app-release.apk (~2 мин), без перезапуска web; нужен воркер publish_watch.sh"):
         sg.request_publish(sid, "apk")
     _pub_status(sg, sid)
 
