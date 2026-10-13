@@ -925,6 +925,30 @@ def _vp_act(op, root, sid):
         _vp_save(root, sid, names, cur); _vp_publish(root, sid, cur)
 
 
+def _vo_copy(sg, root, sid, k, f, is_act, cur):
+    """Строка шага озвучки: «Скопировать звук» из выбранной истории/шага (активный профиль источника) в этот шаг."""
+    key = f"vc_{sid}_{cur}_{k}_"
+    ids = sorted(p.stem for p in (root / "stories").glob("*.yaml") if p.stem != "categories")
+    c = st.columns([3, 5, 2], vertical_alignment="bottom")
+    src = c[0].selectbox("Звук из истории", ids, index=ids.index(sid) if sid in ids else 0, key=key + "s",
+                         format_func=lambda i: f"{sg.load_story(i)['title']['ru']} ({i})")
+    ss = sg.load_story(src)
+    opts = [x["id"] for x in ss["steps"]] + ["fin"]
+    names, act = _vp_load(root, src)
+    sdir = _vp_dir(root, src) / _PD / act
+    nm = {x["id"]: n + 1 for n, x in enumerate(ss["steps"])}
+    sk = c[1].selectbox("Шаг", opts, key=key + "k", format_func=lambda i: (
+        ("Финал" if i == "fin" else f"{nm[i]}. " + (next(x for x in ss["steps"] if x["id"] == i)["text"].get("ru", "") or "—")[:50])
+        + ("" if (sdir / f"{i}.mp3").is_file() else " · нет звука")))
+    srcf = sdir / f"{sk}.mp3"
+    if c[2].button("Скопировать", key=key + "go", disabled=not srcf.is_file() or (src == sid and sk == k)):
+        f.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(srcf, f)
+        if is_act:
+            _vp_publish(root, sid, cur)
+        st.toast("Звук скопирован"); st.rerun()
+
+
 def _voice(sg, sid, story):
     """Озвучка шагов (Chatterbox через tts_server). Несколько профилей звука: audio/ru/stories/<история>/_p/<профиль>/<шаг>.mp3;
     активный копируется в audio/ru/stories/<история>/<шаг>.mp3 (его публикует приложение)."""
@@ -981,6 +1005,7 @@ def _voice(sg, sid, story):
                 c[1].caption("нет озвучки")
             if c[2].button("Сгенерировать" if f.is_file() else "Озвучить", key=f"vo_b_{sid}_{cur}_{k}"):
                 st.toast(gen([k])[1]); st.rerun()
+            _vo_copy(sg, root, sid, k, f, cur == act, cur)
     with st.container(border=True, key=f"vo_{sid}_{cur}_sfx"):
         st.markdown("**Звук после финала** (после «Я молодец!»)")
         lib = root / "sfx"; lib.mkdir(exist_ok=True)
