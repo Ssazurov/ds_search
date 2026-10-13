@@ -134,6 +134,7 @@ def _stx_save(xk):
     st.session_state.setdefault("_stx", {})[xk] = bool(st.session_state.get(xk))
 
 
+@st.fragment
 def _step(sg, sid, story, state, ch, idx, s):
     k, key = s["id"], f"{sid}_{s['id']}_"
     stp = state["steps"][k]
