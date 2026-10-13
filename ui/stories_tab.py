@@ -144,8 +144,11 @@ def _step(sg, sid, story, state, ch, idx, s):
             ids = [it["item"] for it in scs[scn].get("items", [])]
             uses = st.multiselect("Используемые предметы (на сцене не рисуются)", ids, default=[u for u in s.get("uses", []) if u in ids],
                                   format_func=lambda x: sit.get(x, {}).get("title", {}).get("ru", x), key=key + "us")
-            if len(uses) > 1:
-                st.caption("Фон — состояние «без предмета» только для первого из выбранных; остальные исключены из описания сцены.")
+            kd = sg.skind(scn, uses)
+            if kd and "+" in kd and kd not in sg.sstates(scn):
+                st.caption("Для нескольких предметов нужно совмещённое состояние сцены «без» всех выбранных.")
+                if st.button("Создать состояние сцены", key=key + "mk"):
+                    sg.sadd_state(scn, kd); st.rerun()
             loc = s["location"]
         else:
             loc = st.selectbox("Локация", locs, index=locs.index(s["location"]) if s["location"] in locs else 0, key=key + "loc")
@@ -406,7 +409,7 @@ def _sstates(sg, scn, stt, items, sc, k):
         iid = kd.split(":", 1)[1]
         sk = stt.get("states", {}).get(kd, {"selected": None, "variants": []})
         kk = f"{k}{kd}_"
-        ttl = items.get(iid, {}).get("title", {}).get("ru", iid)
+        ttl = " + ".join(items.get(i, {}).get("title", {}).get("ru", i) for i in iid.split("+"))
         with st.expander(f"Без: {ttl} — видов {len(sk['variants'])}" + (" ✅" if sk["selected"] else ""), expanded=bool(st.session_state.get(kk + "op"))):
             with st.form(key="fm_" + f"stgen_{scn}_{kd}", border=False):
                 with st.container(key=f"stgen_{scn}_{kd}"):
