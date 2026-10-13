@@ -375,9 +375,9 @@ details [data-testid="stNumberInputContainer"]:focus-within,
 .st-key-tabmain [class*="st-key-cmp_"] [data-testid="stHorizontalBlock"] { align-items: center; }
 .st-key-tabmain [class*="st-key-cmp"] [data-testid="stColumn"] { flex: 0 0 auto !important; width: auto !important; min-width: 0 !important; }
 .st-key-tabmain [class*="st-key-cmpv_"] [data-testid="stColumn"]:first-child { flex: 1 1 0 !important; min-width: 180px !important; }
-.st-key-tabmain [class*="st-key-cmp_"] [data-testid="stHorizontalBlock"] [data-testid="stColumn"] [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stDateInput"], [data-testid="stTimeInput"], [data-testid="stRadio"]) {
+.st-key-tabmain [class*="st-key-cmp_"][class*="st-key-cmp_"] [data-testid="stHorizontalBlock"] [data-testid="stColumn"] [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stDateInput"], [data-testid="stTimeInput"], [data-testid="stRadio"]) {
   display: flex !important; flex-direction: row; align-items: center; gap: 8px; }
-.st-key-tabmain [class*="st-key-cmpv_"] [data-testid="stHorizontalBlock"] [data-testid="stColumn"] [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stDateInput"], [data-testid="stTimeInput"], [data-testid="stRadio"]) {
+.st-key-tabmain [class*="st-key-cmpv_"][class*="st-key-cmpv_"] [data-testid="stHorizontalBlock"] [data-testid="stColumn"] [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stDateInput"], [data-testid="stTimeInput"], [data-testid="stRadio"]) {
   display: flex !important; flex-direction: column; align-items: stretch; gap: 2px; }
 .st-key-tabmain [class*="st-key-cmp"] [data-testid="stWidgetLabel"] { flex: 0 0 auto !important; width: auto !important; min-width: max-content !important; white-space: nowrap !important; }
 .st-key-tabmain [class*="st-key-cmp"] [data-testid="stElementContainer"] > [data-testid^="st"] > div:last-child { flex: 1 1 auto; min-width: 0; }
