@@ -484,4 +484,8 @@ _STORIES = """
 .st-key-tabmain .st-key-ttsx_up button, .st-key-tabmain .st-key-ttsx_prof button, .st-key-tabmain .st-key-ttsx_ref button { height: 34px !important; min-height: 34px !important; padding-top: 0 !important; padding-bottom: 0 !important; white-space: nowrap; }
 .st-key-tabmain .st-key-ttsx_up [data-testid="stElementContainer"] { display: flex; align-items: center; }
 .st-key-tabmain .st-key-ttsx_up p { line-height: 34px; }
+.st-key-tabmain .st-key-ttsx_up [data-testid="stHorizontalBlock"] { grid-template-columns: max-content max-content max-content; gap: 8px !important; align-items: center; }
+.st-key-tabmain .st-key-ttsx_up [data-testid="stColumn"], .st-key-tabmain .st-key-ttsx_up [data-testid="stElementContainer"], .st-key-tabmain .st-key-ttsx_up [data-testid="stVerticalBlock"] { display: flex !important; align-items: center !important; margin: 0 !important; gap: 0 !important; }
+.st-key-tabmain .st-key-ttsx_up [data-testid="stFileUploader"], .st-key-tabmain .st-key-ttsx_up [data-testid="stFileUploaderDropzone"] { display: flex !important; align-items: center !important; margin: 0 !important; }
+.st-key-tabmain .st-key-ttsx_up [data-testid="stMarkdownContainer"] { margin: 0 !important; }
 """
