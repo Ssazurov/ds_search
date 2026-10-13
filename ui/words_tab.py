@@ -683,10 +683,12 @@ def _ref_add(root: Path) -> None:
     st.session_state["tts_upver"] = ver + 1
 
 
-def _tts_settings(root: Path) -> None:
+def _tts_settings(root: Path, bare: bool = False) -> None:
     """Последний блок вкладки: профили голоса (референс + параметры); применяются к следующей «Сгенерировать звук»."""
-    st.divider()
-    with st.expander("Настройки голоса (TTS)", expanded=False):
+    if not bare:
+        st.divider()
+    import contextlib
+    with (contextlib.nullcontext() if bare else st.expander("Настройки голоса (TTS)", expanded=False)):
         d = load_profiles(root)
         names = list(d["profiles"])
         if st.session_state.get("tts_prof") not in names:
