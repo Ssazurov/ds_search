@@ -728,13 +728,90 @@ def _stories(sg):
         _voice(sg, sid, story)
 
 
+import json, re, shutil
+from pathlib import Path
+
+_PD = "_p"
+
+
+def _vp_dir(root, sid):
+    return root / "audio" / "ru" / "stories" / sid
+
+
+def _vp_publish(root, sid, name):
+    """Активный профиль -> audio/ru/stories/<sid>/<шаг>.mp3 (оттуда берёт пакет приложения)."""
+    d = _vp_dir(root, sid); src = d / _PD / name
+    for x in d.glob("*.mp3"):
+        if not (src / x.name).is_file():
+            x.unlink()
+    for x in src.glob("*.mp3"):
+        shutil.copy2(x, d / x.name)
+
+
+def _vp_save(root, sid, names, act):
+    d = _vp_dir(root, sid); d.mkdir(parents=True, exist_ok=True)
+    (d / "_profiles.json").write_text(json.dumps({"profiles": names, "active": act}, ensure_ascii=False), encoding="utf-8")
+
+
+def _vp_load(root, sid):
+    """-> (имена, активный). Первый запуск: «Основной» из опубликованных файлов (свежий audio/ru/<sid>_<шаг>.mp3 новее — берём его)."""
+    d = _vp_dir(root, sid); f = d / "_profiles.json"
+    j = json.loads(f.read_text("utf-8")) if f.is_file() else {}
+    names = [n for n in j.get("profiles", []) if (d / _PD / n).is_dir()]
+    if not names:
+        p = d / _PD / "Основной"; p.mkdir(parents=True, exist_ok=True)
+        for x in d.glob("*.mp3"):
+            shutil.copy2(x, p / x.name)
+        for x in (root / "audio" / "ru").glob(f"{sid}_*.mp3"):
+            t = p / (x.name[len(sid) + 1:])
+            if not t.is_file() or x.stat().st_mtime > t.stat().st_mtime:
+                shutil.copy2(x, t)
+        names = ["Основной"]; _vp_save(root, sid, names, "Основной"); _vp_publish(root, sid, "Основной")
+        return names, "Основной"
+    return names, (j.get("active") if j.get("active") in names else names[0])
+
+
+def _vp_act(op, root, sid):
+    names, act = _vp_load(root, sid); d = _vp_dir(root, sid) / _PD
+    cur = st.session_state.get(f"vp_{sid}", act)
+    nm = re.sub(r'[\\/:*?"<>|]', "", st.session_state.get(f"vpn_{sid}", "")).strip()
+    if op in ("new", "copy"):
+        if not nm or nm in names:
+            st.toast("Укажите уникальное имя профиля"); return
+        (d / nm).mkdir(parents=True)
+        if op == "copy":
+            for x in (d / cur).glob("*.mp3"):
+                shutil.copy2(x, d / nm / x.name)
+        names.append(nm); _vp_save(root, sid, names, act); st.session_state[f"vp_{sid}"] = nm; st.session_state[f"vpn_{sid}"] = ""
+    elif op == "del":
+        if cur == act or len(names) < 2:
+            st.toast("Активный профиль удалить нельзя"); return
+        shutil.rmtree(d / cur); names.remove(cur); _vp_save(root, sid, names, act); st.session_state[f"vp_{sid}"] = act
+    elif op == "act":
+        _vp_save(root, sid, names, cur); _vp_publish(root, sid, cur)
+
+
 def _voice(sg, sid, story):
-    """Озвучка шагов (Chatterbox через tts_server): прослушивание, озвучить/перегенерировать. Файл: audio/ru/<история>_<шаг>.mp3."""
+    """Озвучка шагов (Chatterbox через tts_server). Несколько профилей звука: audio/ru/stories/<история>/_p/<профиль>/<шаг>.mp3;
+    активный копируется в audio/ru/stories/<история>/<шаг>.mp3 (его публикует приложение)."""
     from ui import words_tab as wt
     root, steps = sg.ROOT, story["steps"]
-    path = lambda k: root / "audio" / "ru" / f"{sid}_{k}.mp3"
+    names, act = _vp_load(root, sid)
+    if st.session_state.get(f"vp_{sid}") not in names:
+        st.session_state[f"vp_{sid}"] = act
+    cur = st.session_state[f"vp_{sid}"]
+    pdir = _vp_dir(root, sid) / _PD / cur
+    path = lambda k: pdir / f"{k}.mp3"
     with st.expander("Голос (профиль, референс, параметры)"):
         wt._tts_settings(root)
+    p = st.columns([3, 3, 2, 2, 2, 3], vertical_alignment="bottom", gap="small")
+    p[0].selectbox("Профиль звука", names, key=f"vp_{sid}", format_func=lambda n: n + (" ★ в приложении" if n == act else ""))
+    p[1].text_input("Имя нового", key=f"vpn_{sid}")
+    p[2].button("Создать", key=f"vpb_new_{sid}", on_click=_vp_act, args=("new", root, sid))
+    p[3].button("Копировать", key=f"vpb_cp_{sid}", on_click=_vp_act, args=("copy", root, sid), help="Копия выбранного профиля под новым именем")
+    p[4].button("Удалить", key=f"vpb_del_{sid}", on_click=_vp_act, args=("del", root, sid), disabled=cur == act)
+    p[5].button("Сделать активным", key=f"vpb_act_{sid}", on_click=_vp_act, args=("act", root, sid), disabled=cur == act,
+                help="Этот профиль уйдёт в приложение при публикации")
 
     def gen(ks):
         items = [{"id": f"{sid}_{x['id']}", "text": x["text"].get("ru", "").strip(), "stress": None}
@@ -742,7 +819,15 @@ def _voice(sg, sid, story):
         if not items:
             return 1, "Нет текста для озвучки"
         with st.spinner(f"Озвучка: {len(items)} шаг. (~несколько с на шаг)…"):
-            return wt.run_tts(items)
+            r = wt.run_tts(items)
+        pdir.mkdir(parents=True, exist_ok=True)
+        for x in items:
+            s = root / "audio" / "ru" / f"{x['id']}.mp3"
+            if s.is_file():
+                shutil.move(str(s), str(pdir / f"{x['id'][len(sid) + 1:]}.mp3"))
+        if cur == act:
+            _vp_publish(root, sid, cur)
+        return r
 
     a = st.columns(3)
     todo = [x["id"] for x in steps if not path(x["id"]).is_file()]
@@ -752,14 +837,14 @@ def _voice(sg, sid, story):
         st.toast(gen([x["id"] for x in steps])[1]); st.rerun()
     for idx, x in enumerate(steps):
         k, f = x["id"], path(x["id"])
-        with st.container(border=True, key=f"vo_{sid}_{k}"):
+        with st.container(border=True, key=f"vo_{sid}_{cur}_{k}"):
             c = st.columns([5, 4, 2])
             c[0].markdown(f"**{idx + 1}.** {x['text'].get('ru', '') or '— текст не задан —'}")
             if f.is_file():
                 c[1].audio(f.read_bytes(), format="audio/mp3")
             else:
                 c[1].caption("нет озвучки")
-            if c[2].button("Заново" if f.is_file() else "Озвучить", key=f"vo_b_{sid}_{k}"):
+            if c[2].button("Заново" if f.is_file() else "Озвучить", key=f"vo_b_{sid}_{cur}_{k}"):
                 st.toast(gen([k])[1]); st.rerun()
 
 
