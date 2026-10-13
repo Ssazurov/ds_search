@@ -134,6 +134,87 @@ def _stx_save(xk):
     st.session_state.setdefault("_stx", {})[xk] = bool(st.session_state.get(xk))
 
 
+@st.cache_data(show_spinner=False)
+def _ttl(path, mtime):
+    return yaml.safe_load(open(path, encoding="utf-8")).get("title", {}).get("ru", "") or Path(path).stem
+
+
+def _copy_step(sg, sid, k, src, sk, ch):
+    """Копия настроек и кадров шага src/sk в шаг sid/k (текст не трогаем, кадры добавляются). -> (кадров, предупреждения)."""
+    import shutil
+    import time
+    import uuid
+    sst, warn = sg.load_state(src), []
+    sd = next(x for x in sg.load_story(src)["steps"] if x["id"] == sk)
+    sp = sst["steps"][sk]
+    story = sg.load_story(sid)
+    d = next(x for x in story["steps"] if x["id"] == k)
+    scs = sg.lib("scenes")
+    d.pop("scene", None); d.pop("uses", None)
+    if sd.get("scene") in scs:
+        ids = [it["item"] for it in scs[sd["scene"]].get("items", [])]
+        d["scene"] = sd["scene"]
+        if sd.get("uses"):
+            d["uses"] = [u for u in sd["uses"] if u in ids]
+    elif sd.get("scene"):
+        warn.append(f"сцена «{sd['scene']}» не найдена")
+    if sd.get("location") in ch["locations"]:
+        d["location"] = sd["location"]
+    else:
+        warn.append("локация не найдена")
+    if sd.get("outfit", "home") in ch["characters"]["hero"]["outfits"]:
+        d["outfit"] = sd.get("outfit", "home")
+    else:
+        warn.append("одежда не найдена")
+    _save_story(sg, sid, story)
+    st_ = sg.load_state(sid)
+    cur = st_["steps"][k]
+    cur["action"], cur["note"] = sp["action"], sp["note"]
+    (sg.work(sid) / "cand").mkdir(parents=True, exist_ok=True)
+    idmap, new = {}, []
+    for v in sp["variants"]:
+        f = sg.work(src) / v["file"]
+        if not f.exists():
+            warn.append(f"нет файла кадра {v['id']}"); continue
+        nid = uuid.uuid4().hex[:8]
+        shutil.copy2(f, sg.work(sid) / "cand" / f"{nid}{f.suffix}")
+        idmap[v["id"]] = nid
+        new.append({**v, "id": nid, "file": f"cand/{nid}{f.suffix}", "created": int(time.time())})
+    for v in new:
+        v["parent"] = idmap.get(v.get("parent"))
+    cur["variants"].extend(new)
+    if sp["selected"] in idmap:
+        cur["selected"] = idmap[sp["selected"]]
+    sg.save_state(sid, st_)
+    if sst["hero"] != st_["hero"]:
+        warn.append(f"герой источника: {sst['hero']}, здесь: {st_['hero']}")
+    return len(new), warn
+
+
+def _copy_from(sg, sid, k, ch):
+    """Первая строка блока шага: «Скопировать из» истории и шага."""
+    key = f"cp_{sid}_{k}_"
+    ids = sorted(p.stem for p in (sg.ROOT / "stories").glob("*.yaml") if p.stem != "categories")
+    c = st.columns([3, 5, 2], vertical_alignment="bottom")
+    src = c[0].selectbox("Скопировать из", ids, index=ids.index(sid) if sid in ids else 0, key=key + "src",
+                         format_func=lambda i: f"{_ttl(str(sg.ROOT / 'stories' / (i + '.yaml')), (sg.ROOT / 'stories' / (i + '.yaml')).stat().st_mtime)} ({i})")
+    ss, sst = sg.load_story(src), sg.load_state(src)
+    opts = [x["id"] for x in ss["steps"] if not (src == sid and x["id"] == k)]
+    nm = {x["id"]: n + 1 for n, x in enumerate(ss["steps"])}
+    sk = c[1].selectbox("Шаг", opts, key=key + "sk", format_func=lambda i: (
+        f"{nm[i]}. " + (next(x for x in ss["steps"] if x["id"] == i)["text"].get("ru", "") or "—")[:50]
+        + f" · 🖼 {len(sst['steps'][i]['variants'])}"))
+    if c[2].button("Скопировать", key=key + "go", disabled=not opts):
+        try:
+            n, warn = _copy_step(sg, sid, k, src, sk, ch)
+        except Exception as e:
+            st.error(f"Ошибка копирования: {e}"); return
+        for kk in ("scn", "us", "loc", "out", "a", "n"):
+            st.session_state.pop(f"{sid}_{k}_{kk}", None)
+        st.toast(f"Скопировано кадров: {n}" + (" · " + "; ".join(warn) if warn else ""))
+        st.rerun()
+
+
 @st.fragment
 def _step(sg, sid, story, state, ch, idx, s):
     k, key = s["id"], f"{sid}_{s['id']}_"
@@ -142,6 +223,7 @@ def _step(sg, sid, story, state, ch, idx, s):
     label = f"{idx + 1}. {s['text'].get('ru', '') or '— текст не задан (вкладка «Сценарий») —'}"
     xk = f"stx_{sid}_{k}"
     with st.expander(label, expanded=st.session_state.get("_stx", {}).get(xk, False), key=xk, on_change=_stx_save, args=(xk,)), st.container(key=f"stp_{sid}_{k}"):
+        _copy_from(sg, sid, k, ch)
         text = s["text"].get("ru", "")
         scs, sit = sg.lib("scenes"), sg.lib("items")
         sopt = [""] + list(scs)
