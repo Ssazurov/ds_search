@@ -779,3 +779,17 @@ def _frames(sg, sid, story, state, ch):
     if a[1].button("Принять историю", type="primary", key=f"acc_{sid}"):
         ok, log = sg.accept(sid)
         (st.success if ok else st.error)(log[-1500:])
+    if st.button("Принять и опубликовать в приложение", key=f"pub_{sid}", help="Принять кадры → пакет → web :8081 (нужен воркер ds_app/tools/publish_watch.sh)"):
+        ok, log = sg.accept(sid)
+        if ok:
+            sg.request_publish(sid)
+        else:
+            st.error(log[-1500:])
+    _pub_status(sg, sid)
+
+
+@st.fragment(run_every=5)
+def _pub_status(sg, sid):
+    ps = sg.publish_status(sid)
+    if ps:
+        st.caption(f"Публикация: {ps}")
