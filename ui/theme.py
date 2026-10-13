@@ -463,4 +463,10 @@ _STORIES = """
 .st-key-tabmain [class*="st-key-scmeta_ni_"] [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stSelectbox"]),
 .st-key-tabmain [class*="st-key-stgen_add_"] [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stSelectbox"]) {
   grid-template-columns: max-content minmax(0, 1fr) !important; column-gap: 12px !important; }
+.st-key-tabmain .st-key-ttsx [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stSlider"], [data-testid="stFileUploader"]) { display: block !important; }
+.st-key-tabmain .st-key-ttsx [data-testid="stWidgetLabel"] { justify-content: flex-start; text-align: left; margin-bottom: 4px !important; }
+.st-key-tabmain .st-key-ttsx_prof [data-testid="stHorizontalBlock"] { display: grid !important; grid-template-columns: 280px 200px repeat(3, max-content); gap: 8px !important; justify-content: start; align-items: end; }
+.st-key-tabmain .st-key-ttsx_ref [data-testid="stHorizontalBlock"] { align-items: flex-start; }
+.st-key-tabmain .st-key-ttsx [data-testid="stColumn"] { min-width: 0 !important; }
+.st-key-tabmain .st-key-ttsx_prof [data-testid="stColumn"] { width: auto !important; flex: none !important; }
 """
