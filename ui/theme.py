@@ -423,8 +423,11 @@ _STORIES = """
   grid-template-columns: max-content minmax(0, 1fr) !important; column-gap: 6px !important; }
 .st-key-tabmain [class*="st-key-scmeta_"] [data-testid="stWidgetLabel"], .st-key-tabmain [class*="st-key-stp_"] [data-testid="stWidgetLabel"] {
   justify-content: flex-start; text-align: left; white-space: nowrap; }
-.st-key-tabmain [class*="st-key-stp_"] [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stTextArea"]) {
+.st-key-tabmain [class*="st-key-stp_"] [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stTextArea"], [data-testid="stMultiSelect"]) {
   grid-template-columns: 210px minmax(0, 1fr) !important; }
+.st-key-tabmain [class*="st-key-stp_"] [data-testid="stMultiSelect"] { align-items: center !important; }
+.st-key-tabmain [class*="st-key-stp_"] [data-testid="stMultiSelect"] [data-testid="stWidgetLabel"] { align-self: center; }
+.st-key-tabmain [class*="st-key-stp_"] [data-testid="stMultiSelect"] [data-baseweb="select"] > div { height: auto !important; }
 .st-key-tabmain [class*="st-key-stgen_"] [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stNumberInput"]),
 .st-key-tabmain [class*="st-key-strf_"] [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stNumberInput"]) {
   grid-template-columns: max-content minmax(0, 1fr) !important; column-gap: 6px !important; }
