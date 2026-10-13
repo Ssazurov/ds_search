@@ -411,14 +411,14 @@ _STORIES = """
 [data-testid="stExpander"] { border: 1px solid #c9ced8 !important; box-shadow: 0 0 0 1px #c9ced8 inset !important; border-radius: 8px !important; }
 [data-testid="stExpander"] > details { border: none !important; box-shadow: none !important; }
 [data-testid="stSelectbox"][data-testid="stSelectbox"] [data-baseweb="select"] > div,
-[data-testid="stSelectbox"][data-testid="stSelectbox"] [role="group"],
-[data-testid="stMultiSelect"][data-testid="stMultiSelect"] [data-baseweb="select"] > div,
-[data-testid="stMultiSelect"][data-testid="stMultiSelect"] [role="group"] {
-  border: 1px solid var(--border) !important; box-shadow: none !important; border-radius: 6px !important; background: #fff !important; }
+[data-testid="stMultiSelect"][data-testid="stMultiSelect"] [data-baseweb="select"] > div {
+  border: 1px solid var(--border) !important; box-shadow: none !important; outline: none !important; border-radius: 6px !important; background: #fff !important; }
 [data-testid="stSelectbox"][data-testid="stSelectbox"] [data-baseweb="select"] > div:focus-within,
-[data-testid="stSelectbox"][data-testid="stSelectbox"] [role="group"]:focus-within,
-[data-testid="stMultiSelect"][data-testid="stMultiSelect"] [data-baseweb="select"] > div:focus-within,
-[data-testid="stMultiSelect"][data-testid="stMultiSelect"] [role="group"]:focus-within { border-color: var(--blue) !important; }
+[data-testid="stMultiSelect"][data-testid="stMultiSelect"] [data-baseweb="select"] > div:focus-within { border-color: var(--blue) !important; }
+[data-testid="stSelectbox"] [data-baseweb="select"] > div > div,
+[data-testid="stSelectbox"] [role="group"], [data-testid="stMultiSelect"] [role="group"],
+[data-testid="stSelectbox"] [data-baseweb="select"] [data-baseweb="base-input"],
+[data-testid="stMultiSelect"] [data-baseweb="select"] [data-baseweb="base-input"] { border: none !important; box-shadow: none !important; outline: none !important; }
 .st-key-tabmain [class*="st-key-scmeta_"] [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stNumberInput"], [data-testid="stSelectbox"], [data-testid="stTextArea"]) {
   grid-template-columns: max-content minmax(0, 1fr) !important; column-gap: 6px !important; }
 .st-key-tabmain [class*="st-key-scmeta_"] [data-testid="stWidgetLabel"], .st-key-tabmain [class*="st-key-stp_"] [data-testid="stWidgetLabel"] {
