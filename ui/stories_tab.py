@@ -142,7 +142,7 @@ def _step(sg, sid, story, state, ch, idx, s):
         uses = []
         if scn:
             ids = [it["item"] for it in scs[scn].get("items", [])]
-            uses = st.multiselect("Используемые предметы (на сцене не рисуются)", ids, default=[u for u in s.get("uses", []) if u in ids],
+            uses = st.multiselect("Используемые предметы", ids, default=[u for u in s.get("uses", []) if u in ids],
                                   format_func=lambda x: sit.get(x, {}).get("title", {}).get("ru", x), key=key + "us")
             kd = sg.skind(scn, uses)
             if kd and "+" in kd and kd not in sg.sstates(scn):
