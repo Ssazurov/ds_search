@@ -14,6 +14,8 @@ import sys
 from pathlib import Path
 
 import streamlit as st
+
+from ui import persist
 import yaml
 
 from ui import notify
@@ -1309,7 +1311,7 @@ def render() -> None:
         notify.report("error", "Не удалось загрузить словарь", details=[str(exc)])
         return
     langs = langs_of(rows, st.session_state.get("words_langs"))
-    t1, t4, t2, t3 = st.tabs(["Таблица", "Наборы", "Добавить слово", "Проверка и коммит"])
+    t1, t4, t2, t3 = persist.tabs(["Таблица", "Наборы", "Добавить слово", "Проверка и коммит"], "wt_main")
     with t1:
         _table(root, rows, langs)
     with t4:

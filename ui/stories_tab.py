@@ -11,6 +11,8 @@ import textwrap
 from pathlib import Path
 
 import streamlit as st
+
+from ui import persist
 import yaml
 
 
@@ -305,7 +307,7 @@ def _scenes(sg):
         return
     with st.container(key="sthead_top_sn"):
         top = st.columns(3)
-    scn = top[0].selectbox("Сцена", list(scenes), format_func=lambda k: scenes[k]["title"]["ru"], key="scn_sel")
+    scn = top[0].selectbox("Сцена", list(scenes), format_func=lambda k: scenes[k]["title"]["ru"], key="scn_sel", bind="query-params")
     sc = scenes[scn]; k = f"sn_{scn}_"
     title = top[1].text_input("Название", sc["title"].get("ru", ""), key=k + "t")
     if title != sc["title"].get("ru", "") and title.strip():
@@ -535,7 +537,7 @@ def _items(sg):
         return
     with st.container(key="sthead_top_it"):
         top = st.columns(3)
-    iid = top[0].selectbox("Предмет", list(items), format_func=lambda x: items[x]["title"]["ru"], key="itm_sel")
+    iid = top[0].selectbox("Предмет", list(items), format_func=lambda x: items[x]["title"]["ru"], key="itm_sel", bind="query-params")
     it = items[iid]
     title = top[1].text_input("Название", it["title"].get("ru", ""), key=f"it_{iid}_t")
     if title != it["title"].get("ru", "") and title.strip():
@@ -589,7 +591,7 @@ def _chars(sg):
                 sg.registry_save(ch); st.rerun()
     with st.container(key="sthead_top_ch"):
         top = st.columns(3)
-    cid = top[0].selectbox("Персонаж", list(chs), format_func=lambda x: sg.txt_ru(chs[x].get("name")) or x, key="chr_sel")
+    cid = top[0].selectbox("Персонаж", list(chs), format_func=lambda x: sg.txt_ru(chs[x].get("name")) or x, key="chr_sel", bind="query-params")
     c = chs[cid]; hero = "variants" in c; vs = list(c.get("variants", {}))
     with st.container(border=True, key=f"stp_ch_{cid}"):
         nm = st.text_input("Имя", sg.txt_ru(c.get("name")), key=f"ch_{cid}_n")
@@ -681,7 +683,7 @@ def _prompts(sg):
 
 def render():
     sg = _sg()
-    t_st, t_sc, t_it, t_ch, t_pr = st.tabs(["Истории", "Сцены", "Предметы", "Персонажи", "Промпты"])
+    t_st, t_sc, t_it, t_ch, t_pr = persist.tabs(["Истории", "Сцены", "Предметы", "Персонажи", "Промпты"], "st_main")
     with t_st:
         _stories(sg)
     with t_sc:
@@ -706,7 +708,7 @@ def _stories(sg):
         return
     with st.container(key="sthead_top"):
         top = st.columns(3)
-    sid = top[0].selectbox("История", ids, key="stories_sel")
+    sid = top[0].selectbox("История", ids, key="stories_sel", bind="query-params")
     story, state = sg.load_story(sid), sg.load_state(sid)
     hero = top[2].radio("Герой", ["girl", "boy"], index=["girl", "boy"].index(state["hero"]), horizontal=True, key=f"hero_{sid}")
     if hero != state["hero"]:
@@ -714,7 +716,7 @@ def _stories(sg):
     title = top[1].text_input("Название", story["title"]["ru"], key=f"ttl_{sid}")
     if title != story["title"]["ru"] and title.strip():
         story["title"]["ru"] = title.strip(); _save_story(sg, sid, story)
-    tab_sc, tab_fr, tab_vo = st.tabs(["Сценарий", "Кадры", "Озвучка"])
+    tab_sc, tab_fr, tab_vo = persist.tabs(["Сценарий", "Кадры", "Озвучка"], "st_story")
     with tab_sc:
         _scenario(sg, sid, story, state)
     with tab_fr:
