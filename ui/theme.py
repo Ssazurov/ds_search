@@ -475,4 +475,13 @@ _STORIES = """
 .st-key-tabmain .st-key-ttsx_up [data-testid="stColumn"], .st-key-tabmain .st-key-ttsx_ref [data-testid="stColumn"] { width: auto !important; flex: none !important; }
 .st-key-tabmain .st-key-ttsx_ref [data-testid="stElementContainer"] > [data-testid="stSelectbox"] { display: grid !important; grid-template-columns: max-content minmax(0, 1fr) !important; column-gap: 8px; align-items: center; }
 .st-key-tabmain .st-key-ttsx_up p { margin: 0 !important; white-space: nowrap; }
+.st-key-tabmain .st-key-ttsx_prof [data-testid="stHorizontalBlock"] { grid-template-columns: 380px 250px repeat(3, max-content); }
+.st-key-tabmain .st-key-ttsx_prof [data-testid="stElementContainer"] > :is([data-testid="stSelectbox"], [data-testid="stTextInput"]) { display: grid !important; grid-template-columns: max-content minmax(0, 1fr) !important; column-gap: 8px; align-items: center; }
+.st-key-tabmain .st-key-ttsx_prof [data-testid="stWidgetLabel"], .st-key-tabmain .st-key-ttsx_ref [data-testid="stWidgetLabel"] { margin: 0 !important; }
+.st-key-tabmain .st-key-ttsx_up [data-testid="stFileUploaderDropzone"] { padding: 0 !important; border: none !important; background: transparent !important; min-height: 0 !important; }
+.st-key-tabmain .st-key-ttsx_up [data-testid="stFileUploaderDropzoneInstructions"] { display: none !important; }
+.st-key-tabmain .st-key-ttsx_up [data-testid="stFileUploader"] > :not([data-testid="stFileUploaderDropzone"]):not(:has([data-testid="stFileUploaderDropzone"])) { display: none !important; }
+.st-key-tabmain .st-key-ttsx_up button, .st-key-tabmain .st-key-ttsx_prof button, .st-key-tabmain .st-key-ttsx_ref button { height: 34px !important; min-height: 34px !important; padding-top: 0 !important; padding-bottom: 0 !important; white-space: nowrap; }
+.st-key-tabmain .st-key-ttsx_up [data-testid="stElementContainer"] { display: flex; align-items: center; }
+.st-key-tabmain .st-key-ttsx_up p { line-height: 34px; }
 """
