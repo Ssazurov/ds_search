@@ -864,12 +864,15 @@ def _frames(sg, sid, story, state, ch):
     if a[1].button("Принять историю", type="primary", key=f"acc_{sid}"):
         ok, log = sg.accept(sid)
         (st.success if ok else st.error)(log[-1500:])
-    if st.button("Принять и опубликовать в приложение", key=f"pub_{sid}", help="Принять кадры → пакет → web :8081 (нужен воркер ds_app/tools/publish_watch.sh)"):
+    pb = st.columns(2)
+    if pb[0].button("Принять и опубликовать в web", key=f"pub_{sid}", help="Принять кадры → пакет → web :8081 (нужен воркер ds_app/tools/publish_watch.sh)"):
         ok, log = sg.accept(sid)
         if ok:
             sg.request_publish(sid)
         else:
             st.error(log[-1500:])
+    if pb[1].button("Пересобрать APK", key=f"apk_{sid}", help="Пакет → app-release.apk (~2 мин), без перезапуска web; нужен воркер publish_watch.sh"):
+        sg.request_publish(sid, "apk")
     _pub_status(sg, sid)
 
 
