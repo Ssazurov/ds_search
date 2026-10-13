@@ -683,47 +683,54 @@ def _ref_add(root: Path) -> None:
     st.session_state["tts_upver"] = ver + 1
 
 
-def _tts_settings(root: Path) -> None:
+def _tts_settings(root: Path, bare: bool = False) -> None:
     """Последний блок вкладки: профили голоса (референс + параметры); применяются к следующей «Сгенерировать звук»."""
-    st.divider()
-    with st.expander("Настройки голоса (TTS)", expanded=False):
-        d = load_profiles(root)
-        names = list(d["profiles"])
-        if st.session_state.get("tts_prof") not in names:
-            st.session_state["tts_prof"] = d["main"]
-            _prof_apply(d["profiles"][st.session_state["tts_prof"]])
-        p1, p2, p3, p4, p5 = st.columns([3, 3, 2, 2, 2], vertical_alignment="bottom", gap="small")
-        p1.selectbox("Профиль голоса", names, key="tts_prof", on_change=_prof_load, args=(root,),
-                     format_func=lambda n: n + (" ★ основной" if n == d["main"] else ""),
-                     help="★ — основной: используется для генерации по умолчанию (в т.ч. вне этой страницы)")
-        p2.text_input("Имя", key="tts_newname")
-        p3.button("Сохранить профиль", key="tts_prof_save", on_click=_prof_save, args=(root,), type="primary")
-        p4.button("Удалить профиль", key="tts_prof_del", on_click=_prof_del, args=(root,),
-                  disabled=st.session_state.get("tts_prof") == d["main"])
-        p5.button("Сделать основным", key="tts_prof_main", on_click=_prof_main, args=(root,),
-                  disabled=st.session_state.get("tts_prof") == d["main"])
-        refs = _refs(root)
-        if st.session_state.get("tts_ref") not in ["", *refs]:
-            st.session_state["tts_ref"] = ""
-        r1, r2 = st.columns([5, 3])
-        r1.selectbox("Референс (голос-образец)", ["", *refs], key="tts_ref", format_func=lambda x: x or "— без файла (по умолчанию) —",
-                     help="Один файл можно использовать в разных профилях")
-        cur_rel = st.session_state.get("tts_ref", "")
-        if cur_rel and (root / cur_rel).is_file():
-            r1.audio((root / cur_rel).read_bytes())
-        r1.button("Удалить выбранный референс", key="tts_ref_del", on_click=_ref_del, args=(root,),
-                  disabled=not cur_rel)
-        ver = st.session_state.get("tts_upver", 0)
-        up = r2.file_uploader("Загрузить референс (wav/mp3/flac/ogg/m4a)", type=[e[1:] for e in _REF_EXT], key=f"tts_up_{ver}")
-        r2.button("Добавить референс", key="tts_up_btn", on_click=_ref_add, args=(root,), disabled=not up)
-        st.caption("Референс: 5–15 с чистой речи одного человека, без шума, музыки и эха, ровная нейтральная интонация, "
-                   "слова/фразы с обычным понижением в конце, без длинных пауз. Тембр, темп, эмоции и «вопросительность» "
-                   "в конце слов наследуются из референса — лучше всего читать список отдельных слов с ровным концом.")
-        cols = st.columns(3)
-        for n, (k, (lo, hi, step, d0, hlp)) in enumerate(TTS_PARAMS.items()):
-            cols[n % 3].slider(TTS_RU.get(k, k), lo, hi, d0, step, key=f"tts_{k}", help=hlp)
-        st.button("Сбросить параметры", on_click=_tts_reset, key="tts_reset_btn")
-        st.caption("Применяется сразу к следующей кнопке «Сгенерировать звук» (выберите слова в таблице).")
+    if not bare:
+        st.divider()
+    import contextlib
+    with (contextlib.nullcontext() if bare else st.expander("Настройки голоса (TTS)", expanded=False)):
+        with st.container(key="ttsx"):
+            d = load_profiles(root)
+            names = list(d["profiles"])
+            if st.session_state.get("tts_prof") not in names:
+                st.session_state["tts_prof"] = d["main"]
+                _prof_apply(d["profiles"][st.session_state["tts_prof"]])
+            with st.container(key="ttsx_prof"):
+                p1, p2, p3, p4, p5 = st.columns(5, vertical_alignment="bottom", gap="small")
+            p1.selectbox("Профиль голоса", names, key="tts_prof", on_change=_prof_load, args=(root,),
+                         format_func=lambda n: n + (" ★ основной" if n == d["main"] else ""),
+                         help="★ — основной: используется для генерации по умолчанию (в т.ч. вне этой страницы)")
+            p2.text_input("Имя", key="tts_newname")
+            p3.button("Сохранить профиль", key="tts_prof_save", on_click=_prof_save, args=(root,), type="primary")
+            p4.button("Удалить профиль", key="tts_prof_del", on_click=_prof_del, args=(root,),
+                      disabled=st.session_state.get("tts_prof") == d["main"])
+            p5.button("Сделать основным", key="tts_prof_main", on_click=_prof_main, args=(root,),
+                      disabled=st.session_state.get("tts_prof") == d["main"])
+            refs = _refs(root)
+            if st.session_state.get("tts_ref") not in ["", *refs]:
+                st.session_state["tts_ref"] = ""
+            ver = st.session_state.get("tts_upver", 0)
+            with st.container(key="ttsx_up"):
+                u = st.columns(3, vertical_alignment="center", gap="small")
+            u[0].markdown("Загрузить референс (wav/mp3/flac/ogg/m4a)")
+            up = u[1].file_uploader("Загрузить референс", type=[e[1:] for e in _REF_EXT], key=f"tts_up_{ver}", label_visibility="collapsed")
+            u[2].button("Сохранить референс", key="tts_up_btn", on_click=_ref_add, args=(root,), disabled=not up)
+            with st.container(key="ttsx_ref"):
+                r = st.columns(2, vertical_alignment="center", gap="small")
+            r[0].selectbox("Референс (голос-образец)", ["", *refs], key="tts_ref", format_func=lambda x: x or "— без файла (по умолчанию) —",
+                           help="Один файл можно использовать в разных профилях")
+            cur_rel = st.session_state.get("tts_ref", "")
+            r[1].button("Удалить выбранный референс", key="tts_ref_del", on_click=_ref_del, args=(root,), disabled=not cur_rel)
+            if cur_rel and (root / cur_rel).is_file():
+                st.audio((root / cur_rel).read_bytes())
+            st.caption("Референс: 5–15 с чистой речи одного человека, без шума, музыки и эха, ровная нейтральная интонация, "
+                       "слова/фразы с обычным понижением в конце, без длинных пауз. Тембр, темп, эмоции и «вопросительность» "
+                       "в конце слов наследуются из референса — лучше всего читать список отдельных слов с ровным концом.")
+            cols = st.columns(3)
+            for n, (k, (lo, hi, step, d0, hlp)) in enumerate(TTS_PARAMS.items()):
+                cols[n % 3].slider(TTS_RU.get(k, k), lo, hi, d0, step, key=f"tts_{k}", help=hlp)
+            st.button("Сбросить параметры", on_click=_tts_reset, key="tts_reset_btn")
+            st.caption("Применяется сразу к следующей кнопке «Сгенерировать звук» (выберите слова в таблице).")
 
 
 def run_tts(items: list[dict], lang: str = "ru") -> tuple[int, str]:

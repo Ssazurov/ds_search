@@ -130,12 +130,18 @@ def _strip(sg, sid, story, state) -> bytes:
     b = io.BytesIO(); im.save(b, "PNG"); return b.getvalue()
 
 
+def _stx_save(xk):
+    st.session_state.setdefault("_stx", {})[xk] = bool(st.session_state.get(xk))
+
+
+@st.fragment
 def _step(sg, sid, story, state, ch, idx, s):
     k, key = s["id"], f"{sid}_{s['id']}_"
     stp = state["steps"][k]
     locs, outs = list(ch["locations"]), list(ch["characters"]["hero"]["outfits"])
     label = f"{idx + 1}. {s['text'].get('ru', '') or '— текст не задан (вкладка «Сценарий») —'}"
-    with st.expander(label, expanded=True), st.container(key=f"stp_{sid}_{k}"):
+    xk = f"stx_{sid}_{k}"
+    with st.expander(label, expanded=st.session_state.get("_stx", {}).get(xk, False), key=xk, on_change=_stx_save, args=(xk,)), st.container(key=f"stp_{sid}_{k}"):
         text = s["text"].get("ru", "")
         scs, sit = sg.lib("scenes"), sg.lib("items")
         sopt = [""] + list(scs)
@@ -696,6 +702,16 @@ def render():
         _prompts(sg)
 
 
+@st.dialog("Удалить историю?")
+def _del_story(sg, sid, ttl):
+    st.write(f"Удалить «{ttl}» вместе с кадрами?")
+    c = st.columns(2)
+    if c[0].button("Удалить", type="primary", key=f"delok_{sid}"):
+        sg.delete_story(sid); st.session_state.pop("stories_sel", None); st.rerun()
+    if c[1].button("Отмена", key=f"delno_{sid}"):
+        st.rerun()
+
+
 def _stories(sg):
     if not (sg.ROOT / "stories").is_dir():
         st.error(f"Нет каталога историй: {sg.ROOT}/stories. Задайте DS_WORDS_DIR."); return
@@ -707,18 +723,17 @@ def _stories(sg):
     if not ids:
         return
     with st.container(key="sthead_top"):
-        top = st.columns(3)
+        top = st.columns(4, vertical_alignment="center")
     sid = top[0].selectbox("История", ids, key="stories_sel", bind="query-params")
     story, state = sg.load_story(sid), sg.load_state(sid)
-    hero = top[2].radio("Герой", ["girl", "boy"], index=["girl", "boy"].index(state["hero"]), horizontal=True, key=f"hero_{sid}")
+    if top[1].button("Удалить", key=f"delb_{sid}"):
+        _del_story(sg, sid, story["title"]["ru"])
+    hero = top[3].radio("Герой", ["girl", "boy"], index=["girl", "boy"].index(state["hero"]), horizontal=True, key=f"hero_{sid}")
     if hero != state["hero"]:
         state["hero"] = hero; sg.save_state(sid, state); st.rerun()
-    title = top[1].text_input("Название", story["title"]["ru"], key=f"ttl_{sid}")
+    title = top[2].text_input("Название", story["title"]["ru"], key=f"ttl_{sid}")
     if title != story["title"]["ru"] and title.strip():
         story["title"]["ru"] = title.strip(); _save_story(sg, sid, story)
-    with st.expander("Удалить историю"):
-        if st.checkbox(f"Подтверждаю удаление «{story['title']['ru']}» вместе с кадрами", key=f"delc_{sid}") and st.button("Удалить историю", key=f"delb_{sid}"):
-            sg.delete_story(sid); st.session_state.pop("stories_sel", None); st.rerun()
     tab_sc, tab_fr, tab_vo = persist.tabs(["Сценарий", "Кадры", "Озвучка"], "st_story")
     with tab_sc:
         _scenario(sg, sid, story, state)
@@ -726,6 +741,7 @@ def _stories(sg):
         _frames(sg, sid, story, state, ch)
     with tab_vo:
         _voice(sg, sid, story)
+    _publish_bar(sg, sid)
 
 
 import json, re, shutil
@@ -802,14 +818,13 @@ def _voice(sg, sid, story):
     cur = st.session_state[f"vp_{sid}"]
     pdir = _vp_dir(root, sid) / _PD / cur
     path = lambda k: pdir / f"{k}.mp3"
-    with st.expander("Голос (профиль, референс, параметры)"):
-        wt._tts_settings(root)
-    p = st.columns([3, 3, 2, 2, 2, 3], vertical_alignment="bottom", gap="small")
+    with st.container(key="stpr"):
+        p = st.columns(6, vertical_alignment="bottom", gap="small")
     p[0].selectbox("Профиль звука", names, key=f"vp_{sid}", format_func=lambda n: n + (" ★ в приложении" if n == act else ""))
     p[1].text_input("Имя нового", key=f"vpn_{sid}")
     p[2].button("Создать", key=f"vpb_new_{sid}", on_click=_vp_act, args=("new", root, sid))
     p[3].button("Копировать", key=f"vpb_cp_{sid}", on_click=_vp_act, args=("copy", root, sid), help="Копия выбранного профиля под новым именем")
-    p[4].button("Удалить", key=f"vpb_del_{sid}", on_click=_vp_act, args=("del", root, sid), disabled=cur == act)
+    p[4].button("Удалить", key=f"vpb_del_{sid}", on_click=_vp_act, args=("del", root, sid), disabled=cur == act or len(names) < 2)
     p[5].button("Сделать активным", key=f"vpb_act_{sid}", on_click=_vp_act, args=("act", root, sid), disabled=cur == act,
                 help="Этот профиль уйдёт в приложение при публикации")
 
@@ -829,12 +844,13 @@ def _voice(sg, sid, story):
             _vp_publish(root, sid, cur)
         return r
 
-    a = st.columns(3)
+    with st.container(key="stvo"):
+        a = st.columns(2)
     todo = [x["id"] for x in steps if not path(x["id"]).is_file()]
-    if a[0].button(f"Озвучить недостающие ({len(todo)})", key=f"vo_miss_{sid}", disabled=not todo):
-        st.toast(gen(todo)[1]); st.rerun()
-    if a[1].button("Перегенерировать все", key=f"vo_all_{sid}"):
+    if a[0].button("Перегенерировать все", key=f"vo_all_{sid}"):
         st.toast(gen([x["id"] for x in steps])[1]); st.rerun()
+    if a[1].button(f"Озвучить недостающие ({len(todo)})", key=f"vo_miss_{sid}", disabled=not todo):
+        st.toast(gen(todo)[1]); st.rerun()
     for idx, x in enumerate(steps):
         k, f = x["id"], path(x["id"])
         with st.container(border=True, key=f"vo_{sid}_{cur}_{k}"):
@@ -844,16 +860,18 @@ def _voice(sg, sid, story):
                 c[1].audio(f.read_bytes(), format="audio/mp3")
             else:
                 c[1].caption("нет озвучки")
-            if c[2].button("Заново" if f.is_file() else "Озвучить", key=f"vo_b_{sid}_{cur}_{k}"):
+            if c[2].button("Сгенерировать" if f.is_file() else "Озвучить", key=f"vo_b_{sid}_{cur}_{k}"):
                 st.toast(gen([k])[1]); st.rerun()
+    with st.expander("Голос (профиль, референс, параметры)"):
+        wt._tts_settings(root, bare=True)
 
 
 def _frames(sg, sid, story, state, ch):
     for idx, s in enumerate(story["steps"]):
         _step(sg, sid, story, state, ch, idx, s)
     with st.container(key="stfoot"):
-        a = st.columns(3)
-    if a[2].button("Сгенерировать ряд", key=f"strip_{sid}", help="Общая картинка из выбранных и ♥ кадров всех шагов"):
+        a = st.columns(2)
+    if a[1].button("Сгенерировать ряд", key=f"strip_{sid}", help="Общая картинка из выбранных и ♥ кадров всех шагов"):
         st.session_state[f"strip_img_{sid}"] = _strip(sg, sid, story, state)
     img = st.session_state.get(f"strip_img_{sid}")
     if img:
@@ -861,17 +879,22 @@ def _frames(sg, sid, story, state, ch):
         st.download_button("Скачать ряд (PNG)", img, f"{sid}_strip.png", "image/png", key=f"dl_{sid}")
     if a[0].button("Удалить без ♥ (вся история)", key=f"prall_{sid}"):
         st.toast(f"Удалено: {sg.prune(sid)}"); st.rerun()
-    if a[1].button("Принять историю", type="primary", key=f"acc_{sid}"):
+
+
+def _publish_bar(sg, sid):
+    st.divider()
+    with st.container(key="stpub"):
+        a = st.columns(3)
+    if a[0].button("Принять историю", type="primary", key=f"acc_{sid}"):
         ok, log = sg.accept(sid)
         (st.success if ok else st.error)(log[-1500:])
-    pb = st.columns(2)
-    if pb[0].button("Принять и опубликовать в web", key=f"pub_{sid}", help="Принять кадры → пакет → web :8081 (нужен воркер ds_app/tools/publish_watch.sh)"):
+    if a[1].button("Принять и опубликовать в web", key=f"pub_{sid}", help="Принять кадры → пакет → web :8081 (нужен воркер ds_app/tools/publish_watch.sh)"):
         ok, log = sg.accept(sid)
         if ok:
             sg.request_publish(sid)
         else:
             st.error(log[-1500:])
-    if pb[1].button("Пересобрать APK", key=f"apk_{sid}", help="Пакет → app-release.apk (~2 мин), без перезапуска web; нужен воркер publish_watch.sh"):
+    if a[2].button("Пересобрать APK", key=f"apk_{sid}", help="Пакет → app-release.apk (~2 мин), без перезапуска web; нужен воркер publish_watch.sh"):
         sg.request_publish(sid, "apk")
     _pub_status(sg, sid)
 
@@ -879,5 +902,12 @@ def _frames(sg, sid, story, state, ch):
 @st.fragment(run_every=5)
 def _pub_status(sg, sid):
     ps = sg.publish_status(sid)
-    if ps:
-        st.caption(f"Публикация: {ps}")
+    if not ps:
+        return
+    if "готово" in ps or "ошибка" in ps:
+        st.caption(("❌ " if "ошибка" in ps else "✅ ") + f"Публикация: {ps}")
+    else:
+        st.markdown('<style>@keyframes dsspin{to{transform:rotate(360deg)}}</style>'
+                    '<span style="display:inline-block;width:14px;height:14px;border:2px solid #c9ced8;border-top-color:#3b6fd1;'
+                    'border-radius:50%;animation:dsspin .8s linear infinite;vertical-align:-2px;margin-right:8px"></span>'
+                    f'<span style="font-size:13px;opacity:.8">Публикация: {ps}</span>', unsafe_allow_html=True)
