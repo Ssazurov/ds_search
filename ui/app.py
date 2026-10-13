@@ -74,6 +74,12 @@ st.session_state["_last_active_tab"] = active
 if st.query_params.get("tab") != active:
     st.query_params["tab"] = active
 
+# Параметры вложенных вкладок живут только на своей вкладке (иначе ?st_story=… тянется на «Слова»).
+for _own, _pre in (("Истории", "st_"), ("Слова", "wt_")):
+    if active != _own:
+        for _k in [k for k in st.query_params if k.startswith(_pre)]:
+            del st.query_params[_k]
+
 # Slot для сообщений (issue #366): создаём контейнер до рендера вкладки,
 # чтобы сообщения, добавленные во время рендера, появились вверху.
 slot = st.container()
