@@ -716,6 +716,9 @@ def _stories(sg):
     title = top[1].text_input("Название", story["title"]["ru"], key=f"ttl_{sid}")
     if title != story["title"]["ru"] and title.strip():
         story["title"]["ru"] = title.strip(); _save_story(sg, sid, story)
+    with st.expander("Удалить историю"):
+        if st.checkbox(f"Подтверждаю удаление «{story['title']['ru']}» вместе с кадрами", key=f"delc_{sid}") and st.button("Удалить историю", key=f"delb_{sid}"):
+            sg.delete_story(sid); st.session_state.pop("stories_sel", None); st.rerun()
     tab_sc, tab_fr, tab_vo = persist.tabs(["Сценарий", "Кадры", "Озвучка"], "st_story")
     with tab_sc:
         _scenario(sg, sid, story, state)
