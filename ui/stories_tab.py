@@ -54,6 +54,33 @@ def _list(sg, ids):
     st.dataframe(rows, hide_index=True, use_container_width=True)
 
 
+def _clone_story(sg, src, sid, title):
+    """Полная копия истории src -> sid: yaml (шаги/настройки), work (кадры, state), озвучка (профили + опубликованные mp3)."""
+    import shutil
+    story = copy.deepcopy(sg.load_story(src))
+    story["id"] = sid
+    story["title"] = {**story.get("title", {}), "ru": title}
+    wd, root = sg.work(sid), sg.ROOT
+    try:
+        if sg.work(src).is_dir():
+            shutil.copytree(sg.work(src), wd, ignore=shutil.ignore_patterns("trash", "*.tmp"))
+        sp = wd / "state.json"
+        if sp.is_file():
+            import json
+            s = json.loads(sp.read_text("utf-8")); s["accepted"] = False
+            sp.write_text(json.dumps(s, ensure_ascii=False, indent=1), encoding="utf-8")
+        a = root / "audio" / "ru" / "stories"
+        if (a / src).is_dir():
+            shutil.copytree(a / src, a / sid)
+        for x in (root / "audio" / "ru").glob(f"{src}_*.mp3"):
+            shutil.copy2(x, x.with_name(sid + x.name[len(src):]))
+        _save_story(sg, sid, story)
+    except Exception:
+        shutil.rmtree(wd, ignore_errors=True)
+        shutil.rmtree(root / "audio" / "ru" / "stories" / sid, ignore_errors=True)
+        raise
+
+
 def _create(sg, ch):
     with st.expander("Создать историю"):
         with st.container(key="scmeta_new"):
@@ -62,11 +89,20 @@ def _create(sg, ch):
         title = c[1].text_input("Название", key="ns_title")
         cat = c[2].text_input("Категория", "routine", key="ns_cat")
         loc = c[3].selectbox("Локация 1-го шага", list(ch["locations"]), key="ns_loc")
-        if st.button("Создать", key="ns_go"):
+        ids = sorted(p.stem for p in (sg.ROOT / "stories").glob("*.yaml") if p.stem != "categories")
+        src = st.selectbox("Копия существующей истории (шаги, кадры, настройки, картинки, звук)", [""] + ids, key="ns_src",
+                           format_func=lambda i: "— новая пустая —" if not i else f"{sg.load_story(i)['title']['ru']} ({i})")
+        if st.button("Создать копию" if src else "Создать", key="ns_go"):
             if not re.fullmatch(r"[a-z][a-z0-9_]{1,40}", sid or "") or (sg.ROOT / f"stories/{sid}.yaml").exists():
                 st.error("id: латиница/цифры/_, уникальный")
             elif not title.strip():
                 st.error("Нужно название")
+            elif src:
+                try:
+                    _clone_story(sg, src, sid, title.strip())
+                except Exception as e:
+                    st.error(f"Ошибка копирования: {e}"); return
+                st.rerun()
             else:
                 _save_story(sg, sid, {"id": sid, "category": cat, "level": 1, "tags": [], "title": {"ru": title.strip()},
                                       "steps": [{"id": "s1", "text": {"ru": ""}, "hero": True, "characters": ["hero"],
