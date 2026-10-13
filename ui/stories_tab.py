@@ -895,5 +895,12 @@ def _frames(sg, sid, story, state, ch):
 @st.fragment(run_every=5)
 def _pub_status(sg, sid):
     ps = sg.publish_status(sid)
-    if ps:
-        st.caption(f"Публикация: {ps}")
+    if not ps:
+        return
+    if "готово" in ps or "ошибка" in ps:
+        st.caption(("❌ " if "ошибка" in ps else "✅ ") + f"Публикация: {ps}")
+    else:
+        st.markdown('<style>@keyframes dsspin{to{transform:rotate(360deg)}}</style>'
+                    '<span style="display:inline-block;width:14px;height:14px;border:2px solid #c9ced8;border-top-color:#3b6fd1;'
+                    'border-radius:50%;animation:dsspin .8s linear infinite;vertical-align:-2px;margin-right:8px"></span>'
+                    f'<span style="font-size:13px;opacity:.8">Публикация: {ps}</span>', unsafe_allow_html=True)
