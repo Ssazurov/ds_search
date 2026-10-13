@@ -469,4 +469,10 @@ _STORIES = """
 .st-key-tabmain .st-key-ttsx_ref [data-testid="stHorizontalBlock"] { align-items: flex-start; }
 .st-key-tabmain .st-key-ttsx [data-testid="stColumn"] { min-width: 0 !important; }
 .st-key-tabmain .st-key-ttsx_prof [data-testid="stColumn"] { width: auto !important; flex: none !important; }
+.st-key-tabmain .st-key-ttsx [data-testid="stSelectbox"] div:has(> input) { border: 1px solid var(--border) !important; border-radius: 6px !important; }
+.st-key-tabmain .st-key-ttsx_up [data-testid="stHorizontalBlock"] { display: grid !important; grid-template-columns: max-content minmax(0, 420px) max-content; gap: 8px !important; justify-content: start; align-items: center; }
+.st-key-tabmain .st-key-ttsx_ref [data-testid="stHorizontalBlock"] { display: grid !important; grid-template-columns: minmax(0, 560px) max-content; gap: 8px !important; justify-content: start; align-items: center; }
+.st-key-tabmain .st-key-ttsx_up [data-testid="stColumn"], .st-key-tabmain .st-key-ttsx_ref [data-testid="stColumn"] { width: auto !important; flex: none !important; }
+.st-key-tabmain .st-key-ttsx_ref [data-testid="stElementContainer"] > [data-testid="stSelectbox"] { display: grid !important; grid-template-columns: max-content minmax(0, 1fr) !important; column-gap: 8px; align-items: center; }
+.st-key-tabmain .st-key-ttsx_up p { margin: 0 !important; white-space: nowrap; }
 """

@@ -709,18 +709,20 @@ def _tts_settings(root: Path, bare: bool = False) -> None:
             refs = _refs(root)
             if st.session_state.get("tts_ref") not in ["", *refs]:
                 st.session_state["tts_ref"] = ""
-            with st.container(key="ttsx_ref"):
-                r1, r2 = st.columns([2, 1], gap="large")
-            r1.selectbox("Референс (голос-образец)", ["", *refs], key="tts_ref", format_func=lambda x: x or "— без файла (по умолчанию) —",
-                         help="Один файл можно использовать в разных профилях")
-            cur_rel = st.session_state.get("tts_ref", "")
-            if cur_rel and (root / cur_rel).is_file():
-                r1.audio((root / cur_rel).read_bytes())
-            r1.button("Удалить выбранный референс", key="tts_ref_del", on_click=_ref_del, args=(root,),
-                      disabled=not cur_rel)
             ver = st.session_state.get("tts_upver", 0)
-            up = r2.file_uploader("Загрузить референс (wav/mp3/flac/ogg/m4a)", type=[e[1:] for e in _REF_EXT], key=f"tts_up_{ver}")
-            r2.button("Добавить референс", key="tts_up_btn", on_click=_ref_add, args=(root,), disabled=not up)
+            with st.container(key="ttsx_up"):
+                u = st.columns(3, vertical_alignment="center", gap="small")
+            u[0].markdown("Загрузить референс (wav/mp3/flac/ogg/m4a)")
+            up = u[1].file_uploader("Загрузить референс", type=[e[1:] for e in _REF_EXT], key=f"tts_up_{ver}", label_visibility="collapsed")
+            u[2].button("Сохранить референс", key="tts_up_btn", on_click=_ref_add, args=(root,), disabled=not up)
+            with st.container(key="ttsx_ref"):
+                r = st.columns(2, vertical_alignment="center", gap="small")
+            r[0].selectbox("Референс (голос-образец)", ["", *refs], key="tts_ref", format_func=lambda x: x or "— без файла (по умолчанию) —",
+                           help="Один файл можно использовать в разных профилях")
+            cur_rel = st.session_state.get("tts_ref", "")
+            r[1].button("Удалить выбранный референс", key="tts_ref_del", on_click=_ref_del, args=(root,), disabled=not cur_rel)
+            if cur_rel and (root / cur_rel).is_file():
+                st.audio((root / cur_rel).read_bytes())
             st.caption("Референс: 5–15 с чистой речи одного человека, без шума, музыки и эха, ровная нейтральная интонация, "
                        "слова/фразы с обычным понижением в конце, без длинных пауз. Тембр, темп, эмоции и «вопросительность» "
                        "в конце слов наследуются из референса — лучше всего читать список отдельных слов с ровным концом.")
