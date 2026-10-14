@@ -52,7 +52,7 @@ def img_buttons(c, key, vid, formkey, on_sel, on_like, on_del):
             on_sel(); st.rerun()
         if b[1].button("♥", key=f"{key}l{vid}", help="Лайк"):
             on_like(); st.rerun()
-        b[2].button("✏", key=f"{key}e{vid}", help="Доработать", on_click=_edit, args=(key + "par", vid, formkey))
+        b[2].button("✎", key=f"{key}e{vid}", help="Доработать", on_click=_edit, args=(key + "par", vid, formkey))
         if b[3].button("🗑", key=f"{key}d{vid}", help="Удалить"):
             on_del(); st.rerun()
 
