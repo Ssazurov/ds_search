@@ -433,10 +433,11 @@ _STORIES = """
   grid-template-columns: max-content minmax(0, 1fr) !important; column-gap: 6px !important; }
 .st-key-tabmain [class*="st-key-stimgtab"] button { justify-content: flex-start; text-align: left; }
 .st-key-tabmain [class*="st-key-stimgtab"] [data-testid="stColumn"] button p { text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.st-key-tabmain [class*="st-key-stimgtab"][class*="_rows"] [data-testid="stVerticalBlock"], .st-key-tabmain .st-key-stimgtab_rows [data-testid="stVerticalBlock"] { gap: 0 !important; }
-.st-key-tabmain [class*="st-key-stimgtab"][class*="_rows"] [data-testid="stHorizontalBlock"], .st-key-tabmain .st-key-stimgtab_rows [data-testid="stHorizontalBlock"] { gap: 0.5rem !important; min-height: 37px; align-items: center; }
-.st-key-tabmain [class*="st-key-stimgtab"][class*="_rows"] button, .st-key-tabmain .st-key-stimgtab_rows button { min-height: 36px !important; height: 36px !important; padding-top: 0 !important; padding-bottom: 0 !important; }
-.st-key-tabmain [class*="st-key-stimgtab"][class*="_rows"] p, .st-key-tabmain .st-key-stimgtab_rows p { margin: 0 !important; line-height: 36px; }
+.st-key-tabmain [class*="st-key-stimgtab"][class*="_rows"], .st-key-tabmain [class*="st-key-stimgtab"][class*="_rows"] [data-testid="stVerticalBlock"], .st-key-tabmain .st-key-stimgtab_rows [data-testid="stVerticalBlock"] { gap: 0 !important; }
+.st-key-tabmain [class*="st-key-stimgtab"][class*="_rows"] [data-testid="stHorizontalBlock"], .st-key-tabmain .st-key-stimgtab_rows [data-testid="stHorizontalBlock"] { gap: 0.5rem !important; min-height: 30px; height: 30px; align-items: center; margin: 0 !important; padding: 0 !important; }
+.st-key-tabmain [class*="st-key-stimgtab"][class*="_rows"] [data-testid="stElementContainer"], .st-key-tabmain [class*="st-key-stimgtab"][class*="_rows"] [data-testid="stColumn"], .st-key-tabmain .st-key-stimgtab_rows [data-testid="stElementContainer"], .st-key-tabmain .st-key-stimgtab_rows [data-testid="stColumn"] { margin: 0 !important; padding: 0 !important; min-height: 0 !important; justify-content: center; }
+.st-key-tabmain [class*="st-key-stimgtab"][class*="_rows"] button, .st-key-tabmain .st-key-stimgtab_rows button { min-height: 26px !important; height: 26px !important; padding-top: 0 !important; padding-bottom: 0 !important; }
+.st-key-tabmain [class*="st-key-stimgtab"][class*="_rows"] p, .st-key-tabmain .st-key-stimgtab_rows p { margin: 0 !important; line-height: 26px; }
 .st-key-tabmain [class*="st-key-stgen_all_"] [data-testid="stHorizontalBlock"] { grid-template-columns: 300px max-content !important; }
 .st-key-tabmain [class*="st-key-stp_"] [data-baseweb="input"], .st-key-tabmain [class*="st-key-stp_"] [data-baseweb="select"] > div {
   min-height: 32px !important; height: 32px !important; }
