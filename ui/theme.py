@@ -431,6 +431,8 @@ _STORIES = """
 .st-key-tabmain [class*="st-key-stgen_"] [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stNumberInput"]),
 .st-key-tabmain [class*="st-key-strf_"] [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stNumberInput"]) {
   grid-template-columns: max-content minmax(0, 1fr) !important; column-gap: 6px !important; }
+.st-key-tabmain .st-key-stimgtab button { justify-content: flex-start; text-align: left; }
+.st-key-tabmain .st-key-stimgtab [data-testid="stColumn"] button p { text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .st-key-tabmain [class*="st-key-stgen_all_"] [data-testid="stHorizontalBlock"] { grid-template-columns: 300px max-content !important; }
 .st-key-tabmain [class*="st-key-stp_"] [data-baseweb="input"], .st-key-tabmain [class*="st-key-stp_"] [data-baseweb="select"] > div {
   min-height: 32px !important; height: 32px !important; }
