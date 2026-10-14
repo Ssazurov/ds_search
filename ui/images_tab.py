@@ -21,9 +21,9 @@ def _fmt(r):
 
 def _table(sg, runs, cur):
     """Таблица запусков: клик по названию открывает запись, 🗑 — в последней ячейке строки."""
-    w = [4, 2, 5, 1, 1, 1]
+    w = [4, 2, 5, 1, 1, 1, 1]
     with st.container(key="stimgtab"):
-        for c, t in zip(st.columns(w), ["Название", "Время", "Промпт", "Шт.", "♥", ""]):
+        for c, t in zip(st.columns(w), ["Название", "Время", "Промпт", "Шт.", "♥", "Папка", ""]):
             if t:
                 c.markdown(f"**{t}**")
         for r in runs:
@@ -37,7 +37,12 @@ def _table(sg, runs, cur):
             c[2].markdown((p[:80] + ("…" if len(p) > 80 else "")).replace("*", "\\*"))
             c[3].markdown(str(len(r["variants"])))
             c[4].markdown(str(sum(1 for v in r["variants"] if v.get("liked"))))
-            if c[5].button("🗑", key=f"imgdel_{r['id']}", help="Удалить запись"):
+            vs = r["variants"]
+            f = next((v["file"] for v in vs if v["id"] == r["selected"]), vs[0]["file"] if vs else "")
+            if c[5].button("📂", key=f"imgdir_{r['id']}", help="Показать картинку в проводнике Windows", disabled=not vs):
+                d = sg.gwork().parent / "open"; d.mkdir(parents=True, exist_ok=True)
+                (d / f"{r['id']}.req").write_text(f); st.toast("Открываю проводник…")
+            if c[6].button("🗑", key=f"imgdel_{r['id']}", help="Удалить запись"):
                 _del_run(sg, r["id"], r.get("title") or p)
 
 
