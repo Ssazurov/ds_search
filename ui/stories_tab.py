@@ -119,7 +119,7 @@ def _gallery(sg, sid, k, state, key):
     for j in range(0, len(vs), 4):
         for c, v in zip(st.columns(4), vs[j:j + 4]):
             c.image(str(sg.work(sid) / v["file"]),
-                    caption=f"{v['id']} · seed {v['seed']}" + (" · ✅" if v["id"] == sel else "") + (" · ♥" if v.get("liked") else ""))
+                    caption=f"{rowtable.var_name(vs, v['id'])} · {v['id']} · seed {v['seed']}" + (" · ✅" if v["id"] == sel else "") + (" · ♥" if v.get("liked") else ""))
             rowtable.img_buttons(c, key, v["id"], f"strf_{sid}_{k}", lambda: sg.select(sid, k, v["id"]),
                                  lambda: sg.like(sid, k, v["id"], not v.get("liked")), lambda: sg.delete(sid, k, v["id"]))
 
@@ -313,7 +313,7 @@ def _step(sg, sid, story, state, ch, idx, s):
             with st.form(key="fm_" + f"strf_{sid}_{k}", border=False):
                 with st.container(key=f"strf_{sid}_{k}"):
                     r = st.columns(3)
-            par = r[0].selectbox("Доработать", [v["id"] for v in stp["variants"]], key=key + "par")
+            par = r[0].selectbox("Доработать", [v["id"] for v in stp["variants"]], key=key + "par", format_func=rowtable.var_fmt(stp["variants"]))
             ex = r[1].text_input("Что изменить (по-русски)", key=key + "rex", placeholder="убери полотенце со стены")
             go = r[2].form_submit_button("Доработать")
             if go and ex.strip():
@@ -381,7 +381,7 @@ def _sgallery(sg, scn, stt, key, kind=None, op=None):
     for j in range(0, len(vs), 4):
         for c, v in zip(st.columns(4), vs[j:j + 4]):
             c.image(str(sg.swork(scn) / v["file"]),
-                    caption=f"{v['id']} · seed {v['seed']}" + (" · ✅" if v["id"] == sel else "") + (" · ♥" if v.get("liked") else ""))
+                    caption=f"{rowtable.var_name(vs, v['id'])} · {v['id']} · seed {v['seed']}" + (" · ✅" if v["id"] == sel else "") + (" · ♥" if v.get("liked") else ""))
             flag = lambda: op and st.session_state.__setitem__(op, True)
             rowtable.img_buttons(c, key, v["id"], f"strf_{scn}" + (f"_{kind}" if kind else ""),
                                  lambda: (sg.sselect(scn, v["id"], kind), flag()),
@@ -493,7 +493,7 @@ def _scenes(sg):
             with st.form(key="fm_" + f"strf_{scn}", border=False):
                 with st.container(key=f"strf_{scn}"):
                     r = st.columns(3)
-            par = r[0].selectbox("Доработать", [v["id"] for v in stt["variants"]], key=k + "par")
+            par = r[0].selectbox("Доработать", [v["id"] for v in stt["variants"]], key=k + "par", format_func=rowtable.var_fmt(stt["variants"]))
             ex = r[1].text_input("Что изменить (по-русски)", key=k + "rex", placeholder="убери полотенце со стены")
             go = r[2].form_submit_button("Доработать")
             if go and ex.strip():
@@ -550,7 +550,7 @@ def _sstates(sg, scn, stt, items, sc, k):
                 with st.form(key="fm_" + f"strf_{scn}_{kd}", border=False):
                     with st.container(key=f"strf_{scn}_{kd}"):
                         r = st.columns(3)
-                par = r[0].selectbox("Доработать", [v["id"] for v in sk["variants"]], key=kk + "par")
+                par = r[0].selectbox("Доработать", [v["id"] for v in sk["variants"]], key=kk + "par", format_func=rowtable.var_fmt(sk["variants"]))
                 rx = r[1].text_input("Что изменить (по-русски)", key=kk + "rex")
                 go = r[2].form_submit_button("Доработать")
                 if go and rx.strip():
@@ -567,7 +567,7 @@ def _igallery(sg, iid, kind, stt, key):
     for j in range(0, len(vs), 4):
         for c, v in zip(st.columns(4), vs[j:j + 4]):
             c.image(str(sg.iwork(iid) / v["file"]),
-                    caption=f"{v['id']} · seed {v['seed']}" + (" · ✅" if v["id"] == sel else "") + (" · ♥" if v.get("liked") else ""))
+                    caption=f"{rowtable.var_name(vs, v['id'])} · {v['id']} · seed {v['seed']}" + (" · ✅" if v["id"] == sel else "") + (" · ♥" if v.get("liked") else ""))
             rowtable.img_buttons(c, key, v["id"], f"strf_{iid}_{kind.replace(':', '_')}", lambda: sg.iselect(iid, kind, v["id"]),
                                  lambda: sg.ilike(iid, kind, v["id"], not v.get("liked")), lambda: sg.idelete(iid, kind, v["id"]))
 
@@ -603,7 +603,7 @@ def _ikind(sg, iid, kind, title, stt):
         with st.form(key="fm_" + f"strf_{iid}_{ks}", border=False):
             with st.container(key=f"strf_{iid}_{ks}"):
                 r = st.columns(3)
-        par = r[0].selectbox("Доработать", [v["id"] for v in stt[kind]["variants"]], key=k + "par")
+        par = r[0].selectbox("Доработать", [v["id"] for v in stt[kind]["variants"]], key=k + "par", format_func=rowtable.var_fmt(stt[kind]["variants"]))
         ex = r[1].text_input("Что изменить (по-русски)", key=k + "rex", placeholder="сделай поменьше")
         go = r[2].form_submit_button("Доработать")
         if go and ex.strip():
