@@ -645,7 +645,7 @@ def _items(sg):
             si = sg.iload(i)
             hands = [v for kk, x in si.items() if kk.startswith(("hand:", "scene:", "on:")) for v in x["variants"]]
             rows.append((i, it["title"]["ru"], [len(si["view"]["variants"]), "✔" if si["view"]["selected"] else "—", len(hands)]))
-        rowtable.table("itm", ["Название", "Видов", "✔", "🖼"], [4, 1, 1, 1], rows, sel, "itm_sel",
+        rowtable.table("itm", ["Название", "Видов", "✔", "♥"], [4, 1, 1, 1], rows, sel, "itm_sel",
                        lambda i, n: _del_obj(sg, "item", i, n))
     if not items:
         return
