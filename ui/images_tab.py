@@ -14,8 +14,9 @@ def _when(r, fmt="%d.%m %H:%M"):
 
 
 def _fmt(r):
-    p = (r.get("title") or r["prompt"] or "—").replace("\n", " ")
-    return f"{_when(r)} · {p[:60]}{'…' if len(p) > 60 else ''} · {len(r['variants'])} шт."
+    p = (r["prompt"] or "—").replace("\n", " ")
+    t = r.get("title")
+    return f"{t + ' · ' if t else ''}{_when(r)} · {p[:60]}{'…' if len(p) > 60 else ''} · {len(r['variants'])} шт."
 
 
 def _list(runs):
@@ -56,14 +57,18 @@ def render():
     runs = sorted(sg.gload()["runs"], key=lambda r: r["created"], reverse=True)
     by = {r["id"]: r for r in runs}
     ids = ["new"] + list(by)
-    if st.session_state.get("img_sel", "new") not in ids:
-        st.session_state["img_sel"] = "new"
+    ss = st.session_state
+    if "img_sel" not in ss and ss.get("img_cur") in ids:
+        ss["img_sel"] = ss["img_cur"]  # выбор не сбрасывается операциями внутри записи
+    if ss.get("img_sel", "new") not in ids:
+        ss["img_sel"] = "new"
     if runs:
         _list(runs)
     with st.container(key="sthead_top"):
         top = st.columns(2, vertical_alignment="center")
     rid = top[0].selectbox("Запуск", ids, key="img_sel", bind="query-params",
                            format_func=lambda i: "— новый запуск —" if i == "new" else _fmt(by[i]))
+    st.session_state["img_cur"] = rid
     run = by.get(rid)
     if run and top[1].button("Удалить запуск", key=f"imgdel_{rid}"):
         _del_run(sg, rid, run["prompt"])
