@@ -1,5 +1,8 @@
 """Общая таблица записей вкладок «Истории» (ds_search#702): название-кнопка, данные, 🗑 в последней ячейке."""
+import re
+
 import streamlit as st
+import streamlit.components.v1 as components
 
 VISIBLE, ROW_H = 8, 30  # макс. видимых строк, высота строки, px
 
@@ -34,3 +37,32 @@ def table(prefix, heads, widths, rows, cur, key, on_delete):
                     cc.markdown(str(v).replace("*", "\\*"))
                 if c[-1].button("🗑", key=f"{prefix}_del_{rid}", help="Удалить"):
                     on_delete(rid, name)
+
+
+def _edit(parkey, vid, formkey):
+    st.session_state[parkey] = vid
+    st.session_state["_scroll_to"] = formkey
+
+
+def img_buttons(c, key, vid, formkey, on_sel, on_like, on_del):
+    """Кнопки под картинкой: ✔ ♥ ✏ с равными отступами, 🗑 у правого края. ✏ — выбрать картинку в «Доработать» и прокрутить к блоку."""
+    with c, st.container(key=f"gbtn_{key}{vid}"):
+        b = st.columns(4)
+        if b[0].button("✔", key=f"{key}s{vid}", help="Выбрать"):
+            on_sel(); st.rerun()
+        if b[1].button("♥", key=f"{key}l{vid}", help="Лайк"):
+            on_like(); st.rerun()
+        b[2].button("✏", key=f"{key}e{vid}", help="Доработать", on_click=_edit, args=(key + "par", vid, formkey))
+        if b[3].button("🗑", key=f"{key}d{vid}", help="Удалить"):
+            on_del(); st.rerun()
+
+
+def scroll_pending():
+    """Вызывать в конце страницы: если нажали ✏, прокручивает к блоку «Доработать»."""
+    k = st.session_state.pop("_scroll_to", None)
+    if k:
+        cls = re.sub(r"[^A-Za-z0-9_-]", "-", k)
+        components.html(
+            "<script>let n=0;const t=setInterval(()=>{const e=window.parent.document.querySelector('[class*=\"st-key-" + cls + "\"]');"
+            "if(e){e.scrollIntoView({behavior:'smooth',block:'center'});clearInterval(t)}else if(++n>20)clearInterval(t)},100)</script>",
+            height=0)
