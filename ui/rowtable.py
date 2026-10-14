@@ -66,3 +66,14 @@ def scroll_pending():
             "<script>let n=0;const t=setInterval(()=>{const e=window.parent.document.querySelector('[class*=\"st-key-" + cls + "\"]');"
             "if(e){e.scrollIntoView({behavior:'smooth',block:'center'});clearInterval(t)}else if(++n>20)clearInterval(t)},100)</script>",
             height=0)
+
+
+def var_name(vs, vid):
+    """Временное имя варианта по порядку в списке: «вар. 01»."""
+    i = next((n for n, v in enumerate(vs) if v["id"] == vid), -1)
+    return f"вар. {i + 1:02d}"
+
+
+def var_fmt(vs):
+    """format_func для «Доработать»: «вар. 01 · <id>»."""
+    return lambda vid: f"{var_name(vs, vid)} · {vid}"

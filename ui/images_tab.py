@@ -53,7 +53,7 @@ def _gallery(sg, rid, run):
     for j in range(0, len(vs), 4):
         for c, v in zip(st.columns(4), vs[j:j + 4]):
             c.image(str(sg.gwork() / v["file"]),
-                    caption=f"{v['id']} · seed {v['seed']}" + (" · ✅" if v["id"] == sel else "") + (" · ♥" if v.get("liked") else "")
+                    caption=f"{rowtable.var_name(vs, v['id'])} · {v['id']} · seed {v['seed']}" + (" · ✅" if v["id"] == sel else "") + (" · ♥" if v.get("liked") else "")
                     + (f" · из {v['parent']}" if v.get("parent") else ""))
             rowtable.img_buttons(c, key, v["id"], f"strf_img_{rid}", lambda: sg.gselect(rid, v["id"]),
                                  lambda: sg.glike(rid, v["id"], not v.get("liked")), lambda: sg.gdelete(rid, v["id"]))
@@ -127,7 +127,7 @@ def _render():
         with st.form(key=f"fm_strf_img_{rid}", border=False):
             with st.container(key=f"strf_img_{rid}"):
                 r = st.columns(3)
-        par = r[0].selectbox("Доработать", vids, index=vids.index(run["selected"]) if run["selected"] in vids else 0, key=key + "par")
+        par = r[0].selectbox("Доработать", vids, index=vids.index(run["selected"]) if run["selected"] in vids else 0, key=key + "par", format_func=rowtable.var_fmt(run["variants"]))
         ex = r[1].text_input("Что изменить (по-русски)", key=key + "rex", placeholder="сделай фон светлее")
         if r[2].form_submit_button("Доработать") and ex.strip():
             with st.spinner("Доработка…"):
