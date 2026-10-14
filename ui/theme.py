@@ -439,6 +439,9 @@ _STORIES = """
 .st-key-tabmain [class*="st-key-stimgtab"][class*="_rows"] [data-testid="stElementContainer"], .st-key-tabmain [class*="st-key-stimgtab"][class*="_rows"] [data-testid="stColumn"], .st-key-tabmain .st-key-stimgtab_rows [data-testid="stElementContainer"], .st-key-tabmain .st-key-stimgtab_rows [data-testid="stColumn"] { margin: 0 !important; padding: 0 !important; min-height: 0 !important; justify-content: center; }
 .st-key-tabmain [class*="st-key-stimgtab"][class*="_rows"] button, .st-key-tabmain .st-key-stimgtab_rows button { min-height: 26px !important; height: 26px !important; padding-top: 0 !important; padding-bottom: 0 !important; }
 .st-key-tabmain [class*="st-key-stimgtab"][class*="_rows"] p, .st-key-tabmain .st-key-stimgtab_rows p { margin: 0 !important; line-height: 26px; }
+.st-key-tabmain [class*="st-key-stimgtab"] [data-testid="stColumn"]:first-child :is([data-testid="stElementContainer"], [data-testid="stButton"], button) { width: 100% !important; }
+.st-key-tabmain [class*="st-key-stimgtab"] [data-testid="stColumn"]:first-child button, .st-key-tabmain [class*="st-key-stimgtab"] [data-testid="stColumn"]:first-child button * { justify-content: flex-start !important; text-align: left !important; }
+.st-key-tabmain [class*="st-key-stimgtab"] [data-testid="stColumn"]:first-child button [data-testid="stMarkdownContainer"] { width: 100%; }
 .st-key-tabmain [class*="st-key-gbtn_"] [data-testid="stHorizontalBlock"] { gap: 8px !important; flex-wrap: nowrap !important; }
 .st-key-tabmain [class*="st-key-gbtn_"] [data-testid="stColumn"] { width: auto !important; flex: 0 0 auto !important; min-width: 0 !important; }
 .st-key-tabmain [class*="st-key-gbtn_"] [data-testid="stColumn"]:last-child { margin-left: auto; }
