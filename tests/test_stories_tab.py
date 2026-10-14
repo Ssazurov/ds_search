@@ -114,4 +114,4 @@ def test_items_store(tmp_path, monkeypatch):
 def test_chars_tab():
     at = AppTest.from_function(_app, default_timeout=30).run()
     assert not at.exception
-    assert any(s.label == "Персонаж" for s in at.selectbox)
+    assert any(str(b.key).startswith("chr_open_") for b in at.button)
