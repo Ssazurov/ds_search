@@ -14,12 +14,12 @@ def _when(r, fmt="%d.%m %H:%M"):
 
 
 def _fmt(r):
-    p = (r["prompt"] or "—").replace("\n", " ")
+    p = (r.get("title") or r["prompt"] or "—").replace("\n", " ")
     return f"{_when(r)} · {p[:60]}{'…' if len(p) > 60 else ''} · {len(r['variants'])} шт."
 
 
 def _list(runs):
-    st.dataframe([{"время": _when(r, "%d.%m.%Y %H:%M"), "промпт": r["prompt"], "картинок": len(r["variants"]),
+    st.dataframe([{"время": _when(r, "%d.%m.%Y %H:%M"), "название": r.get("title", ""), "промпт": r["prompt"], "картинок": len(r["variants"]),
                    "♥": sum(1 for v in r["variants"] if v.get("liked"))} for r in runs], hide_index=True, use_container_width=True)
 
 
@@ -69,6 +69,9 @@ def render():
         _del_run(sg, rid, run["prompt"])
     key = f"img_{rid}_"
     with st.container(key=f"stp_img_{rid}"):
+        title = st.text_input("Название", run.get("title", "") if run else "", key=key + "t")
+        if run and title.strip() != run.get("title", ""):
+            sg.gset_title(rid, title.strip()); st.rerun()
         prompt = st.text_area("Промпт", run["prompt"] if run else "", height=110, key=key + "p",
                               placeholder="Что нарисовать (по-русски или по-английски)")
     with st.form(key=f"fm_stgen_img_{rid}", border=False):
@@ -80,6 +83,8 @@ def render():
         if not prompt.strip():
             st.warning("Введите промпт"); return
         r_id = rid if run else sg.gnew(prompt.strip())
+        if not run and title.strip():
+            sg.gset_title(r_id, title.strip())
         with st.spinner(f"Генерация {int(n)} изобр. (~6 с/шт)…"):
             try:
                 sg.ggen(r_id, int(n), prompt.strip(), extra=extra.strip())
