@@ -6,6 +6,7 @@ import time
 
 import streamlit as st
 
+from ui import rowtable
 from ui.rowtable import ROW_H, VISIBLE
 from ui.stories_tab import _sg
 
@@ -54,13 +55,8 @@ def _gallery(sg, rid, run):
             c.image(str(sg.gwork() / v["file"]),
                     caption=f"{v['id']} · seed {v['seed']}" + (" · ✅" if v["id"] == sel else "") + (" · ♥" if v.get("liked") else "")
                     + (f" · из {v['parent']}" if v.get("parent") else ""))
-            b = c.columns(3)
-            if b[0].button("✔", key=f"{key}s{v['id']}", help="Выбрать"):
-                sg.gselect(rid, v["id"]); st.rerun()
-            if b[1].button("♥", key=f"{key}l{v['id']}", help="Лайк"):
-                sg.glike(rid, v["id"], not v.get("liked")); st.rerun()
-            if b[2].button("🗑", key=f"{key}d{v['id']}", help="Удалить"):
-                sg.gdelete(rid, v["id"]); st.rerun()
+            rowtable.img_buttons(c, key, v["id"], f"strf_img_{rid}", lambda: sg.gselect(rid, v["id"]),
+                                 lambda: sg.glike(rid, v["id"], not v.get("liked")), lambda: sg.gdelete(rid, v["id"]))
 
 
 @st.dialog("Удалить запуск?")
@@ -76,7 +72,7 @@ def _del_run(sg, rid, prompt):
         st.rerun()
 
 
-def render():
+def _render():
     sg, ss = _sg(), st.session_state
     if "img_goto" in ss:
         ss["img_sel"] = ss.pop("img_goto")
@@ -145,3 +141,8 @@ def render():
             a = st.columns(2)
         if a[0].button("Удалить без ♥ (вся история)", key="img_prall"):
             st.toast(f"Удалено: {sg.gprune()}"); st.rerun()
+
+
+def render():
+    _render()
+    rowtable.scroll_pending()

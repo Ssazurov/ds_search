@@ -120,13 +120,8 @@ def _gallery(sg, sid, k, state, key):
         for c, v in zip(st.columns(4), vs[j:j + 4]):
             c.image(str(sg.work(sid) / v["file"]),
                     caption=f"{v['id']} · seed {v['seed']}" + (" · ✅" if v["id"] == sel else "") + (" · ♥" if v.get("liked") else ""))
-            b = c.columns(3)
-            if b[0].button("✔", key=f"{key}s{v['id']}", help="Выбрать"):
-                sg.select(sid, k, v["id"]); st.rerun()
-            if b[1].button("♥", key=f"{key}l{v['id']}", help="Лайк"):
-                sg.like(sid, k, v["id"], not v.get("liked")); st.rerun()
-            if b[2].button("🗑", key=f"{key}d{v['id']}", help="Удалить"):
-                sg.delete(sid, k, v["id"]); st.rerun()
+            rowtable.img_buttons(c, key, v["id"], f"strf_{sid}_{k}", lambda: sg.select(sid, k, v["id"]),
+                                 lambda: sg.like(sid, k, v["id"], not v.get("liked")), lambda: sg.delete(sid, k, v["id"]))
 
 
 def _font(size):
@@ -387,13 +382,11 @@ def _sgallery(sg, scn, stt, key, kind=None, op=None):
         for c, v in zip(st.columns(4), vs[j:j + 4]):
             c.image(str(sg.swork(scn) / v["file"]),
                     caption=f"{v['id']} · seed {v['seed']}" + (" · ✅" if v["id"] == sel else "") + (" · ♥" if v.get("liked") else ""))
-            b = c.columns(3)
-            if b[0].button("✔", key=f"{key}s{v['id']}", help="Выбрать"):
-                sg.sselect(scn, v["id"], kind); op and st.session_state.__setitem__(op, True); st.rerun()
-            if b[1].button("♥", key=f"{key}l{v['id']}", help="Лайк"):
-                sg.slike(scn, v["id"], not v.get("liked"), kind); op and st.session_state.__setitem__(op, True); st.rerun()
-            if b[2].button("🗑", key=f"{key}d{v['id']}", help="Удалить"):
-                sg.sdelete(scn, v["id"], kind); op and st.session_state.__setitem__(op, True); st.rerun()
+            flag = lambda: op and st.session_state.__setitem__(op, True)
+            rowtable.img_buttons(c, key, v["id"], f"strf_{scn}" + (f"_{kind}" if kind else ""),
+                                 lambda: (sg.sselect(scn, v["id"], kind), flag()),
+                                 lambda: (sg.slike(scn, v["id"], not v.get("liked"), kind), flag()),
+                                 lambda: (sg.sdelete(scn, v["id"], kind), flag()))
 
 
 def _scenes_list(sg, scenes, cur):
@@ -575,13 +568,8 @@ def _igallery(sg, iid, kind, stt, key):
         for c, v in zip(st.columns(4), vs[j:j + 4]):
             c.image(str(sg.iwork(iid) / v["file"]),
                     caption=f"{v['id']} · seed {v['seed']}" + (" · ✅" if v["id"] == sel else "") + (" · ♥" if v.get("liked") else ""))
-            b = c.columns(3)
-            if b[0].button("✔", key=f"{key}s{v['id']}", help="Выбрать"):
-                sg.iselect(iid, kind, v["id"]); st.rerun()
-            if b[1].button("♥", key=f"{key}l{v['id']}", help="Лайк"):
-                sg.ilike(iid, kind, v["id"], not v.get("liked")); st.rerun()
-            if b[2].button("🗑", key=f"{key}d{v['id']}", help="Удалить"):
-                sg.idelete(iid, kind, v["id"]); st.rerun()
+            rowtable.img_buttons(c, key, v["id"], f"strf_{iid}_{kind.replace(':', '_')}", lambda: sg.iselect(iid, kind, v["id"]),
+                                 lambda: sg.ilike(iid, kind, v["id"], not v.get("liked")), lambda: sg.idelete(iid, kind, v["id"]))
 
 
 def _ikind(sg, iid, kind, title, stt):
@@ -806,7 +794,7 @@ def _prompts(sg):
         st.rerun()
 
 
-def render():
+def _render():
     sg = _sg()
     t_st, t_sc, t_it, t_ch, t_pr = persist.tabs(["Истории", "Сцены", "Предметы", "Персонажи", "Промпты"], "st_main")
     with t_st:
@@ -1099,3 +1087,8 @@ def _pub_status(sg, sid):
                     '<span style="display:inline-block;width:14px;height:14px;border:2px solid #c9ced8;border-top-color:#3b6fd1;'
                     'border-radius:50%;animation:dsspin .8s linear infinite;vertical-align:-2px;margin-right:8px"></span>'
                     f'<span style="font-size:13px;opacity:.8">Публикация: {ps}</span>', unsafe_allow_html=True)
+
+
+def render():
+    _render()
+    rowtable.scroll_pending()
