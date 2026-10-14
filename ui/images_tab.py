@@ -19,9 +19,24 @@ def _fmt(r):
     return f"{t + ' · ' if t else ''}{_when(r)} · {p[:60]}{'…' if len(p) > 60 else ''} · {len(r['variants'])} шт."
 
 
-def _list(runs):
-    st.dataframe([{"время": _when(r, "%d.%m.%Y %H:%M"), "название": r.get("title", ""), "промпт": r["prompt"], "картинок": len(r["variants"]),
-                   "♥": sum(1 for v in r["variants"] if v.get("liked"))} for r in runs], hide_index=True, use_container_width=True)
+def _table(sg, runs, cur):
+    """Таблица запусков: клик по названию открывает запись, 🗑 — в последней ячейке строки."""
+    w = [4, 2, 5, 1, 1, 1]
+    with st.container(key="stimgtab"):
+        for c, t in zip(st.columns(w), ["Название", "Время", "Промпт", "Шт.", "♥", ""]):
+            c.markdown(f"**{t}**")
+        for r in runs:
+            c = st.columns(w, vertical_alignment="center")
+            p = (r["prompt"] or "").replace("\n", " ")
+            if c[0].button(r.get("title") or p[:40] or "—", key=f"imgopen_{r['id']}", use_container_width=True,
+                           type="primary" if r["id"] == cur else "secondary"):
+                st.session_state["img_sel"] = r["id"]; st.rerun()
+            c[1].write(_when(r, "%d.%m.%Y %H:%M"))
+            c[2].write(p[:80] + ("…" if len(p) > 80 else ""))
+            c[3].write(len(r["variants"]))
+            c[4].write(sum(1 for v in r["variants"] if v.get("liked")))
+            if c[5].button("🗑", key=f"imgdel_{r['id']}", help="Удалить запись"):
+                _del_run(sg, r["id"], r.get("title") or p)
 
 
 def _gallery(sg, rid, run):
@@ -45,33 +60,33 @@ def _del_run(sg, rid, prompt):
     st.write(f"Удалить запуск «{prompt[:80]}» вместе с картинками?")
     c = st.columns(2)
     if c[0].button("Удалить", type="primary", key=f"imgdelok_{rid}"):
-        sg.gdelete_run(rid); st.session_state["img_goto"] = "new"; st.rerun()
+        sg.gdelete_run(rid)
+        if st.session_state.get("img_sel") == rid:
+            st.session_state["img_sel"] = "new"
+        st.rerun()
     if c[1].button("Отмена", key=f"imgdelno_{rid}"):
         st.rerun()
 
 
 def render():
-    sg = _sg()
-    if "img_goto" in st.session_state:
-        st.session_state["img_sel"] = st.session_state.pop("img_goto")
+    sg, ss = _sg(), st.session_state
+    if "img_goto" in ss:
+        ss["img_sel"] = ss.pop("img_goto")
     runs = sorted(sg.gload()["runs"], key=lambda r: r["created"], reverse=True)
     by = {r["id"]: r for r in runs}
-    ids = ["new"] + list(by)
-    ss = st.session_state
-    if "img_sel" not in ss and ss.get("img_cur") in ids:
-        ss["img_sel"] = ss["img_cur"]  # выбор не сбрасывается операциями внутри записи
-    if ss.get("img_sel", "new") not in ids:
+    if "img_sel" not in ss:
+        ss["img_sel"] = st.query_params.get("img", "new")
+    if ss["img_sel"] not in by:
         ss["img_sel"] = "new"
-    if runs:
-        _list(runs)
+    rid = ss["img_sel"]
+    st.query_params["img"] = rid
     with st.container(key="sthead_top"):
-        top = st.columns(2, vertical_alignment="center")
-    rid = top[0].selectbox("Запуск", ids, key="img_sel", bind="query-params",
-                           format_func=lambda i: "— новый запуск —" if i == "new" else _fmt(by[i]))
-    st.session_state["img_cur"] = rid
+        top = st.columns([1, 4], vertical_alignment="center")
+    if top[0].button("＋ Новый запуск", key="img_new", type="primary" if rid == "new" else "secondary"):
+        ss["img_sel"] = "new"; st.rerun()
+    if runs:
+        _table(sg, runs, rid)
     run = by.get(rid)
-    if run and top[1].button("Удалить запуск", key=f"imgdel_{rid}"):
-        _del_run(sg, rid, run["prompt"])
     key = f"img_{rid}_"
     with st.container(key=f"stp_img_{rid}"):
         title = st.text_input("Название", run.get("title", "") if run else "", key=key + "t")
