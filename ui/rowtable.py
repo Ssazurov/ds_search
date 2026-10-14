@@ -27,7 +27,7 @@ def table(prefix, heads, widths, rows, cur, key, on_delete):
             for rid, name, cells in rows:
                 c = st.columns(w, vertical_alignment="center")
                 on = rid == cur
-                if c[0].button(("▶ " if on else "") + (name or rid), key=f"{prefix}_open_{rid}", use_container_width=True,
+                if c[0].button((name or rid), key=f"{prefix}_open_{rid}", use_container_width=True,
                                type="secondary" if on else "tertiary"):
                     st.session_state[key] = rid; st.rerun()
                 for cc, v in zip(c[1:-1], cells):

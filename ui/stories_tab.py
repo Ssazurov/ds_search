@@ -397,9 +397,9 @@ def _sgallery(sg, scn, stt, key, kind=None, op=None):
 
 
 def _scenes_list(sg, scenes, cur):
-    rows = [(k, sc["title"]["ru"], [len(sc.get("items", [])), len(sg.sload(k)["variants"]), "да" if sg.sload(k)["selected"] else "нет"])
+    rows = [(k, sc["title"]["ru"], [len(sc.get("items", [])), len(sg.sload(k)["variants"]), "✔" if sg.sload(k)["selected"] else "—"])
             for k, sc in scenes.items()]
-    rowtable.table("scn", ["Название", "Предметов", "Видов", "Выбран"], [4, 1, 1, 1], rows, cur, "scn_sel",
+    rowtable.table("scn", ["Название", "Предметов", "Видов", "✔"], [4, 1, 1, 1], rows, cur, "scn_sel",
                    lambda i, n: _del_obj(sg, "scene", i, n))
 
 
@@ -407,8 +407,6 @@ def _scenes(sg):
     """Вкладка «Сцены» (ds_search#621): статика помещения + камера, предметы с размещением, виды (5), выбор/♥/доработка."""
     scenes, items = sg.lib("scenes"), sg.lib("items")
     scn = rowtable.current("scn_sel", list(scenes))
-    if scenes:
-        _scenes_list(sg, scenes, scn)
     with st.expander("Создать сцену"):
         with st.container(key="scmeta_nsc"):
             c = st.columns(3)
@@ -429,6 +427,8 @@ def _scenes(sg):
                     obj["title"] = {**obj.get("title", {}), "ru": nt.strip() or f"{scenes[tpl]['title'].get('ru', tpl)} (копия)"}
                 scenes[nid] = obj
                 sg.lib_save("scenes", scenes); st.rerun()
+    if scenes:
+        _scenes_list(sg, scenes, scn)
     if not scenes:
         return
     with st.container(key="sthead_top_sn"):
@@ -631,14 +631,6 @@ def _items(sg):
     """Вкладка «Предметы» (ds_search#622): описание, вид на нейтральном фоне и «в руках» (герой или любой персонаж), выбор/♥/доработка."""
     items, hold = sg.lib("items"), sg.holders()
     sel = rowtable.current("itm_sel", list(items))
-    if items:
-        rows = []
-        for i, it in items.items():
-            si = sg.iload(i)
-            hands = [v for kk, x in si.items() if kk.startswith(("hand:", "scene:", "on:")) for v in x["variants"]]
-            rows.append((i, it["title"]["ru"], [len(si["view"]["variants"]), "да" if si["view"]["selected"] else "нет", len(hands)]))
-        rowtable.table("itm", ["Название", "Видов", "Вид выбран", "Др. виды"], [4, 1, 1, 1], rows, sel, "itm_sel",
-                       lambda i, n: _del_obj(sg, "item", i, n))
     with st.expander("Создать предмет"):
         with st.container(key="scmeta_nit"):
             n = st.columns(4)
@@ -659,6 +651,14 @@ def _items(sg):
                     if it_d.strip():
                         obj["desc"] = {**obj.get("desc", {}), "ru": it_d.strip()}
                 items[iid] = obj; sg.lib_save("items", items); st.rerun()
+    if items:
+        rows = []
+        for i, it in items.items():
+            si = sg.iload(i)
+            hands = [v for kk, x in si.items() if kk.startswith(("hand:", "scene:", "on:")) for v in x["variants"]]
+            rows.append((i, it["title"]["ru"], [len(si["view"]["variants"]), "✔" if si["view"]["selected"] else "—", len(hands)]))
+        rowtable.table("itm", ["Название", "Видов", "✔", "🖼"], [4, 1, 1, 1], rows, sel, "itm_sel",
+                       lambda i, n: _del_obj(sg, "item", i, n))
     if not items:
         return
     with st.container(key="sthead_top_it"):
@@ -698,12 +698,6 @@ def _chars(sg):
     """Вкладка «Персонажи» (ds_search#641): реестр characters.yaml — герой и остальные, одежда (общая и по варианту героя), референс-листы."""
     ch = sg.registry(); chs = ch["characters"]
     sel = rowtable.current("chr_sel", list(chs))
-    rowtable.table("chr", ["Имя", "Тип", "Одежд"], [4, 2, 1],
-                   [(i, sg.txt_ru(c.get("name")) or i, ["герой" if "variants" in c else "персонаж", len(c.get("outfits") or {})]) for i, c in chs.items()],
-                   sel, "chr_sel", lambda i, n: _del_obj(sg, "char", i, n))
-    nloc = len([l for l in (ch.get("locations") or {}) if l not in sg.lib("scenes")])
-    if nloc and st.button(f"Перенести локации реестра в сцены ({nloc})", key="chr_mig"):
-        st.toast(f"Добавлено сцен: {sg.migrate_locations()}"); st.rerun()
     with st.expander("Создать персонажа"):
         with st.container(key="scmeta_nch"):
             n = st.columns(3)
@@ -716,6 +710,12 @@ def _chars(sg):
             else:
                 chs[cid] = {"kind": "character", "name": {"ru": nm.strip()}, "bible": bb.strip(), "refs": [], "outfits": {}}
                 sg.registry_save(ch); st.rerun()
+    rowtable.table("chr", ["Имя", "Тип", "Одежд"], [4, 2, 1],
+                   [(i, sg.txt_ru(c.get("name")) or i, ["герой" if "variants" in c else "персонаж", len(c.get("outfits") or {})]) for i, c in chs.items()],
+                   sel, "chr_sel", lambda i, n: _del_obj(sg, "char", i, n))
+    nloc = len([l for l in (ch.get("locations") or {}) if l not in sg.lib("scenes")])
+    if nloc and st.button(f"Перенести локации реестра в сцены ({nloc})", key="chr_mig"):
+        st.toast(f"Добавлено сцен: {sg.migrate_locations()}"); st.rerun()
     cid = sel
     c = chs[cid]; hero = "variants" in c; vs = list(c.get("variants", {}))
     with st.container(border=True, key=f"stp_ch_{cid}"):
@@ -855,9 +855,9 @@ def _stories(sg):
     ids = sorted(p.stem for p in (sg.ROOT / "stories").glob("*.yaml") if p.stem != "categories")
     ch = sg.registry()
     sid = rowtable.current("stories_sel", ids)
+    _create(sg, ch)
     if ids:
         _list(sg, ids, sid)
-    _create(sg, ch)
     if not ids:
         return
     with st.container(key="sthead_top"):
