@@ -6,6 +6,7 @@ import time
 
 import streamlit as st
 
+from ui.rowtable import ROW_H, VISIBLE
 from ui.stories_tab import _sg
 
 
@@ -26,24 +27,25 @@ def _table(sg, runs, cur):
         for c, t in zip(st.columns(w), ["Название", "Время", "Промпт", "Шт.", "♥", "Папка", ""]):
             if t:
                 c.markdown(f"**{t}**")
-        for r in runs:
-            c = st.columns(w, vertical_alignment="center")
-            p = (r["prompt"] or "").replace("\n", " ")
-            on = r["id"] == cur
-            if c[0].button(("▶ " if on else "") + (r.get("title") or p[:40] or "—"), key=f"imgopen_{r['id']}",
-                           use_container_width=True, type="secondary" if on else "tertiary"):
-                st.session_state["img_sel"] = r["id"]; st.rerun()
-            c[1].markdown(_when(r, "%d.%m.%Y %H:%M"))
-            c[2].markdown((p[:80] + ("…" if len(p) > 80 else "")).replace("*", "\\*"))
-            c[3].markdown(str(len(r["variants"])))
-            c[4].markdown(str(sum(1 for v in r["variants"] if v.get("liked"))))
-            vs = r["variants"]
-            f = next((v["file"] for v in vs if v["id"] == r["selected"]), vs[0]["file"] if vs else "")
-            if c[5].button("📂", key=f"imgdir_{r['id']}", help="Показать картинку в проводнике Windows", disabled=not vs):
-                d = sg.gwork().parent / "open"; d.mkdir(parents=True, exist_ok=True)
-                (d / f"{r['id']}.req").write_text(f); st.toast("Открываю проводник…")
-            if c[6].button("🗑", key=f"imgdel_{r['id']}", help="Удалить запись"):
-                _del_run(sg, r["id"], r.get("title") or p)
+        with st.container(height=VISIBLE * ROW_H if len(runs) > VISIBLE else "content", border=False, key="stimgtab_rows"):
+            for r in runs:
+                c = st.columns(w, vertical_alignment="center")
+                p = (r["prompt"] or "").replace("\n", " ")
+                on = r["id"] == cur
+                if c[0].button(("▶ " if on else "") + (r.get("title") or p[:40] or "—"), key=f"imgopen_{r['id']}",
+                               use_container_width=True, type="secondary" if on else "tertiary"):
+                    st.session_state["img_sel"] = r["id"]; st.rerun()
+                c[1].markdown(_when(r, "%d.%m.%Y %H:%M"))
+                c[2].markdown((p[:80] + ("…" if len(p) > 80 else "")).replace("*", "\\*"))
+                c[3].markdown(str(len(r["variants"])))
+                c[4].markdown(str(sum(1 for v in r["variants"] if v.get("liked"))))
+                vs = r["variants"]
+                f = next((v["file"] for v in vs if v["id"] == r["selected"]), vs[0]["file"] if vs else "")
+                if c[5].button("📂", key=f"imgdir_{r['id']}", help="Показать картинку в проводнике Windows", disabled=not vs):
+                    d = sg.gwork().parent / "open"; d.mkdir(parents=True, exist_ok=True)
+                    (d / f"{r['id']}.req").write_text(f); st.toast("Открываю проводник…")
+                if c[6].button("🗑", key=f"imgdel_{r['id']}", help="Удалить запись"):
+                    _del_run(sg, r["id"], r.get("title") or p)
 
 
 def _gallery(sg, rid, run):
