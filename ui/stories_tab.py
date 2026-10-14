@@ -13,6 +13,8 @@ from pathlib import Path
 
 import streamlit as st
 
+from ui import rowtable
+
 from ui import persist
 import yaml
 
@@ -45,14 +47,14 @@ def _status(stt):
     return "в работе" if any(x["variants"] for x in stt["steps"].values()) else "черновик"
 
 
-def _list(sg, ids):
+def _list(sg, ids, cur):
     rows = []
     for i in ids:
         s, stt = sg.load_story(i), sg.load_state(i)
-        rows.append({"id": i, "название": s["title"]["ru"], "категория": s.get("category", ""), "уровень": s.get("level", ""),
-                     "герой": stt["hero"], "статус": _status(stt), "шагов": len(s["steps"]),
-                     "с картинкой": sum(1 for x in stt["steps"].values() if x["selected"])})
-    st.dataframe(rows, hide_index=True, use_container_width=True)
+        rows.append((i, s["title"]["ru"], [s.get("category", ""), s.get("level", ""), stt["hero"], _status(stt), len(s["steps"]),
+                                            sum(1 for x in stt["steps"].values() if x["selected"])]))
+    rowtable.table("sto", ["Название", "Категория", "Уровень", "Герой", "Статус", "Шагов", "С картинкой"], [4, 2, 1, 1, 2, 1, 2],
+                   rows, cur, "stories_sel", lambda i, n: _del_story(sg, i, n))
 
 
 def _clone_story(sg, src, sid, title):
@@ -394,20 +396,19 @@ def _sgallery(sg, scn, stt, key, kind=None, op=None):
                 sg.sdelete(scn, v["id"], kind); op and st.session_state.__setitem__(op, True); st.rerun()
 
 
-def _scenes_list(sg, scenes):
-    rows = []
-    for k, sc in scenes.items():
-        stt = sg.sload(k)
-        rows.append({"id": k, "название": sc["title"]["ru"], "предметов": len(sc.get("items", [])), "видов": len(stt["variants"]),
-                     "выбран": "да" if stt["selected"] else "нет"})
-    st.dataframe(rows, hide_index=True, use_container_width=True)
+def _scenes_list(sg, scenes, cur):
+    rows = [(k, sc["title"]["ru"], [len(sc.get("items", [])), len(sg.sload(k)["variants"]), "да" if sg.sload(k)["selected"] else "нет"])
+            for k, sc in scenes.items()]
+    rowtable.table("scn", ["Название", "Предметов", "Видов", "Выбран"], [4, 1, 1, 1], rows, cur, "scn_sel",
+                   lambda i, n: _del_obj(sg, "scene", i, n))
 
 
 def _scenes(sg):
     """Вкладка «Сцены» (ds_search#621): статика помещения + камера, предметы с размещением, виды (5), выбор/♥/доработка."""
     scenes, items = sg.lib("scenes"), sg.lib("items")
+    scn = rowtable.current("scn_sel", list(scenes))
     if scenes:
-        _scenes_list(sg, scenes)
+        _scenes_list(sg, scenes, scn)
     with st.expander("Создать сцену"):
         with st.container(key="scmeta_nsc"):
             c = st.columns(3)
@@ -431,10 +432,9 @@ def _scenes(sg):
     if not scenes:
         return
     with st.container(key="sthead_top_sn"):
-        top = st.columns(3)
-    scn = top[0].selectbox("Сцена", list(scenes), format_func=lambda k: scenes[k]["title"]["ru"], key="scn_sel", bind="query-params")
+        top = st.columns(2)
     sc = scenes[scn]; k = f"sn_{scn}_"
-    title = top[1].text_input("Название", sc["title"].get("ru", ""), key=k + "t")
+    title = top[0].text_input("Название", sc["title"].get("ru", ""), key=k + "t")
     if title != sc["title"].get("ru", "") and title.strip():
         sc["title"] = {"ru": title.strip()}; sg.lib_save("scenes", scenes)
     stt = sg.sload(scn)
@@ -630,14 +630,15 @@ def _ikind(sg, iid, kind, title, stt):
 def _items(sg):
     """Вкладка «Предметы» (ds_search#622): описание, вид на нейтральном фоне и «в руках» (герой или любой персонаж), выбор/♥/доработка."""
     items, hold = sg.lib("items"), sg.holders()
+    sel = rowtable.current("itm_sel", list(items))
     if items:
         rows = []
         for i, it in items.items():
-            s = sg.iload(i)
-            hands = [v for kk, x in s.items() if kk.startswith(("hand:", "scene:", "on:")) for v in x["variants"]]
-            rows.append({"id": i, "название": it["title"]["ru"], "видов": len(s["view"]["variants"]), "вид выбран": "да" if s["view"]["selected"] else "нет",
-                         "др. виды": len(hands)})
-        st.dataframe(rows, hide_index=True, use_container_width=True)
+            si = sg.iload(i)
+            hands = [v for kk, x in si.items() if kk.startswith(("hand:", "scene:", "on:")) for v in x["variants"]]
+            rows.append((i, it["title"]["ru"], [len(si["view"]["variants"]), "да" if si["view"]["selected"] else "нет", len(hands)]))
+        rowtable.table("itm", ["Название", "Видов", "Вид выбран", "Др. виды"], [4, 1, 1, 1], rows, sel, "itm_sel",
+                       lambda i, n: _del_obj(sg, "item", i, n))
     with st.expander("Создать предмет"):
         with st.container(key="scmeta_nit"):
             n = st.columns(4)
@@ -661,13 +662,12 @@ def _items(sg):
     if not items:
         return
     with st.container(key="sthead_top_it"):
-        top = st.columns(3)
-    iid = top[0].selectbox("Предмет", list(items), format_func=lambda x: items[x]["title"]["ru"], key="itm_sel", bind="query-params")
-    it = items[iid]
-    title = top[1].text_input("Название", it["title"].get("ru", ""), key=f"it_{iid}_t")
+        top = st.columns(2)
+    iid = sel; it = items[iid]
+    title = top[0].text_input("Название", it["title"].get("ru", ""), key=f"it_{iid}_t")
     if title != it["title"].get("ru", "") and title.strip():
         it["title"] = {"ru": title.strip()}; sg.lib_save("items", items)
-    mode = top[2].selectbox("Где", ["view", "hand", "scene", "on"], format_func=lambda x: {"view": "Нейтральный фон", "hand": "В руках", "scene": "В сцене", "on": "На предмете"}[x], key="it_mode")
+    mode = top[1].selectbox("Где", ["view", "hand", "scene", "on"], format_func=lambda x: {"view": "Нейтральный фон", "hand": "В руках", "scene": "В сцене", "on": "На предмете"}[x], key="it_mode")
     stt = sg.iload(iid)
     with st.container(border=True, key=f"stp_it_{iid}"):
         desc = st.text_area("Описание предмета", it["desc"].get("ru", ""), key=f"it_{iid}_d", height=100)
@@ -697,8 +697,10 @@ def _items(sg):
 def _chars(sg):
     """Вкладка «Персонажи» (ds_search#641): реестр characters.yaml — герой и остальные, одежда (общая и по варианту героя), референс-листы."""
     ch = sg.registry(); chs = ch["characters"]
-    st.dataframe([{"id": i, "имя": sg.txt_ru(c.get("name")) or i, "тип": "герой" if "variants" in c else "персонаж",
-                   "одежд": len(c.get("outfits") or {})} for i, c in chs.items()], hide_index=True, use_container_width=True)
+    sel = rowtable.current("chr_sel", list(chs))
+    rowtable.table("chr", ["Имя", "Тип", "Одежд"], [4, 2, 1],
+                   [(i, sg.txt_ru(c.get("name")) or i, ["герой" if "variants" in c else "персонаж", len(c.get("outfits") or {})]) for i, c in chs.items()],
+                   sel, "chr_sel", lambda i, n: _del_obj(sg, "char", i, n))
     nloc = len([l for l in (ch.get("locations") or {}) if l not in sg.lib("scenes")])
     if nloc and st.button(f"Перенести локации реестра в сцены ({nloc})", key="chr_mig"):
         st.toast(f"Добавлено сцен: {sg.migrate_locations()}"); st.rerun()
@@ -714,9 +716,7 @@ def _chars(sg):
             else:
                 chs[cid] = {"kind": "character", "name": {"ru": nm.strip()}, "bible": bb.strip(), "refs": [], "outfits": {}}
                 sg.registry_save(ch); st.rerun()
-    with st.container(key="sthead_top_ch"):
-        top = st.columns(3)
-    cid = top[0].selectbox("Персонаж", list(chs), format_func=lambda x: sg.txt_ru(chs[x].get("name")) or x, key="chr_sel", bind="query-params")
+    cid = sel
     c = chs[cid]; hero = "variants" in c; vs = list(c.get("variants", {}))
     with st.container(border=True, key=f"stp_ch_{cid}"):
         nm = st.text_input("Имя", sg.txt_ru(c.get("name")), key=f"ch_{cid}_n")
@@ -821,6 +821,24 @@ def render():
         _prompts(sg)
 
 
+@st.dialog("Удалить?")
+def _del_obj(sg, kind, oid, name):
+    block, casc = sg.usage(kind, oid)
+    if block:
+        st.error(f"Нельзя удалить «{name}»: " + ", ".join(block[:15]) + ("…" if len(block) > 15 else ""))
+        if st.button("Закрыть", key=f"dobj_x_{kind}_{oid}"):
+            st.rerun()
+        return
+    st.write(f"Удалить «{name}»?")
+    if casc:
+        st.caption("Будет убрано: " + "; ".join(casc))
+    c = st.columns(2)
+    if c[0].button("Удалить", type="primary", key=f"dobj_ok_{kind}_{oid}"):
+        getattr(sg, {"scene": "delete_scene", "item": "delete_item", "char": "delete_char"}[kind])(oid); st.rerun()
+    if c[1].button("Отмена", key=f"dobj_no_{kind}_{oid}"):
+        st.rerun()
+
+
 @st.dialog("Удалить историю?")
 def _del_story(sg, sid, ttl):
     st.write(f"Удалить «{ttl}» вместе с кадрами?")
@@ -836,21 +854,19 @@ def _stories(sg):
         st.error(f"Нет каталога историй: {sg.ROOT}/stories. Задайте DS_WORDS_DIR."); return
     ids = sorted(p.stem for p in (sg.ROOT / "stories").glob("*.yaml") if p.stem != "categories")
     ch = sg.registry()
+    sid = rowtable.current("stories_sel", ids)
     if ids:
-        _list(sg, ids)
+        _list(sg, ids, sid)
     _create(sg, ch)
     if not ids:
         return
     with st.container(key="sthead_top"):
-        top = st.columns(4, vertical_alignment="center")
-    sid = top[0].selectbox("История", ids, key="stories_sel", bind="query-params")
+        top = st.columns(2, vertical_alignment="center")
     story, state = sg.load_story(sid), sg.load_state(sid)
-    if top[1].button("Удалить", key=f"delb_{sid}"):
-        _del_story(sg, sid, story["title"]["ru"])
-    hero = top[3].radio("Герой", ["girl", "boy"], index=["girl", "boy"].index(state["hero"]), horizontal=True, key=f"hero_{sid}")
+    hero = top[1].radio("Герой", ["girl", "boy"], index=["girl", "boy"].index(state["hero"]), horizontal=True, key=f"hero_{sid}")
     if hero != state["hero"]:
         state["hero"] = hero; sg.save_state(sid, state); st.rerun()
-    title = top[2].text_input("Название", story["title"]["ru"], key=f"ttl_{sid}")
+    title = top[0].text_input("Название", story["title"]["ru"], key=f"ttl_{sid}")
     if title != story["title"]["ru"] and title.strip():
         story["title"]["ru"] = title.strip(); _save_story(sg, sid, story)
     tab_sc, tab_fr, tab_vo = persist.tabs(["Сценарий", "Кадры", "Озвучка"], "st_story")
