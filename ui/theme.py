@@ -442,6 +442,7 @@ _STORIES = """
 .st-key-tabmain [class*="st-key-gbtn_"] [data-testid="stHorizontalBlock"] { gap: 8px !important; flex-wrap: nowrap !important; }
 .st-key-tabmain [class*="st-key-gbtn_"] [data-testid="stColumn"] { width: auto !important; flex: 0 0 auto !important; min-width: 0 !important; }
 .st-key-tabmain [class*="st-key-gbtn_"] [data-testid="stColumn"]:last-child { margin-left: auto; }
+.st-key-tabmain [class*="st-key-gbtn_"] [data-testid="stColumn"]:nth-child(3) button p { display: inline-block; transform: scaleY(-1); }
 .st-key-tabmain [class*="st-key-stgen_all_"] [data-testid="stHorizontalBlock"] { grid-template-columns: 300px max-content !important; }
 .st-key-tabmain [class*="st-key-stp_"] [data-baseweb="input"], .st-key-tabmain [class*="st-key-stp_"] [data-baseweb="select"] > div {
   min-height: 32px !important; height: 32px !important; }
