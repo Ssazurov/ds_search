@@ -24,17 +24,19 @@ def _table(sg, runs, cur):
     w = [4, 2, 5, 1, 1, 1]
     with st.container(key="stimgtab"):
         for c, t in zip(st.columns(w), ["Название", "Время", "Промпт", "Шт.", "♥", ""]):
-            c.markdown(f"**{t}**")
+            if t:
+                c.markdown(f"**{t}**")
         for r in runs:
             c = st.columns(w, vertical_alignment="center")
             p = (r["prompt"] or "").replace("\n", " ")
-            if c[0].button(r.get("title") or p[:40] or "—", key=f"imgopen_{r['id']}", use_container_width=True,
-                           type="primary" if r["id"] == cur else "secondary"):
+            on = r["id"] == cur
+            if c[0].button(("▶ " if on else "") + (r.get("title") or p[:40] or "—"), key=f"imgopen_{r['id']}",
+                           use_container_width=True, type="secondary" if on else "tertiary"):
                 st.session_state["img_sel"] = r["id"]; st.rerun()
-            c[1].write(_when(r, "%d.%m.%Y %H:%M"))
-            c[2].write(p[:80] + ("…" if len(p) > 80 else ""))
-            c[3].write(len(r["variants"]))
-            c[4].write(sum(1 for v in r["variants"] if v.get("liked")))
+            c[1].markdown(_when(r, "%d.%m.%Y %H:%M"))
+            c[2].markdown((p[:80] + ("…" if len(p) > 80 else "")).replace("*", "\\*"))
+            c[3].markdown(str(len(r["variants"])))
+            c[4].markdown(str(sum(1 for v in r["variants"] if v.get("liked"))))
             if c[5].button("🗑", key=f"imgdel_{r['id']}", help="Удалить запись"):
                 _del_run(sg, r["id"], r.get("title") or p)
 
