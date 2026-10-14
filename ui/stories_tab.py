@@ -1053,8 +1053,8 @@ def _frames(sg, sid, story, state, ch):
 def _publish_bar(sg, sid):
     st.divider()
     with st.container(key="stpub"):
-        a = st.columns(4)
-    a[3].text_input("Код активации", "197911", key=f"actcode_{sid}", label_visibility="collapsed", help="Код активации приложения после установки")
+        a = st.columns(5)
+    a[4].text_input("Код активации", "197911", key=f"actcode_{sid}", label_visibility="collapsed", help="Код активации приложения после установки")
     if a[0].button("Принять историю", type="primary", key=f"acc_{sid}"):
         ok, log = sg.accept(sid)
         (st.success if ok else st.error)(log[-1500:])
@@ -1064,7 +1064,9 @@ def _publish_bar(sg, sid):
             sg.request_publish(sid)
         else:
             st.error(log[-1500:])
-    if a[2].button("Пересобрать APK", key=f"apk_{sid}", help="Пакет → app-release.apk (~2 мин), без перезапуска web; нужен воркер publish_watch.sh"):
+    if a[2].button("Пересборка web на github", key=f"gh_{sid}", help="Сайт + политика + web-версия → GitHub Pages (~3 мин); нужен воркер publish_watch.sh и site/operator.env"):
+        sg.request_publish(sid, "gh")
+    if a[3].button("Пересобрать APK", key=f"apk_{sid}", help="Пакет → app-release.apk (~2 мин), без перезапуска web; нужен воркер publish_watch.sh"):
         sg.request_publish(sid, "apk")
     _pub_status(sg, sid)
 
