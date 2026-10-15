@@ -1065,8 +1065,6 @@ def _publish_bar(sg, sid):
         (st.success if ok else st.error)(log[-1500:])
     if a[1].button("Опубликовать в web", key=f"pub_{sid}", help="Все принятые истории → пакет → web в ds_site (:3001/app/), пересборка контейнера ~3 мин (нужен воркер ds_app/tools/publish_watch.sh)"):
         sg.request_publish(sid)
-    if a[2].button("Пересобрать web на GitHub", key=f"gh_{sid}", help="Сайт + политика + web-версия → GitHub Pages (~3 мин); нужен воркер publish_watch.sh и site/operator.env"):
-        sg.request_publish(sid, "gh")
     if a[3].button("Пересобрать APK", key=f"apk_{sid}", help="Пакет → app-release.apk (~2 мин), без перезапуска web; нужен воркер publish_watch.sh"):
         sg.request_publish(sid, "apk")
     _pub_status(sg, sid)
