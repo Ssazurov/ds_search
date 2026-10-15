@@ -1,12 +1,14 @@
 """Единый вывод сообщений о результатах операций (issue #366).
 
-Сообщения показываются сверху вкладки, переживают st.rerun() и держатся
-до закрытия кнопкой ✕. Цвет по исходу: зелёный (всё ок), жёлтый (частично),
+Сообщения — всплывающие окна справа сверху видимой области, переживают
+st.rerun(), закрываются ✕ или гаснут сами через 20 с. Цвет по исходу: зелёный (всё ок), жёлтый (частично),
 красный (ошибка), синий (информация).
 """
 from __future__ import annotations
 
+import time
 import uuid
+from contextlib import contextmanager
 from typing import Literal
 
 import streamlit as st
@@ -72,6 +74,7 @@ def _push_message(
     messages = st.session_state["_notify"]
     messages.append({
         "id": str(uuid.uuid4()),
+        "ts": time.time(),
         "tab": tab,
         "level": level,
         "title": title,
@@ -193,74 +196,99 @@ def toast(message: str, icon: str = "✅") -> None:
     _push_toast(message, icon)
 
 
-def render_messages(tab: str) -> None:
-    """Отрисовывает все сообщения для указанной вкладки.
+TTL = 20  # секунд до автоскрытия
 
-    Должна вызываться в начале каждой вкладки (через slot в app.py).
-    Показывает баннеры с результатами операций и toasts.
+_CSS = """
+.st-key-ntfstack{position:fixed;top:60px;right:16px;width:min(340px,calc(100vw - 32px));z-index:999995;
+ display:flex;flex-direction:column;gap:6px;pointer-events:none}
+[class*="st-key-ntf_"]{position:relative;pointer-events:auto;overflow:hidden;border-radius:8px;
+ padding:6px 28px 6px 10px !important;gap:2px !important;font-size:12px;line-height:1.35;
+ border-left:4px solid;box-shadow:0 2px 10px rgba(0,0,0,.25);animation:ntfout 20s linear forwards}
+[class*="st-key-ntf_"] p,[class*="st-key-ntf_"] summary,[class*="st-key-ntf_"] pre{margin:0 !important;font-size:12px !important;color:inherit !important}
+[class*="st-key-ntf_"] [data-testid="stElementContainer"]:has(button){position:absolute;top:0;right:2px;width:auto !important}
+[class*="st-key-ntf_"] button{min-height:0 !important;padding:0 6px !important;border:0 !important;background:transparent !important;
+ font-size:13px !important;line-height:1.5 !important;color:inherit !important}
+[class*="st-key-ntf_success_"]{background:#e6f4ea;color:#0b3d1a;border-color:#2e9e4f}
+[class*="st-key-ntf_warning_"]{background:#fff6dd;color:#5c4400;border-color:#e0a800}
+[class*="st-key-ntf_error_"]{background:#fdeaea;color:#6b1111;border-color:#d93025}
+[class*="st-key-ntf_info_"]{background:#e8f0fe;color:#0f2f66;border-color:#1a73e8}
+@keyframes ntfout{0%,97%{opacity:1;max-height:600px}100%{opacity:0;max-height:0;padding:0;visibility:hidden}}
+@keyframes ntfspin{to{transform:rotate(360deg)}}
+.ntf-busy{display:flex;align-items:center;gap:8px;font-size:12px;opacity:.8;margin:2px 0}
+.ntf-busy i{width:14px;height:14px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;
+ display:inline-block;animation:ntfspin .8s linear infinite}
+"""
+
+_ICONS = {"success": "✅", "warning": "⚠️", "error": "❌", "info": "ℹ️"}
+
+
+def render_messages(tab: str) -> None:
+    """Показывает сообщения вкладки всплывающими окнами справа сверху видимой области.
+
+    Окно — position: fixed, мелкий шрифт, крестик закрытия, автоскрытие через
+    TTL секунд (CSS-анимация; просроченные удаляются из session_state).
 
     Args:
         tab: Имя вкладки
     """
-    if "_notify" not in st.session_state:
-        st.session_state["_notify"] = []
+    for t in _pop_toasts():
+        _push_message(tab, "success", f"{t['icon']} {t['message']}", None, None)
 
-    messages = [m for m in st.session_state["_notify"] if m["tab"] == tab]
+    now = time.time()
+    msgs = [m for m in st.session_state.get("_notify", []) if now - m.get("ts", now) < TTL]
+    st.session_state["_notify"] = msgs
+    shown = [m for m in msgs if m["tab"] == tab]
+    if not shown:
+        return
 
-    # Отрисовка баннеров
-    if messages:
-        # Если больше одного сообщения — кнопка "Закрыть все"
-        if len(messages) > 1:
-            if st.button("Закрыть все сообщения", key=f"notify_close_all_{tab}"):
-                st.session_state["_notify"] = [
-                    m for m in st.session_state["_notify"] if m["tab"] != tab
-                ]
-                st.rerun()
+    css = _CSS + "".join(
+        f'.st-key-ntf_{m["level"]}_{m["id"].replace("-", "")}{{animation-delay:-{now - m.get("ts", now):.1f}s}}'
+        for m in shown
+    )
+    st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
+    with st.container(key="ntfstack"):
+        for m in shown:
+            with st.container(key=f'ntf_{m["level"]}_{m["id"].replace("-", "")}'):
+                text = f'{_ICONS.get(m["level"], "")} {m["title"]}'
+                stats_line = format_stats(m["stats"])
+                if stats_line:
+                    text += f" — {stats_line}"
+                st.markdown(text)
+                if m["details"]:
+                    with st.expander("Подробности"):
+                        for d in m["details"]:
+                            st.text(d)
+                st.button("✕", key=f'ntfx_{m["id"]}', on_click=_dismiss_message, args=(m["id"],))
 
-        for msg in messages:
-            _render_single_message(msg)
 
-    # Отрисовка toasts
-    toasts = _pop_toasts()
-    for t in toasts:
-        st.toast(t["message"], icon=t["icon"])
-
-
-def _render_single_message(msg: dict) -> None:
-    """Отрисовывает одно сообщение (внутренняя функция).
+@contextmanager
+def busy(text: str):
+    """Индикатор выполнения с крутящейся иконкой (вместо st.spinner) на месте вызова.
 
     Args:
-        msg: Словарь с ключами id, level, title, stats, details
+        text: Текст, например "Генерация 5 изобр. (~6 с/шт)…"
     """
-    level = msg["level"]
-    title = msg["title"]
-    stats = msg["stats"]
-    details = msg["details"]
-    msg_id = msg["id"]
+    ph = st.empty()
+    ph.markdown(f"<style>{_CSS}</style><div class='ntf-busy'><i></i><span>{text}</span></div>",
+                unsafe_allow_html=True)
+    try:
+        yield
+    finally:
+        ph.empty()
 
-    # Выбор функции Streamlit по уровню
-    st_func = getattr(st, level)
 
-    # Формирование содержимого сообщения
-    content = f"**{title}**"
+def install() -> None:
+    """Перенаправляет st.success/error/warning/toast во всплывающие сообщения (идемпотентно)."""
+    if getattr(st, "_ntf_patched", False):
+        return
 
-    stats_line = format_stats(stats)
-    if stats_line:
-        content += f"\n\n{stats_line}"
+    def mk(level: Level):
+        def f(body="", *args, icon=None, **kwargs):
+            report(level, str(body))
+        return f
 
-    # Создаём контейнер для сообщения и кнопки закрытия
-    col1, col2 = st.columns([0.95, 0.05])
+    def t(body="", *args, icon=None, **kwargs):
+        toast(str(body), icon or "✅")
 
-    with col1:
-        st_func(content)
-
-        # Подробности в раскрываемом блоке
-        if details:
-            with st.expander("Подробности"):
-                for detail in details:
-                    st.text(detail)
-
-    with col2:
-        if st.button("✕", key=f"notify_close_{msg_id}"):
-            _dismiss_message(msg_id)
-            st.rerun()
+    st.success, st.error, st.warning, st.toast = mk("success"), mk("error"), mk("warning"), t
+    st._ntf_patched = True

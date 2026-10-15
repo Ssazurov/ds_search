@@ -58,6 +58,7 @@ if "active_tab" not in st.session_state:
 # Навигация — боковое меню (issue #504). st.radio всегда отдаёт выбранное
 # значение, поэтому «запоминание последней вкладки» больше не нужно.
 # Состояние — в session_state (без JS), стартовая вкладка — из ?tab=.
+notify.install()
 sidebar_brand()
 if "active_tab" not in st.session_state:
     st.session_state["active_tab"] = TABS[0]

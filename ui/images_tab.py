@@ -6,6 +6,7 @@ import time
 
 import streamlit as st
 
+from ui import notify
 from ui import rowtable
 from ui.rowtable import ROW_H, VISIBLE
 from ui.stories_tab import _sg
@@ -109,7 +110,7 @@ def _render():
         r_id = rid if run else sg.gnew(prompt.strip())
         if not run and title.strip():
             sg.gset_title(r_id, title.strip())
-        with st.spinner(f"Генерация {int(n)} изобр. (~6 с/шт)…"):
+        with notify.busy(f"Генерация {int(n)} изобр. (~6 с/шт)…"):
             try:
                 sg.ggen(r_id, int(n), prompt.strip(), extra=extra.strip())
             except Exception as e:  # ComfyUI/Ollama недоступны, ошибка workflow
@@ -130,7 +131,7 @@ def _render():
         par = r[0].selectbox("Доработать", vids, index=vids.index(run["selected"]) if run["selected"] in vids else 0, key=key + "par", format_func=rowtable.var_fmt(run["variants"]))
         ex = r[1].text_input("Что изменить (по-русски)", key=key + "rex", placeholder="сделай фон светлее")
         if r[2].form_submit_button("Доработать") and ex.strip():
-            with st.spinner("Доработка…"):
+            with notify.busy("Доработка…"):
                 try:
                     sg.ggen(rid, 2, parent=par, extra=ex.strip())
                 except Exception as e:

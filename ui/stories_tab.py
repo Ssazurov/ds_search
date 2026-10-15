@@ -13,6 +13,7 @@ from pathlib import Path
 
 import streamlit as st
 
+from ui import notify
 from ui import rowtable
 
 from ui import persist
@@ -299,7 +300,7 @@ def _step(sg, sid, story, state, ch, idx, s):
         n = g[0].number_input("Кол-во", 1, 8, 5, key=key + "n3")
         extra = g[1].text_input("Доп. промпт (по-русски)", key=key + "ex")
         if g[2].form_submit_button("Сгенерировать"):
-            with st.spinner(f"Генерация {n} кадр. (~6 с/кадр)…"):
+            with notify.busy(f"Генерация {n} кадр. (~6 с/кадр)…"):
                 try:
                     sg.set_step(sid, k, action=action, note=note)
                     sg.gen(sid, k, int(n), extra)
@@ -317,7 +318,7 @@ def _step(sg, sid, story, state, ch, idx, s):
             ex = r[1].text_input("Что изменить (по-русски)", key=key + "rex", placeholder="убери полотенце со стены")
             go = r[2].form_submit_button("Доработать")
             if go and ex.strip():
-                with st.spinner("Доработка…"):
+                with notify.busy("Доработка…"):
                     try:
                         sg.gen(sid, k, 2, ex.strip(), parent=par)
                     except Exception as e:
@@ -480,7 +481,7 @@ def _scenes(sg):
         n = g[0].number_input("Кол-во", 1, 8, 5, key=k + "n")
         extra = g[1].text_input("Доп. промпт (по-русски)", key=k + "ex")
         if g[2].form_submit_button("Сгенерировать"):
-            with st.spinner(f"Генерация {n} видов (~6 с/вид)…"):
+            with notify.busy(f"Генерация {n} видов (~6 с/вид)…"):
                 try:
                     sg.sgen(scn, int(n), extra)
                 except Exception as e:
@@ -497,7 +498,7 @@ def _scenes(sg):
             ex = r[1].text_input("Что изменить (по-русски)", key=k + "rex", placeholder="убери полотенце со стены")
             go = r[2].form_submit_button("Доработать")
             if go and ex.strip():
-                with st.spinner("Доработка…"):
+                with notify.busy("Доработка…"):
                     try:
                         sg.sgen(scn, 2, ex.strip(), parent=par)
                     except Exception as e:
@@ -519,7 +520,7 @@ def _sstates(sg, scn, stt, items, sc, k):
         a = st.columns(3)
     n = a[0].number_input("Кол-во на состояние", 1, 8, 2, key=k + "sn")
     if a[1].button("Сгенерировать все", key=k + "sall", help="Для состояний без выбранного вида"):
-        with st.spinner("Генерация состояний…"):
+        with notify.busy("Генерация состояний…"):
             try:
                 c = sg.sgen_all(scn, int(n))
             except Exception as e:
@@ -537,7 +538,7 @@ def _sstates(sg, scn, stt, items, sc, k):
             m = g[0].number_input("Кол-во", 1, 8, 5, key=kk + "n")
             ex = g[1].text_input("Доп. промпт (по-русски)", key=kk + "ex")
             if g[2].form_submit_button("Сгенерировать"):
-                with st.spinner(f"Генерация {m} видов…"):
+                with notify.busy(f"Генерация {m} видов…"):
                     try:
                         sg.sgen(scn, int(m), ex, kind=kd)
                     except Exception as e:
@@ -554,7 +555,7 @@ def _sstates(sg, scn, stt, items, sc, k):
                 rx = r[1].text_input("Что изменить (по-русски)", key=kk + "rex")
                 go = r[2].form_submit_button("Доработать")
                 if go and rx.strip():
-                    with st.spinner("Доработка…"):
+                    with notify.busy("Доработка…"):
                         try:
                             sg.sgen(scn, 2, rx.strip(), parent=par, kind=kd)
                         except Exception as e:
@@ -590,7 +591,7 @@ def _ikind(sg, iid, kind, title, stt):
     n = g[0].number_input("Кол-во", 1, 8, 5, key=k + "n")
     extra = g[1].text_input("Доп. промпт (по-русски)", key=k + "ex")
     if g[2].form_submit_button("Сгенерировать"):
-        with st.spinner(f"Генерация {n} (~6 с/кадр)…"):
+        with notify.busy(f"Генерация {n} (~6 с/кадр)…"):
             try:
                 sg.igen(iid, kind, int(n), extra)
             except Exception as e:
@@ -607,7 +608,7 @@ def _ikind(sg, iid, kind, title, stt):
         ex = r[1].text_input("Что изменить (по-русски)", key=k + "rex", placeholder="сделай поменьше")
         go = r[2].form_submit_button("Доработать")
         if go and ex.strip():
-            with st.spinner("Доработка…"):
+            with notify.busy("Доработка…"):
                 try:
                     sg.igen(iid, kind, 2, ex.strip(), parent=par)
                 except Exception as e:
@@ -981,7 +982,7 @@ def _voice(sg, sid, story):
                  for x in allx if x["id"] in ks and x["text"].get("ru", "").strip()]
         if not items:
             return 1, "Нет текста для озвучки"
-        with st.spinner(f"Озвучка: {len(items)} шаг. (~несколько с на шаг)…"):
+        with notify.busy(f"Озвучка: {len(items)} шаг. (~несколько с на шаг)…"):
             r = wt.run_tts(items)
         pdir.mkdir(parents=True, exist_ok=True)
         for x in items:
