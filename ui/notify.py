@@ -202,7 +202,7 @@ _CSS = """
 .st-key-ntfstack{position:fixed;top:60px;right:16px;width:min(340px,calc(100vw - 32px));z-index:999995;
  display:flex;flex-direction:column;gap:6px;pointer-events:none}
 [class*="st-key-ntf_"]{position:relative;pointer-events:auto;overflow:hidden;border-radius:8px;
- padding:14px 30px 14px 12px !important;min-height:64px;gap:2px !important;font-size:13px;line-height:1.45;word-break:break-word;
+ padding:8px 30px 8px 12px !important;min-height:0 !important;height:auto !important;gap:0 !important;font-size:13px;line-height:1.45;word-break:break-word;
  border-left:4px solid;box-shadow:0 2px 10px rgba(0,0,0,.25);animation:ntfout 20s linear forwards}
 [class*="st-key-ntf_"] p,[class*="st-key-ntf_"] summary,[class*="st-key-ntf_"] pre{margin:0 !important;font-size:13px !important;color:inherit !important}
 [class*="st-key-ntf_"] [data-testid="stElementContainer"]:has(button){position:absolute;top:0;right:2px;width:auto !important}
