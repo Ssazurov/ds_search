@@ -120,7 +120,7 @@ def render() -> None:
     if st_.running:
         st.warning(f"Идёт {kind} (старт {when}) — нажмите «Обновить статус».")
     elif st_.exit_code == 0:
-        st.success(f"Готово: {kind}, старт {when}." + (f" [{st_.url}]({st_.url})" if st_.url else ""))
+        st.caption(f"✅ Последний запуск: {kind}, старт {when}." + (f" [{st_.url}]({st_.url})" if st_.url else ""))
     else:
         st.error(f"{kind.capitalize()} завершилась с ошибкой (код {st_.exit_code}, старт {when}). См. лог.")
     if st_.counts:
