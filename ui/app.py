@@ -22,7 +22,10 @@ from ui.theme import inject_theme, sidebar_brand, topbar
 
 # Название сайта — «Солнечный мир» (см. ds_site/app/layout.tsx).
 # Админка Streamlit — курация материалов этого сайта.
-st.set_page_config(page_title="Солнечный мир", layout="wide")
+from pathlib import Path as _P
+from PIL import Image as _Img
+st.set_page_config(page_title="Солнечный мир", layout="wide",
+                   page_icon=_Img.open(_P(__file__).parent / "static" / "admin_icon.png"))
 inject_theme()  # GAR-стиль: шрифты IBM Plex, отступы (issue #504)
 
 TABS = [
