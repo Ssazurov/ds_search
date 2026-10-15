@@ -39,7 +39,7 @@ def _to_news(rows: list[dict], selected_ids: list, settings: Settings, fmt: str)
     и подпись, поэтому код не дублируется.
     """
     chosen = [r for r in rows if r["id"] in selected_ids]
-    with st.spinner(f"Генерация черновиков: {len(chosen)}…"):
+    with notify.busy(f"Генерация черновиков: {len(chosen)}…"):
         results = add_articles_as_news(
             [{"url": r["url"], "title": r.get("title") or ""} for r in chosen], fmt=fmt)
     outcome = summarize(results)
@@ -81,7 +81,7 @@ def _download(rows: list[dict], selected_ids: list, settings: Settings) -> None:
     chosen = [r for r in rows if r["id"] in selected_ids]
     ok = dupes = 0
     errors: list[str] = []
-    with st.spinner(f"Скачивание: {len(chosen)}…"):
+    with notify.busy(f"Скачивание: {len(chosen)}…"):
         with GarDiscoveryClient(settings) as client:
             for source in chosen:
                 label = source.get("title") or source["url"]

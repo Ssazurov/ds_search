@@ -735,7 +735,7 @@ def _to_news_batch(rows: list[dict], fmt: str = "news") -> None:
     stats: dict[str, int] = {}
     ok = 0
     if with_url:
-        with st.spinner(f"Генерация черновиков: {len(with_url)}…"):
+        with notify.busy(f"Генерация черновиков: {len(with_url)}…"):
             results = add_articles_as_news(
                 [{"url": r["url"], "title": r.get("title") or "",
                   **({"local_meta": {"content_path": str(resolve_content_path(

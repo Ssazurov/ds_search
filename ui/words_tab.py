@@ -1116,7 +1116,7 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
         act_cols[0].markdown(f"<div style='display:flex;align-items:center;height:100%;'><span style='font-family:IBM Plex Sans,system-ui,sans-serif;font-size:11px;font-weight:500;color:#596178;line-height:32px;'>✓ ок: {c['ok']} · ✗ удалить: {c['del']} · с правками: {c['edit']} · всего слов: {len(rows)}</span></div>", unsafe_allow_html=True)
         if act_cols[4].button(f"Сгенерировать подсказку ({len(targets)})", disabled=not targets, key="words_vis_btn",
                              help="LLM пишет сцену-подсказку (ru) для выбранных слов; затем правьте и генерируйте картинку"):
-            with st.spinner(f"Подсказки: {len(targets)} шт.…"):
+            with notify.busy(f"Подсказки: {len(targets)} шт.…"):
                 record_feedback(root, load_images_reg(root), {i: dec.get(i, {}).get("hint", "") for i in targets})
                 rc, out = _run(root, sys.executable, "scripts/imggen.py", "visual", "--ids", ",".join(targets), "--force")
                 vf = root / "registry" / "visual.json"
@@ -1136,7 +1136,7 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
             st_n = dict(zip(edited["id"], edited["Ударение"]))
             items = [{"id": i, "text": ru_t[i], "stress": int(st_n[i]) if st_n[i] == st_n[i] and st_n[i] else None}
                      for i in targets if ru_t.get(i)]
-            with st.spinner(f"Озвучка: {len(items)} шт., по очереди…"):
+            with notify.busy(f"Озвучка: {len(items)} шт., по очереди…"):
                 rc, out = run_tts(items)
             for i in targets:
                 set_avote(root, i, "")  # новая озвучка -> старая оценка сброшена
@@ -1150,7 +1150,7 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
         if _ask("img", act_cols[2].button(gen_label, disabled=not targets, key="words_gen_btn", help=GEN_HELP), targets, votes) \
                 or st.session_state.pop("_go_img", False):
             hints = dict(zip(edited["id"], (edited["Подсказка"].fillna("").str.strip())))
-            with st.spinner(f"Генерация: {len(targets)} шт., по очереди…"):
+            with notify.busy(f"Генерация: {len(targets)} шт., по очереди…"):
                 record_feedback(root, load_images_reg(root), {i: h for i, h in hints.items() if i in targets})
                 rc, out = run_imggen(root, targets, hints)
             notify.report("success" if rc == 0 else "error", "Генерация картинок", details=[out[-1500:]])
