@@ -575,9 +575,33 @@ def tts_params() -> dict:
     return {k: float(st.session_state.get(f"tts_{k}", v[3])) for k, v in TTS_PARAMS.items()}
 
 
-def _tts_reset() -> None:
-    for k, v in TTS_PARAMS.items():
-        st.session_state[f"tts_{k}"] = v[3]
+def _tts_defaults(d: dict) -> dict:
+    """Дефолтные параметры: заданные «Сделать по умолчанию» поверх заводских."""
+    base = {k: v[3] for k, v in TTS_PARAMS.items()}
+    base.update({k: float(x) for k, x in (d.get("defaults") or {}).items() if k in base})
+    return base
+
+
+def _tts_reset(root: Path) -> None:
+    for k, x in _tts_defaults(load_profiles(root)).items():
+        st.session_state[f"tts_{k}"] = x
+    _tts_autosave(root)
+
+
+def _tts_autosave(root: Path) -> None:
+    """Параметры и референс сразу пишутся в текущий профиль (переживают перезапуск)."""
+    d = load_profiles(root)
+    name = st.session_state.get("tts_prof")
+    if name in d["profiles"]:
+        d["profiles"][name]["params"] = tts_params()
+        d["profiles"][name]["ref"] = st.session_state.get("tts_ref", "")
+        save_profiles(root, d)
+
+
+def _tts_set_default(root: Path) -> None:
+    d = load_profiles(root)
+    d["defaults"] = tts_params()
+    save_profiles(root, d)
 
 
 _REF_EXT = (".wav", ".mp3", ".flac", ".ogg", ".m4a")
@@ -633,9 +657,11 @@ def _prof_save(root: Path) -> None:
         return
     d = load_profiles(root)
     new = name not in d["profiles"]
-    d["profiles"][name] = {"ref": "" if new else st.session_state.get("tts_ref", ""), "params": tts_params()}
+    d["profiles"][name] = {"ref": "" if new else st.session_state.get("tts_ref", ""),
+                           "params": _tts_defaults(d) if new else tts_params()}
     if new:
         st.session_state["tts_ref"] = ""  # новый профиль — без прикреплённого файла
+        _prof_apply(d["profiles"][name])
     save_profiles(root, d)
     st.session_state["tts_prof"] = name
     st.session_state["tts_newname"] = ""
@@ -681,6 +707,7 @@ def _ref_add(root: Path) -> None:
     dst.write_bytes(up.getvalue())
     st.session_state["tts_ref"] = str(dst.relative_to(root))
     st.session_state["tts_upver"] = ver + 1
+    _tts_autosave(root)
 
 
 def _tts_settings(root: Path, bare: bool = False) -> None:
@@ -718,7 +745,7 @@ def _tts_settings(root: Path, bare: bool = False) -> None:
             with st.container(key="ttsx_ref"):
                 r = st.columns(2, vertical_alignment="center", gap="small")
             r[0].selectbox("Референс (голос-образец)", ["", *refs], key="tts_ref", format_func=lambda x: x or "— без файла (по умолчанию) —",
-                           help="Один файл можно использовать в разных профилях")
+                           help="Один файл можно использовать в разных профилях", on_change=_tts_autosave, args=(root,))
             cur_rel = st.session_state.get("tts_ref", "")
             r[1].button("Удалить выбранный референс", key="tts_ref_del", on_click=_ref_del, args=(root,), disabled=not cur_rel)
             if cur_rel and (root / cur_rel).is_file():
@@ -728,8 +755,12 @@ def _tts_settings(root: Path, bare: bool = False) -> None:
                        "в конце слов наследуются из референса — лучше всего читать список отдельных слов с ровным концом.")
             cols = st.columns(3)
             for n, (k, (lo, hi, step, d0, hlp)) in enumerate(TTS_PARAMS.items()):
-                cols[n % 3].slider(TTS_RU.get(k, k), lo, hi, d0, step, key=f"tts_{k}", help=hlp)
-            st.button("Сбросить параметры", on_click=_tts_reset, key="tts_reset_btn")
+                cols[n % 3].slider(TTS_RU.get(k, k), lo, hi, d0, step, key=f"tts_{k}", help=hlp,
+                                   on_change=_tts_autosave, args=(root,))
+            b1, b2, _ = st.columns([1, 1, 2], gap="small")
+            b1.button("Сбросить параметры", on_click=_tts_reset, args=(root,), key="tts_reset_btn")
+            b2.button("Сделать по умолчанию", on_click=_tts_set_default, args=(root,), key="tts_setdef_btn",
+                      help="Текущие параметры станут стартовыми для новых профилей и для «Сбросить»")
             st.caption("Применяется сразу к следующей кнопке «Сгенерировать звук» (выберите слова в таблице).")
 
 
