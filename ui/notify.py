@@ -202,15 +202,15 @@ _CSS = """
 .st-key-ntfstack{position:fixed;top:60px;right:16px;width:min(340px,calc(100vw - 32px));z-index:999995;
  display:flex;flex-direction:column;gap:6px;pointer-events:none}
 [class*="st-key-ntf_"]{position:relative;pointer-events:auto;overflow:hidden;border-radius:8px;
- padding:6px 28px 6px 10px !important;gap:2px !important;font-size:12px;line-height:1.35;
+ padding:14px 30px 14px 12px !important;min-height:64px;gap:2px !important;font-size:13px;line-height:1.45;word-break:break-word;
  border-left:4px solid;box-shadow:0 2px 10px rgba(0,0,0,.25);animation:ntfout 20s linear forwards}
-[class*="st-key-ntf_"] p,[class*="st-key-ntf_"] summary,[class*="st-key-ntf_"] pre{margin:0 !important;font-size:12px !important;color:inherit !important}
+[class*="st-key-ntf_"] p,[class*="st-key-ntf_"] summary,[class*="st-key-ntf_"] pre{margin:0 !important;font-size:13px !important;color:inherit !important}
 [class*="st-key-ntf_"] [data-testid="stElementContainer"]:has(button){position:absolute;top:0;right:2px;width:auto !important}
 [class*="st-key-ntf_"] button{min-height:0 !important;padding:0 6px !important;border:0 !important;background:transparent !important;
  font-size:13px !important;line-height:1.5 !important;color:inherit !important}
 [class*="st-key-ntf_success_"]{background:#e6f4ea;color:#0b3d1a;border-color:#2e9e4f}
-[class*="st-key-ntf_warning_"]{background:#fff6dd;color:#5c4400;border-color:#e0a800}
-[class*="st-key-ntf_error_"]{background:#fdeaea;color:#6b1111;border-color:#d93025}
+[class*="st-key-ntf_warning_"]{background:#f7e3a1;color:#4a3800;border-color:#b8860b}
+[class*="st-key-ntf_error_"]{background:#f9d6d5;color:#6b1111;border-color:#d93025}
 [class*="st-key-ntf_info_"]{background:#e8f0fe;color:#0f2f66;border-color:#1a73e8}
 @keyframes ntfout{0%,97%{opacity:1;max-height:600px}100%{opacity:0;max-height:0;padding:0;visibility:hidden}}
 @keyframes ntfspin{to{transform:rotate(360deg)}}
@@ -249,7 +249,7 @@ def render_messages(tab: str) -> None:
     with st.container(key="ntfstack"):
         for m in shown:
             with st.container(key=f'ntf_{m["level"]}_{m["id"].replace("-", "")}'):
-                text = f'{_ICONS.get(m["level"], "")} {m["title"]}'
+                text = m["title"]
                 stats_line = format_stats(m["stats"])
                 if stats_line:
                     text += f" — {stats_line}"
