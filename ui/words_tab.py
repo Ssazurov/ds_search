@@ -776,7 +776,7 @@ def run_tts(items: list[dict], lang: str = "ru") -> tuple[int, str]:
             res = json.load(f)
     except Exception as e:
         return 1, f"TTS-сервис недоступен ({TTS_URL}): {e}. Запуск: ~/chatterbox-venv/bin/python scripts/tts_server.py"
-    msg = f"готово: {len(res['ok'])}" + (f"; ошибки: {res['err']}" if res["err"] else "")
+    msg = f"озвучено слов: {len(res['ok'])}" + (f"; ошибки: {res['err']}" if res["err"] else "")
     return (1 if res["err"] else 0), msg
 
 
@@ -1157,7 +1157,7 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
                         stage(dec, i, "hint", vis[i]["ru"])
                 save_decisions(root, dec)
             st.session_state["tb_selver"] = st.session_state.get("tb_selver", 0) + 1  # новый key -> data_editor перечитает df
-            notify.report("success" if rc == 0 else "error", "Подсказки", details=[out[-1500:]])
+            notify.report("success" if rc == 0 else "error", f"Подсказки: {out.strip()[-300:]}")
             st.rerun()
         if _ask("tts", act_cols[5].button(f"Сгенерировать звук ({len(targets)})", disabled=not targets, key="words_tts_btn",
                              help="Озвучка (ru) выбранных слов: Chatterbox, клон голоса; ударение — из колонки «Ударение». "
@@ -1172,7 +1172,7 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
             for i in targets:
                 set_avote(root, i, "")  # новая озвучка -> старая оценка сброшена
             st.session_state["tb_selver"] = st.session_state.get("tb_selver", 0) + 1
-            notify.report("success" if rc == 0 else "error", "Озвучка", details=[out[-1500:]])
+            notify.report("success" if rc == 0 else "error", f"Озвучка — {out.strip()[-300:]}")
             st.rerun()
         act_cols[1].button("Просмотр", key="words_prev_btn", disabled=not prev_rows, on_click=_toggle_prev,
                           type="primary" if st.session_state.get("tb_prev") else "secondary")
@@ -1184,7 +1184,7 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
             with notify.busy(f"Генерация: {len(targets)} шт., по очереди…"):
                 record_feedback(root, load_images_reg(root), {i: h for i, h in hints.items() if i in targets})
                 rc, out = run_imggen(root, targets, hints)
-            notify.report("success" if rc == 0 else "error", "Генерация картинок", details=[out[-1500:]])
+            notify.report("success" if rc == 0 else "error", f"Генерация картинок: {out.strip()[-300:]}")
             st.rerun()
         save = act_cols[3].button("Сохранить в черновик", type="primary", key="words_save_btn")
     cf = st.session_state.get("_cf")
