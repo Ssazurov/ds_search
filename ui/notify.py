@@ -201,10 +201,15 @@ TTL = 20  # секунд до автоскрытия
 _CSS = """
 .st-key-ntfstack{position:fixed;top:60px;right:16px;width:min(340px,calc(100vw - 32px));z-index:999995;
  display:flex;flex-direction:column;gap:6px;pointer-events:none}
+.st-key-ntfstack{flex:none !important;height:auto !important}
+.st-key-ntfstack > [data-testid="stLayoutWrapper"]{flex:0 0 auto !important;height:auto !important;min-height:0 !important}
 [class*="st-key-ntf_"]{position:relative;pointer-events:auto;overflow:hidden;border-radius:8px;
  display:block !important;flex:0 0 auto !important;height:auto !important;min-height:0 !important;padding:7px 30px 7px 12px !important;font-size:13px;line-height:1.45;word-break:break-word;
  border-left:4px solid;box-shadow:0 2px 10px rgba(0,0,0,.25);animation:ntfout 20s linear forwards}
 [class*="st-key-ntf_"] [data-testid="stElementContainer"],[class*="st-key-ntf_"] [data-testid="stMarkdown"],[class*="st-key-ntf_"] [data-testid="stMarkdownContainer"]{height:auto !important;min-height:0 !important;flex:0 0 auto !important}
+[class*="st-key-ntf_"] [data-testid="stMarkdown"],[class*="st-key-ntf_"] [data-testid="stMarkdownContainer"],[class*="st-key-ntf_"] [data-testid="stElementContainer"]{margin:0 !important}
+[class*="st-key-ntf_"] [data-testid="stMarkdown"] > div{display:block !important;height:auto !important;min-height:0 !important;margin:0 !important}
+[class*="st-key-ntf_"] [data-testid="stMarkdownContainer"]{font-size:13px !important;line-height:1.45 !important}
 [class*="st-key-ntf_"] p,[class*="st-key-ntf_"] summary,[class*="st-key-ntf_"] pre{margin:0 !important;font-size:13px !important;color:inherit !important}
 [class*="st-key-ntf_"] [data-testid="stElementContainer"]:has(button){position:absolute;top:0;right:2px;width:auto !important}
 [class*="st-key-ntf_"] button{min-height:0 !important;padding:0 6px !important;border:0 !important;background:transparent !important;
