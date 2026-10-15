@@ -1063,12 +1063,8 @@ def _publish_bar(sg, sid):
     if a[0].button("Принять историю", type="primary", key=f"acc_{sid}"):
         ok, log = sg.accept(sid)
         (st.success if ok else st.error)(log[-1500:])
-    if a[1].button("Принять и опубликовать в web", key=f"pub_{sid}", help="Принять кадры → пакет → web :8081 (нужен воркер ds_app/tools/publish_watch.sh)"):
-        ok, log = sg.accept(sid)
-        if ok:
-            sg.request_publish(sid)
-        else:
-            st.error(log[-1500:])
+    if a[1].button("Опубликовать в web", key=f"pub_{sid}", help="Все принятые истории → пакет → web :8081 (нужен воркер ds_app/tools/publish_watch.sh)"):
+        sg.request_publish(sid)
     if a[2].button("Пересборка web на github", key=f"gh_{sid}", help="Сайт + политика + web-версия → GitHub Pages (~3 мин); нужен воркер publish_watch.sh и site/operator.env"):
         sg.request_publish(sid, "gh")
     if a[3].button("Пересобрать APK", key=f"apk_{sid}", help="Пакет → app-release.apk (~2 мин), без перезапуска web; нужен воркер publish_watch.sh"):
