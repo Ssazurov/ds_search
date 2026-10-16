@@ -1349,11 +1349,35 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
             sc1.checkbox(f"Выбрать все ({len(vis_ids)})", key="tb_selall", on_change=_selall_cb)
     marked = [r["id"] for r in prev_rows if st.session_state.get(f"pv_{r['id']}")] if st.session_state.get("tb_prev") else []
     targets = marked or picked
+    def _apply_edits() -> int:
+        by_id, n = {r["id"]: r for r in chunk}, 0
+        for old, new in zip(df.to_dict("records"), edited.to_dict("records")):
+            r, wid = by_id[old["id"]], old["id"]
+            if new["Решение"] != old["Решение"]:
+                stage(dec, wid, "verdict", REVIEW_FROM.get(new["Решение"], ""))
+                n += 1
+            for lab, code in lcol.items():
+                if new[lab] != old[lab]:
+                    stage(dec, wid, code, (new[lab] or "").strip(), r["tr"].get(code, ""))
+                    n += 1
+            for lab, fld in (("Заметка", "note"), ("Подсказка", "hint")):
+                nv, ov = (new[lab] or "").strip(), (old[lab] or "").strip()
+                if nv != ov:
+                    stage(dec, wid, fld, nv, r[fld])
+                    n += 1
+            if new["Часть речи"] != old["Часть речи"]:
+                stage(dec, wid, "pos", POS_FROM[new["Часть речи"]], r["pos"])
+                n += 1
+        if n:
+            save_decisions(root, dec)
+        return n
+
     with st.container(key="actions_words"):
         act_cols = st.columns([2, 1, 1, 1, 1, 1, 1])
         act_cols[0].markdown(f"<div style='display:flex;align-items:center;height:100%;'><span style='font-family:IBM Plex Sans,system-ui,sans-serif;font-size:11px;font-weight:500;color:#596178;line-height:32px;'>✓ ок: {c['ok']} · ✗ удалить: {c['del']} · с правками: {c['edit']} · всего слов: {len(rows)}</span></div>", unsafe_allow_html=True)
         if act_cols[4].button(f"Сгенерировать подсказку ({len(targets)})", disabled=not targets, key="words_vis_btn",
                              help="LLM пишет сцену-подсказку (ru) для выбранных слов; затем правьте и генерируйте картинку"):
+            _apply_edits()
             with notify.busy(f"Подсказки: {len(targets)} шт.…"):
                 record_feedback(root, load_images_reg(root), {i: dec.get(i, {}).get("hint", "") for i in targets})
                 rc, out = _run(root, sys.executable, "scripts/imggen.py", "visual", "--ids", ",".join(targets), "--force")
@@ -1370,6 +1394,7 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
                              help="Озвучка (ru) выбранных слов: Chatterbox, клон голоса; ударение — из колонки «Ударение». "
                                   "Нужен запущенный scripts/tts_server.py (~3–5 с на слово)."), targets, avotes) \
                 or st.session_state.pop("_go_tts", False):
+            _apply_edits()
             ru_t = dict(zip(edited["id"], edited[lang_label("ru")].fillna("")))
             st_n = dict(zip(edited["id"], edited["Ударение"]))
             items = [{"id": i, "text": ru_t[i], "stress": int(st_n[i]) if st_n[i] == st_n[i] and st_n[i] else None}
@@ -1387,6 +1412,7 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
                      else f"Сгенерировать картинку ({len(picked)})")
         if _ask("img", act_cols[2].button(gen_label, disabled=not targets, key="words_gen_btn", help=GEN_HELP), targets, votes) \
                 or st.session_state.pop("_go_img", False):
+            _apply_edits()
             hints = dict(zip(edited["id"], (edited["Подсказка"].fillna("").str.strip())))
             with notify.busy(f"Генерация: {len(targets)} шт., по очереди…"):
                 record_feedback(root, load_images_reg(root), {i: h for i, h in hints.items() if i in targets})
@@ -1396,6 +1422,7 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
         save = act_cols[3].button("Сохранить в черновик", type="primary", key="words_save_btn")
         if act_cols[6].button(f"Удалить подсказку ({len(targets)})", disabled=not targets, key="words_delhint_btn",
                               help="Очистить подсказку у выбранных слов (в черновик)"):
+            _apply_edits()
             if len(targets) > 3:
                 st.session_state["_cf_dh"] = list(targets)
             else:
@@ -1406,6 +1433,7 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
         y, n, _sp = st.columns([2, 1, 6])
         if y.button("Да, удалить", key="dh_yes", type="primary"):
             st.session_state.pop("_cf_dh")
+            _apply_edits()
             _del_hints(dec, root, sel, dh)
         if n.button("Отмена", key="dh_no"):
             st.session_state.pop("_cf_dh")
@@ -1432,25 +1460,7 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
     _decisions_block(root, dec)
     if not save:
         return
-    by_id, n = {r["id"]: r for r in chunk}, 0
-    for old, new in zip(df.to_dict("records"), edited.to_dict("records")):
-        r, wid = by_id[old["id"]], old["id"]
-        if new["Решение"] != old["Решение"]:
-            stage(dec, wid, "verdict", REVIEW_FROM.get(new["Решение"], ""))
-            n += 1
-        for lab, code in lcol.items():
-            if new[lab] != old[lab]:
-                stage(dec, wid, code, (new[lab] or "").strip(), r["tr"].get(code, ""))
-                n += 1
-        for lab, fld in (("Заметка", "note"), ("Подсказка", "hint")):
-            nv, ov = (new[lab] or "").strip(), (old[lab] or "").strip()
-            if nv != ov:
-                stage(dec, wid, fld, nv, r[fld])
-                n += 1
-        if new["Часть речи"] != old["Часть речи"]:
-            stage(dec, wid, "pos", POS_FROM[new["Часть речи"]], r["pos"])
-            n += 1
-    save_decisions(root, dec)
+    n = _apply_edits()
     _bump("words_ver")
     notify.report("success", f"В черновик: изменений {n}")
     st.rerun()
