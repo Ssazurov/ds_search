@@ -7,19 +7,23 @@ from src.site_publish import runner
 from ui import notify, persist, site_publish_tab
 from ui.stories_tab import _sg
 
+_NB = "\u00a0"  # пустая подпись: у всех строк одинаковая высота и отступы
+
 # (кнопка, служебный id статуса, режим publish_story.sh, ссылка)
 _JOBS = [
+    ("Пересобрать админку (локально)", "_admin", "admin", "http://localhost:8501/"),
     ("Пересобрать локальный сайт", "_site", "site", "http://localhost:3001"),
+    None,  # «Пересобрать сайт на GitHub» (_site_gh)
     ("Пересобрать приложение (локально)", "_app", "app", "http://localhost:8081/"),
     ("Пересобрать политику и приложение на GitHub", "_gh", "gh", "https://ssazurov.github.io/ds_app_site/"),
 ]
 
 
 @st.fragment(run_every=5)
-def _status(sg, sid: str) -> None:
+def _status(sg, sid: str, url: str) -> None:
     ps = sg.publish_status(sid)
-    if ps:
-        st.caption(("❌ " if "ошибка" in ps else "✅ " if "готово" in ps else "⏳ ") + ps)
+    st.markdown(f"[{url}]({url})")
+    st.caption((("❌ " if "ошибка" in ps else "✅ " if "готово" in ps else "⏳ ") + ps) if ps else _NB)
 
 
 def _site_gh() -> None:
@@ -34,26 +38,31 @@ def _site_gh() -> None:
             notify.report("error", "Не удалось запустить пересборку", details=[str(exc)])
         else:
             st.rerun()
-    c[1].markdown(f"[{site_publish_tab.SITE_URL}]({site_publish_tab.SITE_URL})")
     if err:
-        c[1].caption(err)
+        note = err
     elif st_.running:
-        c[1].caption("⏳ идёт публикация — подробности во вкладке «Админка на GitHub»")
+        note = "⏳ идёт публикация — подробности во вкладке «Админка на GitHub»"
     elif st_.started_at is not None:
-        c[1].caption("✅ готово" if st_.exit_code == 0 else f"❌ ошибка (код {st_.exit_code})")
+        note = "✅ готово" if st_.exit_code == 0 else f"❌ ошибка (код {st_.exit_code})"
+    else:
+        note = _NB
+    with c[1]:
+        st.markdown(f"[{site_publish_tab.SITE_URL}]({site_publish_tab.SITE_URL})")
+        st.caption(note)
 
 
 def _jobs() -> None:
     sg = _sg()
-    for i, (label, sid, mode, url) in enumerate(_JOBS):
-        if i == 1:
+    for job in _JOBS:
+        if job is None:
             _site_gh()
+            continue
+        label, sid, mode, url = job
         c = st.columns([3, 5], vertical_alignment="center")
         if c[0].button(label, key=f"rb_{sid}", type="primary", use_container_width=True):
             sg.request_publish(sid, mode)
-        c[1].markdown(f"[{url}]({url})")
         with c[1]:
-            _status(sg, sid)
+            _status(sg, sid, url)
     st.caption("Нужен воркер publish_watch.sh (запущен как ds-publish-watch.service).")
 
 
