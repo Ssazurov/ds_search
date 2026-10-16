@@ -64,12 +64,14 @@ def _size_row(sg):
     def swap():
         ss["img_w"], ss["img_h"] = ss["img_h"], ss["img_w"]; edit()
 
-    c = st.columns([2, 1, 1, 1], vertical_alignment="bottom")
-    c[0].selectbox("Формат", [*sg.PRESETS, "Свой"], key="img_fmt", on_change=pick,
+    c = st.columns([0.75, 1.9, 0.85, 1.25, 0.8, 1.25, 0.5, 5], gap="small", vertical_alignment="center")
+    c[0].markdown("Формат")
+    c[1].selectbox("Формат", [*sg.PRESETS, "Свой"], key="img_fmt", on_change=pick, label_visibility="collapsed",
                    format_func=lambda k: f"{k} · {sg.PRESETS[k][0]}×{sg.PRESETS[k][1]}" if k in sg.PRESETS else "Свой размер")
-    for col, k, t in ((c[1], "img_w", "Ширина, px"), (c[2], "img_h", "Высота, px")):
-        col.number_input(t, sg.SIZE_MIN, sg.SIZE_MAX, step=16, key=k, on_change=edit)
-    c[3].button("⇄", key="img_swap", on_click=swap, help="Поменять ширину и высоту")
+    for i, k, t in ((2, "img_w", "Ширина, px"), (4, "img_h", "Высота, px")):
+        c[i].markdown(t)
+        c[i + 1].number_input(t, sg.SIZE_MIN, sg.SIZE_MAX, step=16, key=k, on_change=edit, label_visibility="collapsed")
+    c[6].button("⇄", key="img_swap", on_click=swap, help="Поменять ширину и высоту")
     wh = sg.norm_size(ss["img_w"], ss["img_h"])
     if wh != (ss["img_w"], ss["img_h"]):
         st.caption(f"Будет {wh[0]}×{wh[1]} (кратно 16, не более ~2 МП)")
