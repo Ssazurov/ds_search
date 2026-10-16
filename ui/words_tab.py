@@ -397,6 +397,16 @@ def run_validate(root: Path) -> tuple[int, str]:
     return _run(root, sys.executable, "scripts/words.py", "validate")
 
 
+def _del_hints(dec: dict, root: Path, rows: list, ids: list) -> None:
+    by = {r["id"]: r for r in rows}
+    for i in ids:
+        stage(dec, i, "hint", "", by[i]["hint"] if i in by else "")
+    save_decisions(root, dec)
+    st.session_state["tb_selver"] = st.session_state.get("tb_selver", 0) + 1
+    notify.report("success", f"Подсказка удалена: {len(ids)} шт.")
+    st.rerun()
+
+
 def hint_en(text: str) -> str:
     """Подсказка для картинки: русский → английский (LLM), английский как есть."""
     if not re.search("[а-яё]", text, re.I):
@@ -1340,7 +1350,7 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
     marked = [r["id"] for r in prev_rows if st.session_state.get(f"pv_{r['id']}")] if st.session_state.get("tb_prev") else []
     targets = marked or picked
     with st.container(key="actions_words"):
-        act_cols = st.columns([2, 1, 1, 1, 1, 1])
+        act_cols = st.columns([2, 1, 1, 1, 1, 1, 1])
         act_cols[0].markdown(f"<div style='display:flex;align-items:center;height:100%;'><span style='font-family:IBM Plex Sans,system-ui,sans-serif;font-size:11px;font-weight:500;color:#596178;line-height:32px;'>✓ ок: {c['ok']} · ✗ удалить: {c['del']} · с правками: {c['edit']} · всего слов: {len(rows)}</span></div>", unsafe_allow_html=True)
         if act_cols[4].button(f"Сгенерировать подсказку ({len(targets)})", disabled=not targets, key="words_vis_btn",
                              help="LLM пишет сцену-подсказку (ru) для выбранных слов; затем правьте и генерируйте картинку"):
@@ -1384,6 +1394,22 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
             notify.report("success" if rc == 0 else "error", f"Генерация картинок: {out.strip()[-300:]}")
             st.rerun()
         save = act_cols[3].button("Сохранить в черновик", type="primary", key="words_save_btn")
+        if act_cols[6].button(f"Удалить подсказку ({len(targets)})", disabled=not targets, key="words_delhint_btn",
+                              help="Очистить подсказку у выбранных слов (в черновик)"):
+            if len(targets) > 3:
+                st.session_state["_cf_dh"] = list(targets)
+            else:
+                _del_hints(dec, root, sel, targets)
+    dh = st.session_state.get("_cf_dh")
+    if dh:
+        st.warning(f"Удалить подсказку у {len(dh)} слов?")
+        y, n, _sp = st.columns([2, 1, 6])
+        if y.button("Да, удалить", key="dh_yes", type="primary"):
+            st.session_state.pop("_cf_dh")
+            _del_hints(dec, root, sel, dh)
+        if n.button("Отмена", key="dh_no"):
+            st.session_state.pop("_cf_dh")
+            st.rerun()
     cf = st.session_state.get("_cf")
     if cf:
         liked = [i for i in targets if (votes if cf == "img" else avotes).get(i) == "up"]
