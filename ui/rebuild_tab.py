@@ -80,3 +80,4 @@ def render() -> None:
         _jobs()
     with t2:
         site_publish_tab.render()
+    site_publish_tab.render_log()
