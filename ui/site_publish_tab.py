@@ -131,6 +131,13 @@ def render() -> None:
         st.error(f"{kind.capitalize()} завершилась с ошибкой (код {st_.exit_code}, старт {when}). См. лог.")
     if st_.counts:
         _counters(st_.counts)
+    _dropped()
+
+
+def render_log() -> None:
+    """Общий блок «Лог» последней пересборки сайта (под обеими вкладками «Пересборки»)."""
+    st_ = runner.status()
+    if st_.started_at is None:
+        return
     with st.expander("Лог", expanded=bool(st_.running or st_.exit_code)):
         st.code(st_.log or "(пусто)", language="text")
-    _dropped()
