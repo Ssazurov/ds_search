@@ -53,16 +53,24 @@ def _site_gh() -> None:
 
 def _jobs() -> None:
     sg = _sg()
-    for job in _JOBS:
-        if job is None:
-            _site_gh()
-            continue
-        label, sid, mode, url = job
-        c = st.columns([3, 5], vertical_alignment="center")
-        if c[0].button(label, key=f"rb_{sid}", type="primary", use_container_width=True):
-            sg.request_publish(sid, mode)
-        with c[1]:
-            _status(sg, sid, url)
+    st.markdown(
+        "<style>.st-key-rb_rows [data-testid=stHorizontalBlock]{height:56px;gap:1rem;align-items:center}"
+        ".st-key-rb_rows [data-testid=stColumn]{height:56px;overflow:hidden;display:flex;flex-direction:column;justify-content:center}"
+        ".st-key-rb_rows [data-testid=stColumn]>[data-testid=stVerticalBlock]{gap:0}"
+        ".st-key-rb_rows [data-testid=stCaptionContainer]{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}"
+        ".st-key-rb_rows{gap:.5rem}</style>", unsafe_allow_html=True)
+    box = st.container(key="rb_rows")
+    with box:
+        for job in _JOBS:
+            if job is None:
+                _site_gh()
+                continue
+            label, sid, mode, url = job
+            c = st.columns([3, 5], vertical_alignment="center")
+            if c[0].button(label, key=f"rb_{sid}", type="primary", use_container_width=True):
+                sg.request_publish(sid, mode)
+            with c[1]:
+                _status(sg, sid, url)
     st.caption("Нужен воркер publish_watch.sh (запущен как ds-publish-watch.service).")
 
 
