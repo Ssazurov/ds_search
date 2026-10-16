@@ -49,12 +49,39 @@ def _table(sg, runs, cur):
                     _del_run(sg, r["id"], r.get("title") or p)
 
 
+def _size_row(sg):
+    """Формат/ширина/высота (px) для новой генерации; возвращает нормализованные (w, h). Пресет заполняет поля, правка полей → «Свой»."""
+    ss = st.session_state
+    ss.setdefault("img_fmt", "1:1"); ss.setdefault("img_w", sg.SIZE); ss.setdefault("img_h", sg.SIZE)
+
+    def pick():
+        if ss["img_fmt"] in sg.PRESETS:
+            ss["img_w"], ss["img_h"] = sg.PRESETS[ss["img_fmt"]]
+
+    def edit():
+        ss["img_fmt"] = next((k for k, v in sg.PRESETS.items() if v == (ss["img_w"], ss["img_h"])), "Свой")
+
+    def swap():
+        ss["img_w"], ss["img_h"] = ss["img_h"], ss["img_w"]; edit()
+
+    c = st.columns([2, 1, 1, 1], vertical_alignment="bottom")
+    c[0].selectbox("Формат", [*sg.PRESETS, "Свой"], key="img_fmt", on_change=pick,
+                   format_func=lambda k: f"{k} · {sg.PRESETS[k][0]}×{sg.PRESETS[k][1]}" if k in sg.PRESETS else "Свой размер")
+    for col, k, t in ((c[1], "img_w", "Ширина, px"), (c[2], "img_h", "Высота, px")):
+        col.number_input(t, sg.SIZE_MIN, sg.SIZE_MAX, step=16, key=k, on_change=edit)
+    c[3].button("⇄", key="img_swap", on_click=swap, help="Поменять ширину и высоту")
+    wh = sg.norm_size(ss["img_w"], ss["img_h"])
+    if wh != (ss["img_w"], ss["img_h"]):
+        st.caption(f"Будет {wh[0]}×{wh[1]} (кратно 16, не более ~2 МП)")
+    return wh
+
+
 def _gallery(sg, rid, run):
     vs, sel, key = run["variants"], run["selected"], f"img_{rid}_"
     for j in range(0, len(vs), 4):
         for c, v in zip(st.columns(4), vs[j:j + 4]):
             c.image(str(sg.gwork() / v["file"]),
-                    caption=f"{rowtable.var_name(vs, v['id'])} · {v['id']} · seed {v['seed']}" + (" · ✅" if v["id"] == sel else "") + (" · ♥" if v.get("liked") else "")
+                    caption=f"{rowtable.var_name(vs, v['id'])} · {v['id']} · seed {v['seed']}" + (f" · {v['w']}×{v['h']}" if v.get("w") else "") + (" · ✅" if v["id"] == sel else "") + (" · ♥" if v.get("liked") else "")
                     + (f" · из {v['parent']}" if v.get("parent") else ""))
             rowtable.img_buttons(c, key, v["id"], f"strf_img_{rid}", lambda: sg.gselect(rid, v["id"]),
                                  lambda: sg.glike(rid, v["id"], not v.get("liked")), lambda: sg.gdelete(rid, v["id"]))
@@ -99,6 +126,7 @@ def _render():
             sg.gset_title(rid, title.strip()); st.rerun()
         prompt = st.text_area("Промпт", run["prompt"] if run else "", height=110, key=key + "p",
                               placeholder="Что нарисовать (по-русски или по-английски)")
+    wh = _size_row(sg)
     with st.form(key=f"fm_stgen_img_{rid}", border=False):
         with st.container(key=f"stgen_img_{rid}"):
             g = st.columns(4)
@@ -110,9 +138,9 @@ def _render():
         r_id = rid if run else sg.gnew(prompt.strip())
         if not run and title.strip():
             sg.gset_title(r_id, title.strip())
-        with notify.busy(f"Генерация {int(n)} изобр. (~6 с/шт)…"):
+        with notify.busy(f"Генерация {int(n)} изобр. {wh[0]}×{wh[1]} (~6 с/шт)…"):
             try:
-                sg.ggen(r_id, int(n), prompt.strip(), extra=extra.strip())
+                sg.ggen(r_id, int(n), prompt.strip(), extra=extra.strip(), w=wh[0], h=wh[1])
             except Exception as e:  # ComfyUI/Ollama недоступны, ошибка workflow
                 if not run and not next(r for r in sg.gload()["runs"] if r["id"] == r_id)["variants"]:
                     sg.gdelete_run(r_id)
