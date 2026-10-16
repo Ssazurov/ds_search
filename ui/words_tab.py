@@ -175,7 +175,7 @@ def stage(dec: dict, wid: str, field: str, value: str, orig: str = "") -> dict:
     """Записать правку поля; значение пустое или равное исходному — правка снимается."""
     e = dec.setdefault(wid, {})
     box = e if field in ("verdict", "pos", "ru", "en", "note", "hint") else e.setdefault("tr", {})
-    if value and value != orig:
+    if (value and value != orig) or (field in ("note", "hint") and orig and not value):  # "" = очистить
         box[field] = value
     else:
         box.pop(field, None)
@@ -236,6 +236,8 @@ def _set_tr(line: str, lang: str, text: str) -> str:
 def _set_field(line: str, key: str, val: str) -> str:
     """Задать скаляр key в строке-flow-mapping {id: .., ...}; старое значение убирается."""
     line = re.sub(r',\s*%s:\s*("(?:[^"\\]|\\.)*"|[^,}]*)' % key, "", line, count=1)
+    if not val:
+        return line
     i = line.rfind("}")
     return line[:i] + ", %s: %s" % (key, json.dumps(val, ensure_ascii=False)) + line[i:]
 
@@ -256,9 +258,9 @@ def edit_word(root: Path, wid: str, *, tr: dict[str, str] | None = None,
                     ln = _set_tr(ln, lang, t)
                 if pos:
                     ln = re.sub(r"pos: \w+", "pos: " + pos, ln, count=1)
-                if note:
+                if note is not None:
                     ln = _set_field(ln, "note", note)
-                if hint:
+                if hint is not None:
                     ln = _set_field(ln, "hint", hint)
             out.append(ln)
         if changed:
@@ -298,7 +300,7 @@ def apply_decisions(root: Path) -> dict[str, int]:
                 gone.add(wid)
             continue
         tr = {k: e[k] for k in ("ru", "en") if k in e} | e.get("tr", {})
-        if tr or e.get("pos") or e.get("note") or e.get("hint"):
+        if tr or e.get("pos") or "note" in e or "hint" in e:
             n["edit"] += int(edit_word(root, wid, tr=tr, pos=e.get("pos"),
                                        note=e.get("note"), hint=e.get("hint")))
         if e.get("verdict"):
@@ -415,6 +417,20 @@ def hint_en(text: str) -> str:
     return out
 
 
+def free_llm() -> None:
+    """Выгрузить LLM из Ollama сразу после перевода подсказки: 14B (~10 ГБ) и модель картинок не помещаются
+    в 16 ГБ видеопамяти вместе, иначе ComfyUI каждый раз выталкивается и грузится заново."""
+    import urllib.request
+    base = os.environ.get("OLLAMA_URL", "http://ollama:11434")
+    try:
+        names = [m["name"] for m in json.load(urllib.request.urlopen(base + "/api/ps", timeout=5)).get("models", [])]
+        for n in names:
+            urllib.request.urlopen(urllib.request.Request(base + "/api/generate", json.dumps({"model": n, "keep_alive": 0}).encode(),
+                                                          {"Content-Type": "application/json"}), timeout=30)
+    except Exception:
+        pass
+
+
 def record_feedback(root: Path, reg: dict, hints: dict[str, str]) -> None:
     """Перед перегенерацией: если у картинки стоит голос (👍/👎 в Просмотре), фиксируем текущую
     сцену в историю registry/feedback.json. Сам голос в registry/images.json не трогаем —
@@ -473,6 +489,7 @@ def run_imggen(root: Path, ids: list[str], hints: dict[str, str] | None = None) 
     import tempfile
     with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as f:
         json.dump({i: hint_en(h) for i, h in hints.items()}, f, ensure_ascii=False)
+    free_llm()
     try:
         return _run(root, *cmd, "--hints", f.name)
     finally:
@@ -914,7 +931,188 @@ def _clear_marks(ids: list[str]) -> None:
 
 def _grid_cols(n: int, w: int = 1100, h: int = 700, cap: int = 48, gap: int = 16, max_cols: int = 5) -> int:
     """Число колонок сетки (не больше max_cols), при котором квадратные карточки максимально крупные."""
-    return min(n, max_cols)
+    return max(3, min(n, max_cols))  # не меньше 3 колонок: одна картинка занимает не больше трети блока
+
+
+# ---------- доработка картинки слова: варианты work/word_variants/<id>/ ----------
+WV_MAX = 6  # вариантов за один запуск
+
+
+def _wv_index(root: Path) -> dict:
+    f = root / "work" / "word_variants" / "index.json"
+    return json.loads(f.read_text("utf-8")) if f.exists() else {}
+
+
+def _wv_save(root: Path, d: dict) -> None:
+    f = root / "work" / "word_variants" / "index.json"
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text(json.dumps({k: v for k, v in d.items() if v}, ensure_ascii=False, indent=1), "utf-8")
+
+
+def wv_list(root: Path, wid: str) -> list[dict]:
+    return [v for v in _wv_index(root).get(wid, []) if (root / v["file"]).is_file()]
+
+
+def wv_gen(root: Path, wid: str, instr: str, n: int, mode: str = "", src: str = "") -> int:
+    """n картинок. mode "" — с нуля по слову (+подсказка), "edit" — правка: главной (src="") или варианта (src=файл)."""
+    import shutil, time, uuid
+    en = ""
+    if instr.strip():
+        try:
+            en = hint_en(instr)
+        except Exception:
+            en = instr
+        free_llm()
+    cmd = ["new", wid] if not mode else ["edit", wid] + (["--src", str(root / src)] if src else [])
+    rc, out = _run(root, sys.executable, "scripts/imggen.py", *cmd, "--prompt", en, "--n", str(n))
+    files = [Path(x.strip()) for x in out.splitlines() if x.strip().endswith(".png")]
+    files = [p if p.is_absolute() else root / p for p in files]
+    files = [p for p in files if p.is_file()]
+    if not files:
+        raise RuntimeError(out.strip()[-300:] or f"код {rc}")
+    d, new = _wv_index(root), []
+    for p in files:
+        vid = uuid.uuid4().hex[:8]
+        dst = root / "work" / "word_variants" / wid / f"{vid}.png"
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(p), str(dst))
+        new.append({"id": vid, "file": f"work/word_variants/{wid}/{vid}.png", "liked": False,
+                    "instr": instr, "kind": mode or "new", "created": int(time.time())})
+    d[wid] = d.get(wid, []) + new
+    _wv_save(root, d)
+    return len(new)
+
+
+def wv_upload(root: Path, wid: str, data: bytes, name: str = "") -> None:
+    """Файл с диска → вариант слова (PNG), как сгенерированный."""
+    import io, time, uuid
+    from PIL import Image
+    im = Image.open(io.BytesIO(data))
+    im = im.convert("RGBA" if im.mode in ("RGBA", "LA", "P") else "RGB")
+    vid = uuid.uuid4().hex[:8]
+    dst = root / "work" / "word_variants" / wid / f"{vid}.png"
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    im.save(dst, "PNG")
+    d = _wv_index(root)
+    d[wid] = d.get(wid, []) + [{"id": vid, "file": f"work/word_variants/{wid}/{vid}.png", "liked": False,
+                                "instr": name, "kind": "upload", "created": int(time.time())}]
+    _wv_save(root, d)
+
+
+def wv_like(root: Path, wid: str, vid: str) -> None:
+    d = _wv_index(root)
+    for v in d.get(wid, []):
+        if v["id"] == vid:
+            v["liked"] = not v.get("liked")
+    _wv_save(root, d)
+
+
+def wv_drop(root: Path, wid: str, keep_liked: bool = False, only: str = "") -> int:
+    """Удалить варианты: все / без ♥ (keep_liked) / один (only). -> число удалённых."""
+    d, n, keep = _wv_index(root), 0, []
+    for v in d.get(wid, []):
+        if (only and v["id"] != only) or (keep_liked and v.get("liked")):
+            keep.append(v)
+            continue
+        (root / v["file"]).unlink(missing_ok=True)
+        n += 1
+    d[wid] = keep
+    _wv_save(root, d)
+    return n
+
+
+def wv_apply(root: Path, wid: str, vid: str) -> None:
+    """Вариант становится главной картинкой (imggen adopt), все варианты слова удаляются, лайки не спасают."""
+    v = next((x for x in wv_list(root, wid) if x["id"] == vid), None)
+    if not v:
+        raise ValueError("вариант не найден")
+    rc, out = _run(root, sys.executable, "scripts/imggen.py", "adopt", wid, str(root / v["file"]))
+    if rc:
+        raise RuntimeError(out[-300:])
+    wv_drop(root, wid)
+
+
+def _wv_open(wid: str) -> None:
+    st.session_state["pv_edit"] = wid
+
+
+def _wv_close() -> None:
+    st.session_state.pop("pv_edit", None)
+
+
+def _refine(root: Path, r: dict) -> None:
+    """Блок «Доработать» для картинки слова: правка → варианты → ♥ / удалить / сделать главной."""
+    wid, vs = r["id"], wv_list(root, r["id"])
+    with st.container(border=True, key=f"wvbox_{wid}"):
+        h = st.columns([9, 1], vertical_alignment="center")
+        h[0].markdown(f"**Доработать:** {r['tr'].get('ru') or wid} · `{wid}`")
+        h[1].button("", icon=":material/close:", type="tertiary", key=f"wv_x_{wid}", help="Закрыть", on_click=_wv_close)
+        def _go(**kw):
+            with notify.busy(f"Генерация: {kw['n']} шт. (~10–60 с/шт)…"):
+                try:
+                    wv_gen(root, wid, **kw)
+                except Exception as e:
+                    notify.report("error", "Генерация не удалась", details=[str(e)])
+            st.rerun(scope="fragment")
+
+        # 1) с нуля по слову (+необязательный промпт)
+        with st.form(key=f"fm_strf_words_gen_{wid}", border=False):
+            with st.container(key=f"strf_words_gen_{wid}"):
+                c = st.columns(3)
+        n1 = c[0].number_input("Кол-во", 1, WV_MAX, 2, key=f"wv_n1_{wid}")
+        ex1 = c[1].text_input("Промпт по-русски (необяз.)", key=f"wv_ex1_{wid}", placeholder="пусто — только по слову; например: на белой тарелке")
+        if c[2].form_submit_button("Сгенерировать"):
+            _go(instr=ex1.strip(), n=int(n1))
+
+        # 2) доработка выбранной картинки (главной или любого варианта)
+        opts = list(range(len(vs) + 1))
+        with st.form(key=f"fm_strf_words_ref_{wid}", border=False):
+            with st.container(key=f"strf_words_ref_{wid}"):
+                c = st.columns(4)
+        k = c[0].selectbox("Доработать", opts, key=f"wv_src_{wid}",
+                           format_func=lambda i: "Главная" if i == 0 else f"вар. {i:02d}" + (" ♥" if vs[i - 1].get("liked") else ""))
+        n2 = c[1].number_input("Кол-во", 1, WV_MAX, 2, key=f"wv_n2_{wid}")
+        ex2 = c[2].text_input("Что изменить (по-русски)", key=f"wv_ex2_{wid}", placeholder="сделай фон светлее; пусто — просто вариации")
+        if c[3].form_submit_button("Доработать"):
+            _go(instr=ex2.strip(), n=int(n2), mode="edit", src="" if not k else vs[k - 1]["file"])
+
+        # 3) свой файл с диска → новый вариант
+        uk = f"wv_up_{wid}_{st.session_state.get('wv_upn', 0)}"
+        up = st.file_uploader("Загрузить вариант с диска", type=["png", "jpg", "jpeg", "webp"], key=uk,
+                              accept_multiple_files=True)
+        if up:
+            try:
+                for u in up:
+                    wv_upload(root, wid, u.getvalue(), u.name)
+            except Exception as e:
+                notify.report("error", "Загрузка не удалась", details=[str(e)])
+            st.session_state["wv_upn"] = st.session_state.get("wv_upn", 0) + 1
+            st.rerun(scope="fragment")
+        f = root / r["img"] if r["img"] else None
+        cells = [None] + vs
+        for i in range(0, len(cells), 3):
+            for col, v in zip(st.columns(3, gap="small"), cells[i:i + 3]):
+                if v is None:
+                    if f is not None and f.is_file():
+                        col.image(f.read_bytes(), caption="Главная (сейчас)", use_container_width=True)
+                    continue
+                col.image((root / v["file"]).read_bytes(), use_container_width=True,
+                          caption=f"вар. {vs.index(v) + 1:02d}" + (" · ♥" if v.get("liked") else "") + f" · { {'new': 'новая', 'upload': 'файл'}.get(v.get('kind', 'new'), 'правка')}: {v['instr'][:40] or '—'}")
+                with col.container(key=f"wvb_{wid}_{v['id']}"):
+                    b = st.columns(3)
+                if b[0].button("✔", key=f"wv_s_{wid}_{v['id']}", help="Сделать главной (остальные варианты удалятся, даже с ♥)"):
+                    try:
+                        wv_apply(root, wid, v["id"])
+                        notify.report("success", f"Новая главная картинка: {wid}")
+                    except Exception as e:
+                        notify.report("error", "Не удалось применить", details=[str(e)])
+                    st.rerun(scope="fragment")
+                if b[1].button("♥", key=f"wv_l_{wid}_{v['id']}", help="Лайк", type="primary" if v.get("liked") else "secondary"):
+                    wv_like(root, wid, v["id"]); st.rerun(scope="fragment")
+                if b[2].button("🗑", key=f"wv_d_{wid}_{v['id']}", help="Удалить"):
+                    wv_drop(root, wid, only=v["id"]); st.rerun(scope="fragment")
+        if vs and st.button("Удалить без ♥", key=f"wv_prune_{wid}", help="Лайкнутые остаются"):
+            st.toast(f"Удалено: {wv_drop(root, wid, keep_liked=True)}"); st.rerun(scope="fragment")
 
 
 def _preview(root: Path, picked_rows: list[dict]) -> None:
@@ -928,8 +1126,10 @@ def _preview(root: Path, picked_rows: list[dict]) -> None:
         b1, b2 = st.columns(2, vertical_alignment="center")
         b1.button("Выбрать все", key="pv_all", on_click=_mark_all, args=(ids,), disabled=marked == len(ids))
         b2.button("Снять отметки", key="pv_clear", on_click=_clear_marks, args=(ids,), disabled=not marked)
+    ed = st.session_state.get("pv_edit")
+    if ed in ids:
+        _refine(root, next(r for r in picked_rows if r["id"] == ed))
     reg = load_images_reg(root)
-    areg = load_avotes(root)
     cols = _grid_cols(len(ids))
     for i in range(0, len(picked_rows), cols):
         for col, r in zip(st.columns(cols, gap="small"), picked_rows[i:i + cols]):
@@ -939,7 +1139,7 @@ def _preview(root: Path, picked_rows: list[dict]) -> None:
             else:
                 col.caption("нет картинки")
             vote = reg.get(r["id"], {}).get("vote")
-            row_cols = col.columns([4, 1, 1, 1, 1], gap="small", vertical_alignment="center")
+            row_cols = col.columns([5, 1, 1, 1], gap="small", vertical_alignment="center")
             row_cols[0].checkbox(r["tr"].get("ru") or r["id"], key=f"pv_{r['id']}")
             row_cols[1].button("", icon=":material/thumb_up:", type="tertiary",
                                key=f"th_up_{'on_' if vote == 'up' else ''}{r['id']}", disabled=not r["img"],
@@ -947,13 +1147,9 @@ def _preview(root: Path, picked_rows: list[dict]) -> None:
             row_cols[2].button("", icon=":material/thumb_down:", type="tertiary",
                                key=f"th_down_{'on_' if vote == 'down' else ''}{r['id']}", disabled=not r["img"],
                                on_click=set_vote, args=(root, r["id"], "" if vote == "down" else "down"))
-            av = areg.get(r["id"])
-            row_cols[3].button("", icon=":material/thumb_up:", type="tertiary", help="Звук 👍",
-                               key=f"ath_up_{'on_' if av == 'up' else ''}{r['id']}", disabled=not r["audio"],
-                               on_click=set_avote, args=(root, r["id"], "" if av == "up" else "up"))
-            row_cols[4].button("", icon=":material/thumb_down:", type="tertiary", help="Звук 👎",
-                               key=f"ath_down_{'on_' if av == 'down' else ''}{r['id']}", disabled=not r["audio"],
-                               on_click=set_avote, args=(root, r["id"], "" if av == "down" else "down"))
+            row_cols[3].button("", icon=":material/edit:", help="Доработать", disabled=not r["img"],
+                               type="primary" if st.session_state.get("pv_edit") == r["id"] else "tertiary",
+                               key=f"pv_edit_{r['id']}", on_click=_wv_open, args=(r["id"],))
     import streamlit.components.v1 as components
     components.html(
         "<script>(function(){const p=window.parent;if(p.__pvShift2)return;p.__pvShift2=1;"
@@ -1131,9 +1327,10 @@ def _table(root: Path, rows: list[dict], langs: list[str]) -> None:
     sel_set.difference_update(vis_ids)
     sel_set.update(edited.loc[edited["Выбор"], "id"].tolist())
     sel_set.intersection_update(r["id"] for r in sel)  # выбор невидимых (отфильтрованных) строк не живёт
-    st.session_state.setdefault("tb_prev", True)  # Просмотр включён по умолчанию
+    st.session_state.setdefault("tb_prev", False)  # Просмотр выключен по умолчанию
     _by = {r["id"]: r for r in chunk}
-    prev_rows = [_by[i] for i in df["id"] if _by[i]["img"]][:PREV_MAX]  # порядок как в таблице
+    prev_rows = ([_by[i] for i in df["id"] if i in sel_set and _by[i]["img"]]
+                 or [_by[i] for i in df["id"] if _by[i]["img"]])[:PREV_MAX]  # выбранные, иначе все; порядок как в таблице
     picked = [r["id"] for r in sel if r["id"] in sel_set]
     with sel_slot:
         st.session_state["tb_selall"] = bool(vis_ids) and all(i in sel_set for i in vis_ids)
