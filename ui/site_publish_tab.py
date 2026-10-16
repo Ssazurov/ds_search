@@ -23,7 +23,12 @@ def _counters(counts: list[dict]) -> None:
         "Не выбрано (not_set)": c["skipped"].get("not_set", 0),
         "Запрещено (denied)": c["skipped"].get("denied", 0),
     } for c in counts]
-    a, b, c_ = st.columns(3)
+    st.markdown(
+        '<style>.st-key-cmp_counters [data-testid="stMetric"]{padding:2px 8px !important}'
+        '.st-key-cmp_counters [data-testid="stMetricValue"]{font-size:1.1rem !important;line-height:1.2 !important}'
+        '.st-key-cmp_counters [data-testid="stMetricLabel"]{font-size:.75rem !important}</style>',
+        unsafe_allow_html=True)
+    a, b, c_ = st.container(key="cmp_counters").columns(3)
     a.metric("Опубликовано", sum(r["Опубликовано"] for r in rows))
     b.metric("Отфильтровано: не выбрано", sum(r["Не выбрано (not_set)"] for r in rows))
     c_.metric("Отфильтровано: запрещено", sum(r["Запрещено (denied)"] for r in rows))
@@ -51,10 +56,11 @@ def _dropped() -> None:
         return f"{r['domain'] or '(нет домена)'} · {r['count']} материалов · {', '.join(r['types'])} · {r['permission']}"
 
     text_w = max(len(_txt(r)) for r in rows[:_MAX_EDIT_ROWS])
+    box = st.container(height=560, key="cmp_dp_box")  # ~10 строк, остальное — прокрутка
     for r in rows[:_MAX_EDIT_ROWS]:
         dom, n = r["domain"], r["count"]
         cur = saved.get(dom, r["permission"])
-        row = st.container(key=f"cmp_dp_{dom or 'none'}")
+        row = box.container(key=f"cmp_dp_{dom or 'none'}")
         c0, c1, c2, c3 = row.columns(4)
         c0.markdown(
             f'<div style="width:{text_w}ch;max-width:60vw"><b>{html.escape(r["domain"] or "(нет домена)")}</b> · {n} материалов · '
@@ -125,6 +131,6 @@ def render() -> None:
         st.error(f"{kind.capitalize()} завершилась с ошибкой (код {st_.exit_code}, старт {when}). См. лог.")
     if st_.counts:
         _counters(st_.counts)
-    _dropped()
     with st.expander("Лог", expanded=bool(st_.running or st_.exit_code)):
         st.code(st_.log or "(пусто)", language="text")
+    _dropped()

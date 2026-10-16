@@ -45,14 +45,15 @@ def _site_gh() -> None:
 
 def _jobs() -> None:
     sg = _sg()
-    for label, sid, mode, url in _JOBS:
+    for i, (label, sid, mode, url) in enumerate(_JOBS):
+        if i == 1:
+            _site_gh()
         c = st.columns([3, 5], vertical_alignment="center")
         if c[0].button(label, key=f"rb_{sid}", type="primary", use_container_width=True):
             sg.request_publish(sid, mode)
         c[1].markdown(f"[{url}]({url})")
         with c[1]:
             _status(sg, sid)
-    _site_gh()
     st.caption("Нужен воркер publish_watch.sh (запущен как ds-publish-watch.service).")
 
 
