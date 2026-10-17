@@ -19,11 +19,11 @@ def current(key, ids):
     return ss[key]
 
 
-def table(prefix, heads, widths, rows, cur, key, on_delete):
+def table(prefix, heads, widths, rows, cur, key, on_delete, folder=None):
     """rows: [(id, название, [ячейки])]; heads/widths — по колонке на название и каждую ячейку; 🗑 добавляется последней."""
-    w = [*widths, 1]
+    w = [*widths, *([1] if folder else []), 1]
     with st.container(key=f"stimgtab_{prefix}"):
-        for c, t in zip(st.columns(w), [*heads, ""]):
+        for c, t in zip(st.columns(w), [*heads, *(["Папка"] if folder else []), ""]):
             if t:
                 c.markdown(f"**{t}**")
         with st.container(height=VISIBLE * ROW_H if len(rows) > VISIBLE else "content", border=False, key=f"stimgtab_{prefix}_rows"):
@@ -33,8 +33,10 @@ def table(prefix, heads, widths, rows, cur, key, on_delete):
                 if c[0].button((name or rid), key=f"{prefix}_open_{rid}", use_container_width=True,
                                type="secondary" if on else "tertiary"):
                     st.session_state[key] = rid; st.rerun()
-                for cc, v in zip(c[1:-1], cells):
+                for cc, v in zip(c[1:1 + len(cells)], cells):
                     cc.markdown(str(v).replace("*", "\\*"))
+                if folder and c[-2].button("📂", key=f"{prefix}_dir_{rid}", help="Открыть папку с картинками в проводнике Windows"):
+                    folder(rid)
                 if c[-1].button("🗑", key=f"{prefix}_del_{rid}", help="Удалить"):
                     on_delete(rid, name)
 
