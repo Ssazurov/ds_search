@@ -72,6 +72,9 @@ def _jobs() -> None:
                 sg.request_publish(sid, mode)
             with c[1]:
                 _status(sg, sid, url)
+            if sid == "_apk":
+                st.columns([3, 5], vertical_alignment="center")[0].text_input(
+                    "Код активации", "197911", key="actcode", help="Код активации приложения после установки")
     st.caption("Нужен воркер publish_watch.sh (запущен как ds-publish-watch.service).")
 
 
