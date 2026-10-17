@@ -662,11 +662,12 @@ def _items(sg):
                 items[iid] = obj; sg.lib_save("items", items); st.rerun()
     if items:
         rows, us = [], _usage(sg)["item"]
+        in_sc = {i: sum(1 for sc in sg.lib("scenes").values() if any(x.get("item") == i for x in sc.get("items", []))) for i in items}
         for i, it in items.items():
             si = sg.iload(i)
             hands = [v for kk, x in si.items() if kk.startswith(("hand:", "scene:", "on:")) for v in x["variants"]]
-            rows.append((i, it["title"]["ru"], [len(si["view"]["variants"]), "✔" if si["view"]["selected"] else "—", len(hands), us.get(i, 0)]))
-        rowtable.table("itm", ["Название", "Видов", "✔", "♥", "В истории"], [4, 1, 1, 1, 1], rows, sel, "itm_sel",
+            rows.append((i, it["title"]["ru"], [len(si["view"]["variants"]), "✔" if si["view"]["selected"] else "—", len(hands), us.get(i, 0), in_sc[i]]))
+        rowtable.table("itm", ["Название", "Видов", "✔", "♥", "В истории", "В сцене"], [4, 1, 1, 1, 1, 1], rows, sel, "itm_sel",
                        lambda i, n: _del_obj(sg, "item", i, n))
     if not items:
         return
@@ -679,8 +680,9 @@ def _items(sg):
     mode = top[1].selectbox("Где", ["view", "hand", "scene", "on"], format_func=lambda x: {"view": "Нейтральный фон", "hand": "В руках", "scene": "В сцене", "on": "На предмете"}[x], key="it_mode")
     stt = sg.iload(iid)
     with st.container(border=True, key=f"stp_it_{iid}"):
-        desc = st.text_area("Описание предмета", it["desc"].get("ru", ""), key=f"it_{iid}_d", height=100)
-        if st.button("Сохранить", key=f"it_{iid}_sv"):
+        dc = st.columns([8, 1], gap="large", vertical_alignment="bottom")
+        desc = dc[0].text_area("Описание предмета", it["desc"].get("ru", ""), key=f"it_{iid}_d", height=75)
+        if dc[1].button("Сохранить", key=f"it_{iid}_sv"):
             it["desc"] = _ru(it["desc"], desc); sg.lib_save("items", items); st.toast("Сохранено"); st.rerun()
         if mode == "view":
             _ikind(sg, iid, "view", "Вид (нейтральный фон)", stt)
