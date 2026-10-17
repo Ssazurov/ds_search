@@ -432,6 +432,9 @@ _STORIES = """
 .st-key-tabmain [class*="st-key-strf_"] [data-testid="stElementContainer"] > :is([data-testid="stTextInput"], [data-testid="stSelectbox"], [data-testid="stNumberInput"]) {
   grid-template-columns: max-content minmax(0, 1fr) !important; column-gap: 6px !important; }
 .st-key-tabmain [class*="st-key-stimgtab"] button { display: flex; justify-content: flex-start !important; text-align: left; }
+.st-key-tabmain [class*="st-key-strf_words_gen_"] [data-testid="stHorizontalBlock"] { grid-template-columns: max-content minmax(0, 1fr) max-content !important; }
+.st-key-tabmain [class*="st-key-strf_words_ref_"] [data-testid="stHorizontalBlock"] { grid-template-columns: 190px max-content minmax(0, 1fr) max-content !important; }
+.st-key-tabmain [class*="st-key-strf_words_"] [data-testid="stNumberInput"] { width: 11rem; }
 .st-key-tabmain [class*="st-key-stimgtab"] button [data-testid="stMarkdownContainer"] { width: 100%; display: block; text-align: left !important; }
 .st-key-tabmain [class*="st-key-stimgtab"] [data-testid="stColumn"] button p { text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .st-key-tabmain [class*="st-key-stimgtab"][class*="_rows"], .st-key-tabmain [class*="st-key-stimgtab"][class*="_rows"] [data-testid="stVerticalBlock"], .st-key-tabmain .st-key-stimgtab_rows [data-testid="stVerticalBlock"] { gap: 0 !important; }
