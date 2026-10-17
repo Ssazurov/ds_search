@@ -23,9 +23,9 @@ def table(prefix, heads, widths, rows, cur, key, on_delete):
     """rows: [(id, название, [ячейки])]; heads/widths — по колонке на название и каждую ячейку; 🗑 добавляется последней."""
     w = [*widths, 1]
     with st.container(key=f"stimgtab_{prefix}"):
-        for c, t in zip(st.columns(w), [*heads, ""]):
+        for c, t, wi in zip(st.columns(w), [*heads, ""], w):
             if t:
-                c.markdown(f"**{t}**")
+                c.markdown(f"<div style='text-align:center'><b>{t}</b></div>" if wi == 1 else f"**{t}**", unsafe_allow_html=True)
         with st.container(height=VISIBLE * ROW_H if len(rows) > VISIBLE else "content", border=False, key=f"stimgtab_{prefix}_rows"):
             for rid, name, cells in rows:
                 c = st.columns(w, vertical_alignment="center")
@@ -33,8 +33,9 @@ def table(prefix, heads, widths, rows, cur, key, on_delete):
                 if c[0].button((name or rid), key=f"{prefix}_open_{rid}", use_container_width=True,
                                type="secondary" if on else "tertiary"):
                     st.session_state[key] = rid; st.rerun()
-                for cc, v in zip(c[1:-1], cells):
-                    cc.markdown(str(v).replace("*", "\\*"))
+                for cc, v, wi in zip(c[1:-1], cells, w[1:-1]):
+                    v = str(v).replace("*", "\\*")
+                    cc.markdown(f"<div style='text-align:center'>{v}</div>", unsafe_allow_html=True) if wi == 1 else cc.markdown(v)
                 if c[-1].button("🗑", key=f"{prefix}_del_{rid}", help="Удалить"):
                     on_delete(rid, name)
 
