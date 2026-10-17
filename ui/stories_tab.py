@@ -1056,10 +1056,8 @@ def _frames(sg, sid, story, state, ch):
 
 
 def _publish_bar(sg, sid):
-    st.divider()
     with st.container(key="stpub"):
         a = st.columns(5)
-    a[4].text_input("Код активации", "197911", key=f"actcode_{sid}", label_visibility="collapsed", help="Код активации приложения после установки")
     if a[0].button("Принять историю", type="primary", key=f"acc_{sid}"):
         ok, log = sg.accept(sid)
         (st.success if ok else st.error)(log[-1500:])
