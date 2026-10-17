@@ -15,6 +15,7 @@ _JOBS = [
     ("Пересобрать локальный сайт", "_site", "site", "http://localhost:3001"),
     None,  # «Пересобрать сайт на GitHub» (_site_gh)
     ("Пересобрать приложение (локально)", "_app", "app", "http://localhost:8081/"),
+    ("Пересобрать APK", "_apk", "apk", ""),
     ("Пересобрать политику и приложение на GitHub", "_gh", "gh", "https://ssazurov.github.io/ds_app_site/"),
 ]
 
@@ -22,7 +23,7 @@ _JOBS = [
 @st.fragment(run_every=5)
 def _status(sg, sid: str, url: str) -> None:
     ps = sg.publish_status(sid)
-    st.markdown(f"[{url}]({url})")
+    st.markdown(f"[{url}]({url})" if url else _NB)
     st.caption((("❌ " if "ошибка" in ps else "✅ " if "готово" in ps else "⏳ ") + ps) if ps else _NB)
 
 
