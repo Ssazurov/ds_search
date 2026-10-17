@@ -390,10 +390,30 @@ def _sgallery(sg, scn, stt, key, kind=None, op=None):
                                  lambda: (sg.sdelete(scn, v["id"], kind), flag()))
 
 
+def _usage(sg):
+    """Сколько шагов историй используют объект: {'scene'|'item'|'char': {id: n}}."""
+    u = {"scene": {}, "item": {}, "char": {}}
+    for p in (sg.ROOT / "stories").glob("*.yaml"):
+        if p.stem == "categories":
+            continue
+        try:
+            steps = (yaml.safe_load(p.read_text(encoding="utf-8")) or {}).get("steps") or []
+        except Exception:
+            continue
+        for s in steps:
+            if s.get("scene"):
+                u["scene"][s["scene"]] = u["scene"].get(s["scene"], 0) + 1
+            for k, d in (("uses", "item"), ("characters", "char")):
+                for x in set(s.get(k) or []):
+                    u[d][x] = u[d].get(x, 0) + 1
+    return u
+
+
 def _scenes_list(sg, scenes, cur):
-    rows = [(k, sc["title"]["ru"], [len(sc.get("items", [])), len(sg.sload(k)["variants"]), "✔" if sg.sload(k)["selected"] else "—"])
+    us = _usage(sg)["scene"]
+    rows = [(k, sc["title"]["ru"], [len(sc.get("items", [])), len(sg.sload(k)["variants"]), "✔" if sg.sload(k)["selected"] else "—", us.get(k, 0)])
             for k, sc in scenes.items()]
-    rowtable.table("scn", ["Название", "Предметов", "Видов", "✔"], [4, 1, 1, 1], rows, cur, "scn_sel",
+    rowtable.table("scn", ["Название", "Предметов", "Видов", "✔", "В истории"], [4, 1, 1, 1, 1], rows, cur, "scn_sel",
                    lambda i, n: _del_obj(sg, "scene", i, n))
 
 
@@ -641,12 +661,12 @@ def _items(sg):
                         obj["desc"] = {**obj.get("desc", {}), "ru": it_d.strip()}
                 items[iid] = obj; sg.lib_save("items", items); st.rerun()
     if items:
-        rows = []
+        rows, us = [], _usage(sg)["item"]
         for i, it in items.items():
             si = sg.iload(i)
             hands = [v for kk, x in si.items() if kk.startswith(("hand:", "scene:", "on:")) for v in x["variants"]]
-            rows.append((i, it["title"]["ru"], [len(si["view"]["variants"]), "✔" if si["view"]["selected"] else "—", len(hands)]))
-        rowtable.table("itm", ["Название", "Видов", "✔", "♥"], [4, 1, 1, 1], rows, sel, "itm_sel",
+            rows.append((i, it["title"]["ru"], [len(si["view"]["variants"]), "✔" if si["view"]["selected"] else "—", len(hands), us.get(i, 0)]))
+        rowtable.table("itm", ["Название", "Видов", "✔", "♥", "В истории"], [4, 1, 1, 1, 1], rows, sel, "itm_sel",
                        lambda i, n: _del_obj(sg, "item", i, n))
     if not items:
         return
@@ -699,8 +719,9 @@ def _chars(sg):
             else:
                 chs[cid] = {"kind": "character", "name": {"ru": nm.strip()}, "bible": bb.strip(), "refs": [], "outfits": {}}
                 sg.registry_save(ch); st.rerun()
-    rowtable.table("chr", ["Имя", "Тип", "Одежд"], [4, 2, 1],
-                   [(i, sg.txt_ru(c.get("name")) or i, ["герой" if "variants" in c else "персонаж", len(c.get("outfits") or {})]) for i, c in chs.items()],
+    us = _usage(sg)["char"]
+    rowtable.table("chr", ["Имя", "Тип", "Одежд", "В истории"], [4, 2, 1, 1],
+                   [(i, sg.txt_ru(c.get("name")) or i, ["герой" if "variants" in c else "персонаж", len(c.get("outfits") or {}), us.get(i, 0)]) for i, c in chs.items()],
                    sel, "chr_sel", lambda i, n: _del_obj(sg, "char", i, n))
     nloc = len([l for l in (ch.get("locations") or {}) if l not in sg.lib("scenes")])
     if nloc and st.button(f"Перенести локации реестра в сцены ({nloc})", key="chr_mig"):
