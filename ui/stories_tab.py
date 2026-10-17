@@ -122,7 +122,7 @@ def _gallery(sg, sid, k, state, key):
             c.image(str(sg.work(sid) / v["file"]),
                     caption=f"{rowtable.var_name(vs, v['id'])} · {v['id']} · seed {v['seed']}" + (" · ✅" if v["id"] == sel else "") + (" · ♥" if v.get("liked") else ""))
             rowtable.img_buttons(c, key, v["id"], f"strf_{sid}_{k}", lambda: sg.select(sid, k, v["id"]),
-                                 lambda: sg.like(sid, k, v["id"], not v.get("liked")), lambda: sg.delete(sid, k, v["id"]))
+                                 lambda: sg.like(sid, k, v["id"], not v.get("liked")), lambda: sg.delete(sid, k, v["id"]), sel=v["id"] == sel)
 
 
 def _font(size):
@@ -379,15 +379,18 @@ def _ru(old, new):
 
 def _sgallery(sg, scn, stt, key, kind=None, op=None):
     vs, sel = stt["variants"], stt["selected"]
+    rowtable.frame_css()
     for j in range(0, len(vs), 4):
         for c, v in zip(st.columns(4), vs[j:j + 4]):
-            c.image(str(sg.swork(scn) / v["file"]),
-                    caption=f"{rowtable.var_name(vs, v['id'])} · {v['id']} · seed {v['seed']}" + (" · ✅" if v["id"] == sel else "") + (" · ♥" if v.get("liked") else ""))
+            fk = "gimg_" + re.sub(r"[^A-Za-z0-9_]", "_", f"{key}{v['id']}") + ("-zsel" if v["id"] == sel else "") + ("-zedit" if st.session_state.get(key + "par") == v["id"] else "")
+            with c, st.container(key=fk):
+                st.image(str(sg.swork(scn) / v["file"]),
+                         caption=f"{rowtable.var_name(vs, v['id'])} · {v['id']} · seed {v['seed']}" + (" · ✅" if v["id"] == sel else "") + (" · ♥" if v.get("liked") else ""))
             flag = lambda: op and st.session_state.__setitem__(op, True)
             rowtable.img_buttons(c, key, v["id"], f"strf_{scn}" + (f"_{kind}" if kind else ""),
                                  lambda: (sg.sselect(scn, v["id"], kind), flag()),
                                  lambda: (sg.slike(scn, v["id"], not v.get("liked"), kind), flag()),
-                                 lambda: (sg.sdelete(scn, v["id"], kind), flag()))
+                                 lambda: (sg.sdelete(scn, v["id"], kind), flag()), sel=v["id"] == sel)
 
 
 def _scenes_list(sg, scenes, cur):
@@ -560,7 +563,7 @@ def _igallery(sg, iid, kind, stt, key):
             c.image(str(sg.iwork(iid) / v["file"]),
                     caption=f"{rowtable.var_name(vs, v['id'])} · {v['id']} · seed {v['seed']}" + (" · ✅" if v["id"] == sel else "") + (" · ♥" if v.get("liked") else ""))
             rowtable.img_buttons(c, key, v["id"], f"strf_{iid}_{kind.replace(':', '_')}", lambda: sg.iselect(iid, kind, v["id"]),
-                                 lambda: sg.ilike(iid, kind, v["id"], not v.get("liked")), lambda: sg.idelete(iid, kind, v["id"]))
+                                 lambda: sg.ilike(iid, kind, v["id"], not v.get("liked")), lambda: sg.idelete(iid, kind, v["id"]), sel=v["id"] == sel)
 
 
 def _ikind(sg, iid, kind, title, stt):

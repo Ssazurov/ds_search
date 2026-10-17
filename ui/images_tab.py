@@ -93,7 +93,7 @@ def _gallery(sg, rid, run):
             else:
                 c.caption(f"⚠ файл переименован/удалён: {v['file']}\n{cap}")
             rowtable.img_buttons(c, key, v["id"], f"strf_img_{rid}", lambda: sg.gselect(rid, v["id"]),
-                                 lambda: sg.glike(rid, v["id"], not v.get("liked")), lambda: sg.gdelete(rid, v["id"]))
+                                 lambda: sg.glike(rid, v["id"], not v.get("liked")), lambda: sg.gdelete(rid, v["id"]), sel=v["id"] == sel)
 
 
 @st.dialog("Удалить запуск?")
