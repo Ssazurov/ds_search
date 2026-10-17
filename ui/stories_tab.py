@@ -458,16 +458,6 @@ def _scenes(sg):
             pl = a[1].text_input("Размещение", key=k + "npl", placeholder="висит на крючке справа от раковины")
             if (a[2].button("Добавить", key=k + "add")) and pick and pl.strip():
                 sc["items"].append({"item": pick, "place": {"ru": pl.strip()}}); sg.lib_save("scenes", scenes); st.rerun()
-            with st.container(key=f"scmeta_ni_{scn}"):
-                n = st.columns(3)
-            iid = n[0].text_input("Новый предмет: id", key=k + "ni")
-            it_t = n[1].text_input("Название", key=k + "nit")
-            it_d = n[2].text_input("Описание", key=k + "nid")
-            if st.button("Создать предмет", key=k + "newgo_b"):
-                if not re.fullmatch(r"[a-z][a-z0-9_]{1,40}", iid or "") or iid in items or not it_t.strip():
-                    st.error("id: латиница/цифры/_, уникальный; нужно название")
-                else:
-                    items[iid] = {"title": {"ru": it_t.strip()}, "desc": {"ru": it_d.strip()}}; sg.lib_save("items", items); st.rerun()
         if st.checkbox("Показать итоговый промпт (английский, уходит в модель)", key=k + "pv"):
             try:
                 pr = sg.scene_prompt(scn, st.session_state.get(k + "ex", ""))
