@@ -82,9 +82,16 @@ def _gallery(sg, rid, run):
     vs, sel, key = run["variants"], run["selected"], f"img_{rid}_"
     for j in range(0, len(vs), 4):
         for c, v in zip(st.columns(4), vs[j:j + 4]):
-            c.image(str(sg.gwork() / v["file"]),
-                    caption=f"{rowtable.var_name(vs, v['id'])} · {v['id']} · seed {v['seed']}" + (f" · {v['w']}×{v['h']}" if v.get("w") else "") + (" · ✅" if v["id"] == sel else "") + (" · ♥" if v.get("liked") else "")
-                    + (f" · из {v['parent']}" if v.get("parent") else ""))
+            p = sg.gwork() / v["file"]
+            cap = (f"{rowtable.var_name(vs, v['id'])} · {v['id']} · {'своя' if v.get('uploaded') else 'seed ' + str(v['seed'])}"
+                   + (f" · {v['w']}×{v['h']}" if v.get("w") else "")
+                   + (" · ✅" if v["id"] == sel else "")
+                   + (" · ♥" if v.get("liked") else "")
+                   + (f" · из {v['parent']}" if v.get("parent") else ""))
+            if p.exists():
+                c.image(str(p), caption=cap)
+            else:
+                c.caption(f"⚠ файл переименован/удалён: {v['file']}\n{cap}")
             rowtable.img_buttons(c, key, v["id"], f"strf_img_{rid}", lambda: sg.gselect(rid, v["id"]),
                                  lambda: sg.glike(rid, v["id"], not v.get("liked")), lambda: sg.gdelete(rid, v["id"]))
 
@@ -150,6 +157,19 @@ def _render():
         st.session_state["img_goto"] = r_id; st.rerun()
     if g[3].form_submit_button("Удалить без ♥", help="Выбранные и лайкнутые остаются"):
         st.toast(f"Удалено: {sg.gprune(rid) if run else 0}"); st.rerun()
+    up = st.file_uploader("Своя картинка (в выбранный запуск)", type=["png", "jpg", "jpeg", "webp"],
+                          accept_multiple_files=True, key=f"img_up_{rid}_{ss.get('img_upn', 0)}")
+    if up:
+        r_id = rid if run else sg.gnew("")
+        if not run:
+            sg.gset_title(r_id, title.strip() or up[0].name.rsplit(".", 1)[0])
+        try:
+            for f in up:
+                sg.gupload(r_id, f.getvalue(), f.name)
+        except Exception as e:
+            st.error(f"Ошибка загрузки: {e}"); return
+        ss["img_upn"] = ss.get("img_upn", 0) + 1
+        ss["img_goto"] = r_id; st.rerun()
     if not run:
         return
     _gallery(sg, rid, run)
