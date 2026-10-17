@@ -48,6 +48,12 @@ def _status(stt):
     return "в работе" if any(x["variants"] for x in stt["steps"].values()) else "черновик"
 
 
+def _open_dir(sg, rel):
+    """Запрос воркеру ds-open-watch: открыть work/<rel> в проводнике Windows."""
+    d = sg.gwork().parent / "open"; d.mkdir(parents=True, exist_ok=True)
+    (d / (rel.replace("/", "_") + ".req")).write_text("@" + rel); st.toast("Открываю проводник…")
+
+
 def _list(sg, ids, cur):
     rows = []
     for i in ids:
@@ -55,7 +61,8 @@ def _list(sg, ids, cur):
         rows.append((i, s["title"]["ru"], [s.get("category", ""), s.get("level", ""), stt["hero"], _status(stt), len(s["steps"]),
                                             sum(1 for x in stt["steps"].values() if x["selected"])]))
     rowtable.table("sto", ["Название", "Категория", "Уровень", "Герой", "Статус", "Шагов", "С картинкой"], [4, 2, 1, 1, 2, 1, 2],
-                   rows, cur, "stories_sel", lambda i, n: _del_story(sg, i, n))
+                   rows, cur, "stories_sel", lambda i, n: _del_story(sg, i, n),
+                   folder=lambda i: _open_dir(sg, f"stories/{i}"))
 
 
 def _clone_story(sg, src, sid, title):
@@ -397,7 +404,7 @@ def _scenes_list(sg, scenes, cur):
     rows = [(k, sc["title"]["ru"], [len(sc.get("items", [])), len(sg.sload(k)["variants"]), "✔" if sg.sload(k)["selected"] else "—"])
             for k, sc in scenes.items()]
     rowtable.table("scn", ["Название", "Предметов", "Видов", "✔"], [4, 1, 1, 1], rows, cur, "scn_sel",
-                   lambda i, n: _del_obj(sg, "scene", i, n))
+                   lambda i, n: _del_obj(sg, "scene", i, n), folder=lambda i: _open_dir(sg, f"scenes/{i}"))
 
 
 def _scenes(sg):
@@ -640,7 +647,7 @@ def _items(sg):
             hands = [v for kk, x in si.items() if kk.startswith(("hand:", "scene:", "on:")) for v in x["variants"]]
             rows.append((i, it["title"]["ru"], [len(si["view"]["variants"]), "✔" if si["view"]["selected"] else "—", len(hands)]))
         rowtable.table("itm", ["Название", "Видов", "✔", "♥"], [4, 1, 1, 1], rows, sel, "itm_sel",
-                       lambda i, n: _del_obj(sg, "item", i, n))
+                       lambda i, n: _del_obj(sg, "item", i, n), folder=lambda i: _open_dir(sg, f"items/{i}"))
     if not items:
         return
     with st.container(key="sthead_top_it"):
@@ -694,7 +701,8 @@ def _chars(sg):
                 sg.registry_save(ch); st.rerun()
     rowtable.table("chr", ["Имя", "Тип", "Одежд"], [4, 2, 1],
                    [(i, sg.txt_ru(c.get("name")) or i, ["герой" if "variants" in c else "персонаж", len(c.get("outfits") or {})]) for i, c in chs.items()],
-                   sel, "chr_sel", lambda i, n: _del_obj(sg, "char", i, n))
+                   sel, "chr_sel", lambda i, n: _del_obj(sg, "char", i, n),
+                   folder=lambda i: _open_dir(sg, f"items/chr_{i}"))
     nloc = len([l for l in (ch.get("locations") or {}) if l not in sg.lib("scenes")])
     if nloc and st.button(f"Перенести локации реестра в сцены ({nloc})", key="chr_mig"):
         st.toast(f"Добавлено сцен: {sg.migrate_locations()}"); st.rerun()
